@@ -1,0 +1,5 @@
+-- La web usa únicamente la tabla `Pacientes Ordenes` (nombre del backup / exe).
+-- No se mantiene `pacientes_ordenes` como copia.
+--
+-- Opcional, tras backup: eliminar la tabla duplicada si ya no la necesitás.
+-- DROP TABLE IF EXISTS `pacientes_ordenes`;

@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS agenda_turnos (
   hora TIME,
   NroHC INT NOT NULL COMMENT 'Nro historia clínica paciente',
   Doctor INT NOT NULL COMMENT 'id lista_doctores',
-  idorden INT DEFAULT NULL COMMENT 'id pacientes_ordenes si aplica',
+  idorden INT DEFAULT NULL COMMENT 'id Pacientes Ordenes si aplica',
   estado VARCHAR(50) DEFAULT 'pendiente' COMMENT 'pendiente, atendido, cancelado, no_asistio',
   observaciones TEXT,
   creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -94,20 +94,49 @@ CREATE TABLE IF NOT EXISTS agenda_turnos (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ------------------------------------------
--- Pacientes Órdenes (equivalente a [Pacientes Ordenes])
+-- Pacientes Ordenes (mismo nombre que backup / exe; la web usa solo esta tabla)
 -- ------------------------------------------
-CREATE TABLE IF NOT EXISTS pacientes_ordenes (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  NroPaci INT NOT NULL COMMENT 'NroHC paciente',
-  iddoctor INT NOT NULL COMMENT 'id lista_doctores',
-  fecha_orden DATE,
-  autorizada TINYINT(1) DEFAULT 0,
-  entregada TINYINT(1) DEFAULT 0,
-  observaciones TEXT,
-  creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-  actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_ordenes_nropaci (NroPaci),
-  KEY idx_ordenes_iddoctor (iddoctor)
+CREATE TABLE IF NOT EXISTS `Pacientes Ordenes` (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  NroPaci INT DEFAULT NULL COMMENT 'NroHC paciente',
+  numero INT DEFAULT NULL,
+  fecha DATETIME DEFAULT NULL,
+  entregada TINYINT(1) DEFAULT NULL,
+  autorizada TINYINT(1) DEFAULT NULL,
+  sesiones SMALLINT DEFAULT NULL,
+  costo FLOAT DEFAULT NULL,
+  pago FLOAT DEFAULT NULL,
+  iddoctor INT DEFAULT NULL,
+  idobrasocial INT DEFAULT NULL,
+  observaciones LONGTEXT,
+  numeautorizacion SMALLINT DEFAULT NULL,
+  costo_os FLOAT DEFAULT NULL,
+  estado VARCHAR(1) DEFAULT NULL,
+  estado_os VARCHAR(1) DEFAULT NULL,
+  idpractica INT DEFAULT NULL,
+  idderivado INT DEFAULT NULL,
+  fechaderivacion DATETIME DEFAULT NULL,
+  fechaautorizacion DATETIME DEFAULT NULL,
+  fechaentrega DATETIME DEFAULT NULL,
+  idusuariocarga INT DEFAULT NULL,
+  sesionesreali INT DEFAULT NULL,
+  diente VARCHAR(2) DEFAULT NULL,
+  cara VARCHAR(5) DEFAULT NULL,
+  nusiniestro VARCHAR(30) DEFAULT NULL,
+  pagaiva SMALLINT DEFAULT NULL,
+  cerrada SMALLINT DEFAULT NULL,
+  tipoasistencia SMALLINT DEFAULT NULL,
+  liquidada TINYINT(1) DEFAULT NULL,
+  honorarioextra FLOAT DEFAULT NULL,
+  honorariofecha DATETIME DEFAULT NULL,
+  idplan INT DEFAULT NULL,
+  sucursal SMALLINT DEFAULT NULL,
+  KEY idx_pac_ordenes_nropaci (NroPaci),
+  KEY idx_pac_ordenes_iddoctor (iddoctor),
+  KEY idx_pac_ordenes_fecha (fecha),
+  KEY idx_pac_ordenes_idpractica (idpractica),
+  KEY idx_pac_ordenes_idobrasocial (idobrasocial),
+  KEY idx_pac_ordenes_sucursal (sucursal)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ------------------------------------------
@@ -115,7 +144,7 @@ CREATE TABLE IF NOT EXISTS pacientes_ordenes (
 -- ------------------------------------------
 CREATE TABLE IF NOT EXISTS pacientes_sesiones (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  idorden INT NOT NULL COMMENT 'id pacientes_ordenes',
+  idorden INT NOT NULL COMMENT 'id Pacientes Ordenes',
   NroPaci INT NOT NULL COMMENT 'NroHC paciente',
   iddoctor INT NOT NULL COMMENT 'id lista_doctores',
   fecha_sesion DATE,
@@ -135,7 +164,7 @@ CREATE TABLE IF NOT EXISTS pacientes_pagos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   quien CHAR(1) NOT NULL DEFAULT 'P' COMMENT 'P=paciente, otro si aplica',
   NroPaci INT DEFAULT NULL COMMENT 'NroHC paciente',
-  idorden INT DEFAULT NULL COMMENT 'id pacientes_ordenes si aplica',
+  idorden INT DEFAULT NULL COMMENT 'id Pacientes Ordenes si aplica',
   importe DECIMAL(12,2) NOT NULL DEFAULT 0,
   fecha DATE NOT NULL,
   forma_pago VARCHAR(50) COMMENT 'efectivo, tarjeta_debito, tarjeta_credito, etc',

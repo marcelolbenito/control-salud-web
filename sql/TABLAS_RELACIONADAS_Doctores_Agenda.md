@@ -7,7 +7,7 @@ En Access, el profesional y la agenda se enlazan con el resto del sistema por **
 | Tabla MySQL | Campo | Uso |
 |-------------|--------|-----|
 | `agenda_turnos` | `Doctor` | Turno asignado al profesional |
-| `pacientes_ordenes` | `iddoctor` | Orden médica |
+| `Pacientes Ordenes` | `iddoctor` | Orden médica (tabla del backup; la web usa esta) |
 | `pacientes_sesiones` | `iddoctor` | Sesión vinculada a orden/paciente |
 | `consultas` | `iddoctor` | Consulta registrada |
 | `caja` | `doctor` | Movimiento de caja por doctor |
@@ -20,7 +20,7 @@ Borrar o reutilizar un `id` de doctor sin actualizar estas tablas puede dejar **
 |--------|-----------|
 | `NroHC` | `pacientes.NroHC` (paciente) |
 | `Doctor` | `lista_doctores.id` |
-| `idorden` | `pacientes_ordenes.id` (opcional; orden asociada al turno) |
+| `idorden` | `Pacientes Ordenes.id` (opcional; orden asociada al turno) |
 | `motivo` | `lista_motivos_consulta.id` (tras `migration_003` + `migration_004`; catálogo Access: **Lista Motivos Consulta**) |
 
 Otros campos de la migración 003 (`paciente_nombre`, flags, sesión/caja, etc.) son **denormalizados o auxiliares** como en Access; no sustituyen la relación con `pacientes` por `NroHC`.

@@ -16,7 +16,7 @@
     },
   };
 
-  ['#tbl-pacientes', '#tbl-doctores', '#tbl-agenda'].forEach(function (sel) {
+  ['#tbl-pacientes', '#tbl-doctores', '#tbl-agenda', '#tbl-ordenes'].forEach(function (sel) {
     var el = document.querySelector(sel);
     if (el) {
       new DataTable(el, opts);

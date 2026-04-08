@@ -43,7 +43,7 @@ El “camino” que marca el .exe y la estructura del MDB:
 | 2 | **Lista Doctores** | ABM de médicos, sucursales donde atienden | lista_doctores |
 | 3 | **Pacientes** | Alta, edición, búsqueda por NroHC/DNI/nombre | pacientes |
 | 4 | **Agenda / Turnos** | Turnos por doctor y fecha, sobreturnos, “no se atiende” | agenda_turnos |
-| 5 | **Órdenes** | Órdenes por paciente (estudios/prácticas), autorizada, entregada | pacientes_ordenes |
+| 5 | **Órdenes** | Órdenes por paciente (estudios/prácticas), autorizada, entregada | `Pacientes Ordenes` (backup) |
 | 6 | **Sesiones** | Sesiones por orden (kinesio, etc.) | pacientes_sesiones |
 | 7 | **Pagos** | Pagos de pacientes/coberturas, importe, fecha | pacientes_pagos |
 | 8 | **Caja** | Caja por doctor/fecha, honorarios, resumen | caja |

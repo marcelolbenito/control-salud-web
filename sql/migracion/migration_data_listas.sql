@@ -69,4 +69,20 @@ INSERT INTO `lista_estatus_pais` (`id`, `prioridad`, `nombre`) VALUES (5, 0, 'Di
 INSERT INTO `lista_estatus_pais` (`id`, `prioridad`, `nombre`) VALUES (6, 0, 'Expatriado/a');
 INSERT INTO `lista_estatus_pais` (`id`, `prioridad`, `nombre`) VALUES (7, 0, 'Residente jubilado/a');
 
+DELETE FROM `lista_sexo`;
+INSERT INTO `lista_sexo` (`id`, `prioridad`, `nombre`) VALUES (1, 0, 'Masculino');
+INSERT INTO `lista_sexo` (`id`, `prioridad`, `nombre`) VALUES (2, 0, 'Mujer');
+INSERT INTO `lista_sexo` (`id`, `prioridad`, `nombre`) VALUES (3, 0, 'X / No binario');
+INSERT INTO `lista_sexo` (`id`, `prioridad`, `nombre`) VALUES (4, 0, 'Otro / No informado');
+
+DELETE FROM `lista_grupo_sanguineo`;
+INSERT INTO `lista_grupo_sanguineo` (`id`, `prioridad`, `nombre`) VALUES (1, 0, '0');
+INSERT INTO `lista_grupo_sanguineo` (`id`, `prioridad`, `nombre`) VALUES (2, 0, 'A');
+INSERT INTO `lista_grupo_sanguineo` (`id`, `prioridad`, `nombre`) VALUES (3, 0, 'B');
+INSERT INTO `lista_grupo_sanguineo` (`id`, `prioridad`, `nombre`) VALUES (4, 0, 'AB');
+
+DELETE FROM `lista_factor_sanguineo`;
+INSERT INTO `lista_factor_sanguineo` (`id`, `prioridad`, `nombre`) VALUES (1, 0, 'Rh positivo (+)');
+INSERT INTO `lista_factor_sanguineo` (`id`, `prioridad`, `nombre`) VALUES (2, 0, 'Rh negativo (-)');
+
 SET FOREIGN_KEY_CHECKS = 1;

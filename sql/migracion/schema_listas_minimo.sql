@@ -71,3 +71,21 @@ CREATE TABLE IF NOT EXISTS lista_estatus_pais (
   prioridad SMALLINT NULL,
   nombre VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS lista_sexo (
+  id INT PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(100) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS lista_grupo_sanguineo (
+  id INT PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(20) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS lista_factor_sanguineo (
+  id INT PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(30) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

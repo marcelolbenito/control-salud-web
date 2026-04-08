@@ -42,6 +42,7 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                     <a href="/pacientes.php"><i class="bi bi-people" aria-hidden="true"></i> Pacientes</a>
                     <a href="/doctores.php"><i class="bi bi-person-badge" aria-hidden="true"></i> Doctores</a>
                     <a href="/agenda.php"><i class="bi bi-calendar3-event" aria-hidden="true"></i> Agenda</a>
+                    <a href="/ordenes.php"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Órdenes</a>
                 </nav>
                 <div class="user">
                     <span class="user-name"><i class="bi bi-person-circle" aria-hidden="true"></i> <?= h($user['nombre'] ?: $user['usuario']) ?></span>

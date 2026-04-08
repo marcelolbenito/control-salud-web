@@ -33,9 +33,9 @@ body {
 }
 
 .site-header .inner {
-  max-width: 1320px;
+  max-width: 1680px;
   margin: 0 auto;
-  padding: 0.65rem 1.35rem;
+  padding: 0.65rem clamp(1rem, 2.5vw, 1.35rem);
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -108,13 +108,17 @@ body {
 }
 
 .site-main {
-  max-width: 1320px;
+  width: 100%;
+  max-width: 1680px;
   margin: 0 auto;
-  padding: 2rem 1.35rem 3rem;
+  padding: 2rem clamp(1rem, 2.5vw, 2rem) 3rem;
+  box-sizing: border-box;
 }
 
 .container-narrow {
   max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .container h1,
@@ -416,6 +420,11 @@ body {
   font-weight: 600;
 }
 
+.filter-row label.filter-grow {
+  flex: 1 1 220px;
+  min-width: min(100%, 18rem);
+}
+
 .filter-row input[type="date"],
 .filter-row select {
   padding: 0.45rem 0.6rem;
@@ -451,15 +460,24 @@ body {
 }
 
 .cell-clip {
-  max-width: 12rem;
+  max-width: min(28rem, 42vw);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Listados y formularios: usan todo el ancho del main (no cap de 900px). */
+.container:not(.container-narrow) {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .container-wide {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 1.25rem 2rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0 2rem;
+  box-sizing: border-box;
 }
 
 .form-paciente .form-section {
@@ -480,7 +498,7 @@ body {
 
 .form-grid-ext {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1rem;
 }
 
@@ -700,14 +718,19 @@ body {
 }
 
 .table-wrap {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  max-width: 100%;
 }
 
 .table-wrap-datatable {
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
   padding: 0;
 }
 
@@ -772,9 +795,18 @@ body {
 }
 
 .table {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: auto;
+}
+
+/* Tablas sin muchas columnas: no forzar ancho mínimo absurdo en vista móvil */
+.table-wrap .table--compact,
+.table--compact {
+  width: 100%;
+  min-width: 0;
 }
 
 .table th,
@@ -973,4 +1005,90 @@ code {
 .dash-empty-msg a {
   color: var(--accent-dark);
   font-weight: 600;
+}
+
+/* Ficha paciente (exe): subnav + barra contextual */
+.patient-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--header-border);
+}
+
+.patient-toolbar-id {
+  margin-right: auto;
+  font-size: 0.9rem;
+}
+
+.form-subnav.patient-form-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 0.6rem 0 1rem;
+  margin-bottom: 0.25rem;
+  background: linear-gradient(to bottom, var(--bg) 88%, transparent);
+}
+
+.form-subnav.patient-form-subnav a {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+  text-decoration: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+
+.form-subnav.patient-form-subnav a:hover {
+  background: var(--accent-soft);
+  border-color: rgba(13, 148, 136, 0.25);
+}
+
+.patient-form-section:target {
+  scroll-margin-top: 3.5rem;
+}
+
+.muted.small {
+  font-size: 0.86rem;
+  margin-top: 0.25rem;
+}
+
+.patient-foto-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.patient-foto-preview {
+  flex: 0 0 auto;
+  width: 140px;
+  min-height: 100px;
+  border-radius: var(--radius);
+  border: 1px dashed #d6d3d1;
+  padding: 0.5rem;
+  background: #fafaf9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.patient-foto-img {
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.patient-foto-actions {
+  flex: 1 1 220px;
 }
