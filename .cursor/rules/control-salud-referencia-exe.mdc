@@ -1,0 +1,24 @@
+---
+description: La app web replica Control Salud (exe); el ejecutable y Datos.mdb son la fuente de verdad funcional.
+alwaysApply: true
+---
+
+# Control Salud — referencia al sistema original
+
+## Fuente de verdad
+
+- **Control Salud.exe** (VB6): define **módulos, flujos, pantallas y lógica de negocio** que la versión web debe respetar en la medida posible.
+- **Datos.mdb / Datos_Vacio.mdb** (Access/Jet) y el esquema derivado (**sql/schema_mysql.sql**): **nombres de tablas y campos**, relaciones (NroHC, iddoctor, idorden, etc.).
+- **Datos.bak** (SQL Server): cuando esté restaurado, sirve para **migración y validación** de datos reales.
+- Documentos en la raíz del proyecto (**INVESTIGACION_ControlSalud.md**, **ESTRUCTURA_y_CREDENCIALES_para_WEB.md**) resumen tablas y conceptos extraídos del exe.
+
+## Cómo avanzar en la web
+
+1. Antes de inventar pantallas o campos nuevos, **contrastar con el exe** (y con el esquema MDB/SQL): priorizar lo que el programa de escritorio ya hace (pacientes, doctores, agenda, órdenes, sesiones, pagos, caja, consultas, camas, adjuntos en `Imagenes\`, etc.).
+2. Mantener **coherencia de nombres** con las tablas/campos conocidos (p. ej. `NroHC`, `Lista Doctores`, `Agenda Turnos`, `Pacientes Ordenes`) salvo adaptaciones técnicas (snake_case en MySQL).
+3. No asumir rutas o nombres de otros proyectos; **este producto es “Control Salud”**, no sistemas genéricos.
+4. Si falta detalle, **inferir desde cadenas/SQL del exe** o desde tablas en Access, no improvisar modelo de datos sin anclarlo a esa referencia.
+
+## Qué no es la referencia
+
+- El exe **no se integra ni se ejecuta** desde la web; solo guía requisitos y modelo. La implementación es PHP/MySQL (u otra pila acordada) en **`web/`**.

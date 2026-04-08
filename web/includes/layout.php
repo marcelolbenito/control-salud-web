@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+function h(?string $s): string
+{
+    return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * @param array<string, mixed>|null $layout Opciones: skip_datatables (bool), extra_footer_html (string)
+ */
+function layout_render(string $title, string $bodyHtml, ?array $user, ?array $layout = null): void
+{
+    $layout = $layout ?? [];
+    $skipDatatables = !empty($layout['skip_datatables']);
+    $extraFooter = (string) ($layout['extra_footer_html'] ?? '');
+    $cfg = require dirname(__DIR__) . '/config/config.php';
+    $appName = $cfg['app']['name'] ?? 'Control Salud Web';
+    $fullTitle = $title === '' ? $appName : $title . ' · ' . $appName;
+    ?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= h($fullTitle) ?></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@10.0.0/dist/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="inner">
+            <a class="brand" href="/"><i class="bi bi-heart-pulse-fill" aria-hidden="true"></i><span><?= h($appName) ?></span></a>
+            <?php if ($user !== null): ?>
+                <nav class="nav">
+                    <a href="/index.php"><i class="bi bi-house-door" aria-hidden="true"></i> Inicio</a>
+                    <a href="/pacientes.php"><i class="bi bi-people" aria-hidden="true"></i> Pacientes</a>
+                    <a href="/doctores.php"><i class="bi bi-person-badge" aria-hidden="true"></i> Doctores</a>
+                    <a href="/agenda.php"><i class="bi bi-calendar3-event" aria-hidden="true"></i> Agenda</a>
+                </nav>
+                <div class="user">
+                    <span class="user-name"><i class="bi bi-person-circle" aria-hidden="true"></i> <?= h($user['nombre'] ?: $user['usuario']) ?></span>
+                    <a class="btn btn-ghost btn-sm" href="/logout.php"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir</a>
+                </div>
+            <?php endif; ?>
+        </div>
+    </header>
+    <main class="site-main">
+        <?php
+        $flash = flash_take();
+        if ($flash !== null): ?>
+            <div class="container"><p class="alert alert-success"><?= h($flash) ?></p></div>
+        <?php endif; ?>
+        <?= $bodyHtml ?>
+    </main>
+    <?php if (!$skipDatatables): ?>
+    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@10.0.0/dist/umd/simple-datatables.js" defer></script>
+    <script src="/js/app.js" defer></script>
+    <?php endif; ?>
+    <?= $extraFooter ?>
+</body>
+</html>
+<?php
+}

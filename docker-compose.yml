@@ -1,0 +1,54 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: control-salud-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-salud_root_dev}
+      MYSQL_DATABASE: control_salud
+    # Host 3307 → MySQL dentro del contenedor sigue en 3306 (normal; el de la derecha es interno).
+    # Si Docker Desktop muestra "3307:3306", está bien: usás 3307 desde Windows.
+    ports:
+      - "3307:3306"
+    volumes:
+      - control_salud_mysql_data:/var/lib/mysql
+      # Solo se ejecuta la primera vez que arranca la base vacía
+      - ./sql/schema_mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+
+  # App PHP (Apache). En Docker Desktop aparece como este servicio.
+  # Nginx no hace falta: Apache sirve los .php igual que en muchos hostings.
+  webapp:
+    build:
+      context: ./docker/web
+      dockerfile: Dockerfile
+    container_name: control-salud-web
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+    volumes:
+      - ./web:/var/www
+    ports:
+      - "8080:80"
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: control-salud-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-salud_root_dev}
+    ports:
+      - "8081:80"
+
+volumes:
+  control_salud_mysql_data:
