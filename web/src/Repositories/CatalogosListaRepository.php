@@ -19,6 +19,14 @@ final class CatalogosListaRepository
         return db_table_exists($this->pdo, $tabla);
     }
 
+    public function contarRegistros(string $tabla): int
+    {
+        $st = $this->pdo->query("SELECT COUNT(*) AS c FROM `$tabla`");
+        $row = $st ? $st->fetch(PDO::FETCH_ASSOC) : null;
+
+        return (int) ($row['c'] ?? 0);
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

@@ -438,8 +438,14 @@ final class ConfigExeFieldMap
             return null;
         }
         $r = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$r) {
+            return null;
+        }
 
-        return $r ? (string) $r['table_name'] : null;
+        // Compatibilidad: algunos drivers devuelven claves en mayúscula (TABLE_NAME).
+        $vals = array_values($r);
+
+        return isset($vals[0]) ? (string) $vals[0] : null;
     }
 
     /**

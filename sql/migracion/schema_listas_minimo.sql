@@ -102,3 +102,9 @@ CREATE TABLE IF NOT EXISTS lista_orientacion_sex (
   prioridad SMALLINT NULL,
   nombre VARCHAR(150) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS lista_primera_vez (
+  id INT PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(120) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

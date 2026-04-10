@@ -24,6 +24,7 @@ final class TurnosController
         $repo = new TurnosRepository($this->pdo);
         $ext = $repo->hasExtendedAgendaColumns();
         $doctores = $repo->listDoctores();
+        $primeraVezOpts = catalogo_lista($this->pdo, 'lista_primera_vez', 'prioridad_id');
 
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         $defaultsFecha = trim((string) ($_GET['fecha'] ?? ''));
@@ -178,6 +179,10 @@ final class TurnosController
 
         $titulo = $row['id'] ? 'Editar turno' : 'Nuevo turno';
         $volver = '/agenda.php?fecha=' . urlencode((string) $row['Fecha']) . ((int) $row['Doctor'] > 0 ? '&doctor=' . (int) $row['Doctor'] : '');
+        $doctorDisp = (int) ($row['Doctor'] ?? 0);
+        $fechaDisp = (string) ($row['Fecha'] ?? '');
+        $horaSel = trim((string) ($row['hora'] ?? ''));
+        $disp = $repo->disponibilidadVisual($fechaDisp, $doctorDisp, (int) ($row['id'] ?? 0));
 
         $body = $this->renderView('agenda/turno_form', [
             'ext' => $ext,
@@ -186,6 +191,13 @@ final class TurnosController
             'titulo' => $titulo,
             'volver' => $volver,
             'doctores' => $doctores,
+            'primeraVezOpts' => $primeraVezOpts,
+            'dispOcupadas' => $disp['occupied'],
+            'dispSlots' => $disp['slots'],
+            'dispSource' => $disp['source'],
+            'dispSinFranjaDia' => $disp['sin_franja_dia'],
+            'dispStep' => $disp['step'],
+            'horaSel' => $horaSel,
             'estados' => $estados,
         ]);
         layout_render($titulo, $body, $this->user);

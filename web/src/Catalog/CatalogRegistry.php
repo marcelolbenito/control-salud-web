@@ -47,6 +47,7 @@ final class CatalogRegistry
             'lista_identidad_genero' => self::simplePrioridadNombre('Identidad de género', 150),
             'lista_orientacion_sex' => self::simplePrioridadNombre('Orientación sexual', 150),
             'lista_motivos_consulta' => self::simplePrioridadNombre('Motivos de consulta (agenda)', 255),
+            'lista_primera_vez' => self::simplePrioridadNombre('Tipo de atención inicial (agenda)', 120),
         ];
     }
 

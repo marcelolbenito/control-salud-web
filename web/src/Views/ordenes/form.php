@@ -34,7 +34,7 @@ declare(strict_types=1);
                 <label class="form-check span-2"><input type="checkbox" name="autorizada" value="1" <?= !empty($row['autorizada']) ? ' checked' : '' ?>> Autorizada</label>
                 <label class="form-check span-2"><input type="checkbox" name="entregada" value="1" <?= !empty($row['entregada']) ? ' checked' : '' ?>> Entregada</label>
                 <label class="span-2">Observaciones
-                    <textarea name="observaciones" rows="4" placeholder="Notas de la orden (como en exe / Access)"><?= h((string) ($row['observaciones'] ?? '')) ?></textarea>
+                    <textarea name="observaciones" rows="4" placeholder="Notas de la orden"><?= h((string) ($row['observaciones'] ?? '')) ?></textarea>
                 </label>
             </div>
         </section>

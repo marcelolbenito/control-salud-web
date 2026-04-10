@@ -21,16 +21,21 @@ final class CatalogosController
 
     public function index(): void
     {
+        $repo = new CatalogosListaRepository($this->pdo);
         $items = [];
         foreach (CatalogRegistry::definitions() as $tabla => $def) {
+            $ok = $repo->tablaExiste($tabla);
             $items[] = [
                 'tabla' => $tabla,
                 'titulo' => $def['titulo'],
-                'ok' => (new CatalogosListaRepository($this->pdo))->tablaExiste($tabla),
+                'ok' => $ok,
+                'orden' => $def['orden'],
+                'campos_count' => count($def['campos']),
+                'rows_count' => $ok ? $repo->contarRegistros($tabla) : null,
             ];
         }
         $body = $this->renderView('catalogos/index', ['items' => $items]);
-        layout_render('Catálogos', $body, $this->user);
+        layout_render('Tablas auxiliares', $body, $this->user);
     }
 
     public function listar(string $tabla): void

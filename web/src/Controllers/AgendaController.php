@@ -31,15 +31,51 @@ final class AgendaController
         $extAgenda = $agendaRepo->hasExtendedColumns();
         $doctores = $docRepo->listActivos();
         $rows = $agendaRepo->listByFechaYDoctor($fecha, $doctorFiltro, $extAgenda);
+        $resumen = $agendaRepo->resumenDia($fecha, $doctorFiltro, $extAgenda);
+        $turnoSelId = (int) ($_GET['turno'] ?? 0);
+        $turnoSel = $turnoSelId > 0 ? $agendaRepo->findById($turnoSelId, $extAgenda) : null;
+
+        $fechaPrev = date('Y-m-d', strtotime($fecha . ' -1 day'));
+        $fechaNext = date('Y-m-d', strtotime($fecha . ' +1 day'));
 
         $body = $this->renderView('agenda/index', [
             'extAgenda' => $extAgenda,
             'fecha' => $fecha,
+            'fechaPrev' => $fechaPrev,
+            'fechaNext' => $fechaNext,
             'doctorFiltro' => $doctorFiltro,
             'doctores' => $doctores,
             'rows' => $rows,
+            'resumen' => $resumen,
+            'turnoSel' => $turnoSel,
         ]);
         layout_render('Agenda', $body, $this->user);
+    }
+
+    public function quickStatusPost(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        $accion = trim((string) ($_POST['accion'] ?? ''));
+        $fecha = trim((string) ($_POST['fecha'] ?? ''));
+        $doctor = (int) ($_POST['doctor'] ?? 0);
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            $fecha = date('Y-m-d');
+        }
+        if ($id < 1) {
+            header('Location: /agenda.php?fecha=' . rawurlencode($fecha) . ($doctor > 0 ? '&doctor=' . $doctor : ''));
+            exit;
+        }
+
+        $repo = new AgendaRepository($this->pdo);
+        $ok = $repo->updateQuickStatus($id, $accion, $repo->hasExtendedColumns());
+        if ($ok) {
+            flash_set('Estado actualizado.');
+        } else {
+            flash_set('No se pudo actualizar estado (requiere columnas extendidas de agenda).');
+        }
+        header('Location: /agenda.php?fecha=' . rawurlencode($fecha) . ($doctor > 0 ? '&doctor=' . $doctor : '') . '&turno=' . $id);
+        exit;
     }
 
     private function renderView(string $view, array $data): string

@@ -152,8 +152,8 @@ INSERT INTO `agenda_turnos` (
 )
 SELECT
   `id`,
-  `Fecha`,
-  NULL AS `hora`,
+  DATE(`Fecha`) AS `Fecha`,
+  TIME(`Fecha`) AS `hora`,
   `NroHC`,
   `Doctor`,
   `idorden`,

@@ -1158,6 +1158,65 @@ code {
   border-bottom: none;
 }
 
+.catalog-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.catalog-card {
+  background: var(--surface);
+  border: 1px solid var(--header-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1rem;
+}
+
+.catalog-card.is-missing {
+  opacity: 0.85;
+  border-style: dashed;
+}
+
+.catalog-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.catalog-card h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.catalog-card .small {
+  font-size: 0.82rem;
+}
+
+.catalog-card-actions {
+  margin-top: 0.75rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.badge-ok {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.badge-missing {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
 .inline-form {
   display: inline;
 }
@@ -1187,4 +1246,209 @@ code {
   font-size: 0.78rem;
   max-width: 14rem;
   word-break: break-word;
+}
+
+/* Agenda diaria */
+.agenda-day-nav {
+  display: flex;
+  gap: 0.4rem;
+  align-items: end;
+}
+
+.agenda-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.6rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.agenda-kpi {
+  background: var(--surface);
+  border: 1px solid var(--header-border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+}
+
+.agenda-kpi span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.agenda-kpi strong {
+  font-size: 1.1rem;
+}
+
+.agenda-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) 290px;
+}
+
+.agenda-main {
+  min-width: 0;
+}
+
+.agenda-side h2 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.agenda-side p {
+  margin: 0.45rem 0;
+}
+
+.agenda-side-actions {
+  margin-top: 0.8rem;
+}
+
+.agenda-row.is-selected {
+  outline: 2px solid #93c5fd;
+  outline-offset: -2px;
+}
+
+.agenda-row.estado-atendido {
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.agenda-row.estado-no_asistio {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.agenda-row.estado-pendiente {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.agenda-paciente-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(100, 116, 139, 0.5);
+}
+
+.agenda-paciente-link:hover {
+  color: var(--accent-dark);
+}
+
+@media (max-width: 1200px) {
+  .agenda-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Disponibilidad visual en turno_form */
+.turno-disponibilidad {
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid var(--header-border);
+  border-radius: 10px;
+}
+
+.turno-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 0.45rem;
+}
+
+.turno-slot {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: 40px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.82rem;
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.turno-slot:disabled {
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+.turno-slot small {
+  opacity: 0.85;
+  font-weight: 700;
+}
+
+.turno-slot.is-free {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.turno-slot.is-occupied {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.turno-slot.is-selected {
+  background: #dbeafe;
+  color: #1e3a8a;
+  border-color: #60a5fa;
+}
+
+.turno-paciente-resultados {
+  margin-top: 0.35rem;
+  border: 1px solid var(--header-border);
+  border-radius: 8px;
+  background: #ffffff;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.turno-paciente-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid #eef2f7;
+  cursor: pointer;
+  font-size: 0.86rem;
+}
+
+.turno-paciente-item:last-child {
+  border-bottom: 0;
+}
+
+.turno-paciente-item:hover {
+  background: #f8fafc;
+}
+
+.turno-ocupados-detalle {
+  margin-top: 0.65rem;
+  border: 1px solid var(--header-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.5rem;
+}
+
+.turno-ocupados-head {
+  margin-bottom: 0.35rem;
+}
+
+.turno-ocupados-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.turno-ocupado-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  border-top: 1px solid #eef2f7;
+  padding-top: 0.45rem;
+}
+
+.turno-ocupado-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.turno-ocupado-actions {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
 }

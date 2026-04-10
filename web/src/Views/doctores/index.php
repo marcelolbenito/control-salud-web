@@ -7,7 +7,7 @@ declare(strict_types=1);
         <h1>Doctores / Profesionales</h1>
         <p class="muted">Alta, edición y baja de profesionales que atienden en el sistema.</p>
         <?php if (!$extDoc): ?>
-            <p class="muted" style="font-size:0.9rem;">Especialidad y matrícula (como Access) se listan tras <code>sql/migration_003_doctores_agenda_exe.sql</code>.</p>
+            <p class="muted" style="font-size:0.9rem;">Especialidad y matrícula se listan tras <code>sql/migration_003_doctores_agenda_exe.sql</code>.</p>
         <?php endif; ?>
     </div>
     <div class="page-actions">

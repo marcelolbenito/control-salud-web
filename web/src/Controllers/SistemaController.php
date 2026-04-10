@@ -151,7 +151,11 @@ final class SistemaController
         }
         $names = [];
         while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-            $names[] = (string) $r['table_name'];
+            // Compatibilidad: algunos drivers devuelven TABLE_NAME en mayúscula.
+            $vals = array_values($r);
+            if (isset($vals[0])) {
+                $names[] = (string) $vals[0];
+            }
         }
 
         return $names;

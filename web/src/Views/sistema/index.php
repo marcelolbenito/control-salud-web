@@ -3,6 +3,11 @@ declare(strict_types=1);
 ?>
 <div class="container">
     <h1>Sistema y configuración</h1>
+    <?php if ($backupConfigTable === null): ?>
+        <p class="alert alert-error">
+            No se encontró <code>backup_legacy_Config_*</code> en esta base. El mapeo se muestra como referencia y la importación desde .exe queda deshabilitada hasta restaurar ese backup.
+        </p>
+    <?php endif; ?>
 
     <section class="card-like">
         <h2>Configuración del programa original (.exe)</h2>
