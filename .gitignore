@@ -8,6 +8,7 @@
 *.mdf
 *.ldf
 *.sql~
+sql/migracion/migration_from_sqlserver_full.sql
 
 # Secretos y entorno local
 **/config.local.php

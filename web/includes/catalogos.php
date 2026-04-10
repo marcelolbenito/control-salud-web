@@ -3,15 +3,19 @@
 declare(strict_types=1);
 
 /**
+ * @param string $orderBy 'nombre' (alfabético) o 'prioridad_id' (prioridad, id; apropiado para códigos).
  * @return list<array{id:int|string,nombre:?string}>
  */
-function catalogo_lista(PDO $pdo, string $tabla): array
+function catalogo_lista(PDO $pdo, string $tabla, string $orderBy = 'nombre'): array
 {
     if (!db_table_exists($pdo, $tabla)) {
         return [];
     }
+    $orderSql = $orderBy === 'prioridad_id'
+        ? 'prioridad IS NULL, prioridad, id'
+        : 'nombre';
     try {
-        return $pdo->query("SELECT id, nombre FROM `$tabla` ORDER BY nombre")->fetchAll();
+        return $pdo->query("SELECT id, nombre FROM `$tabla` ORDER BY $orderSql")->fetchAll();
     } catch (Throwable $e) {
         return [];
     }

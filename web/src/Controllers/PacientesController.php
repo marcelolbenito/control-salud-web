@@ -154,9 +154,11 @@ final class PacientesController
                 'etn' => catalogo_lista($this->pdo, 'lista_etnia'),
                 'rel' => catalogo_lista($this->pdo, 'lista_relacion_paciente'),
                 'estatus' => catalogo_lista($this->pdo, 'lista_estatus_pais'),
-                'sexo' => catalogo_lista($this->pdo, 'lista_sexo'),
-                'gsang' => catalogo_lista($this->pdo, 'lista_grupo_sanguineo'),
-                'fsang' => catalogo_lista($this->pdo, 'lista_factor_sanguineo'),
+                'sexo' => catalogo_lista($this->pdo, 'lista_sexo', 'prioridad_id'),
+                'idgen' => catalogo_lista($this->pdo, 'lista_identidad_genero', 'prioridad_id'),
+                'orient' => catalogo_lista($this->pdo, 'lista_orientacion_sex', 'prioridad_id'),
+                'gsang' => catalogo_lista($this->pdo, 'lista_grupo_sanguineo', 'prioridad_id'),
+                'fsang' => catalogo_lista($this->pdo, 'lista_factor_sanguineo', 'prioridad_id'),
             ];
         }
         $fotoDisponible = $ext && db_table_has_column($this->pdo, 'pacientes', 'ruta_foto');

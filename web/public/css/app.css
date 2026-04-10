@@ -593,11 +593,46 @@ body {
 
 .table-actions {
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  vertical-align: middle;
 }
 
 .table-actions a,
 .table-actions button {
-  margin-right: 0.35rem;
+  margin-right: 0;
+}
+
+/* Listados: acciones solo icono (texto en title + .btn-label para lectores de pantalla) */
+.table-actions .btn.btn-sm {
+  position: relative;
+  padding: 0.2rem 0.35rem;
+  min-height: 1.75rem;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.table-actions .btn-icon {
+  gap: 0;
+}
+
+.table-actions .btn-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.table-actions .btn i {
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 .form-grid {
@@ -1091,4 +1126,65 @@ code {
 
 .patient-foto-actions {
   flex: 1 1 220px;
+}
+
+/* Sistema / catálogos */
+.card-like {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem clamp(1rem, 2vw, 1.5rem);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--header-border);
+}
+
+.card-like h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.catalog-index {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.catalog-index li {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--header-border);
+}
+
+.catalog-index li:last-child {
+  border-bottom: none;
+}
+
+.inline-form {
+  display: inline;
+}
+
+.table .actions {
+  white-space: nowrap;
+}
+
+.table .actions form.inline-form {
+  display: inline-block;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.table-compact td,
+.table-compact th {
+  font-size: 0.82rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.table-compact .small {
+  font-size: 0.78rem;
+  max-width: 14rem;
+  word-break: break-word;
 }

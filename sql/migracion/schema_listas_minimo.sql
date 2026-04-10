@@ -89,3 +89,16 @@ CREATE TABLE IF NOT EXISTS lista_factor_sanguineo (
   prioridad SMALLINT NULL,
   nombre VARCHAR(30) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Sin equivalente en Access (solo SMALLINT en Pacientes); sembrar con migration_008 + utilidad_sembrar_codigos_desde_pacientes.sql
+CREATE TABLE IF NOT EXISTS lista_identidad_genero (
+  id INT PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(150) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS lista_orientacion_sex (
+  id INT PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(150) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

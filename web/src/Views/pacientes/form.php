@@ -34,7 +34,7 @@ function paciente_date_only($v): string
     </div>
     <?php if (!$ext): ?>
         <p class="alert alert-error" style="background:#fffbeb;border-color:#fcd34d;color:#92400e;">
-            La base no tiene los campos ampliados del backup. Ejecutá <code>sql/migration_002_pacientes_campos_exe.sql</code>, catálogos (<code>sql/migracion/schema_listas_minimo.sql</code> + datos) y opcionalmente <code>sql/migration_007_lista_sexo_grupo_factor_ruta_foto.sql</code> (sexo, grupo/factor y foto).
+            La base no tiene los campos ampliados del backup. Ejecutá <code>sql/migration_002_pacientes_campos_exe.sql</code>, catálogos (<code>sql/migracion/schema_listas_minimo.sql</code> + datos), <code>sql/migration_007_lista_sexo_grupo_factor_ruta_foto.sql</code> (sexo, grupo/factor y foto) y <code>sql/migration_008_lista_identidad_orientacion.sql</code> (identidad / orientación). Tras importar pacientes, <code>sql/utilidad_sembrar_codigos_desde_pacientes.sql</code> completa códigos faltantes en esas listas.
         </p>
     <?php endif; ?>
     <?php if ($error !== ''): ?>
@@ -110,10 +110,18 @@ function paciente_date_only($v): string
                         <?php endif; ?>
                     </label>
                     <label>Identidad de género
-                        <input type="number" name="identidad_gen" step="1" value="<?= $row['identidad_gen'] !== null && $row['identidad_gen'] !== '' ? (int) $row['identidad_gen'] : '' ?>" placeholder="código">
+                        <?php if (!empty($listas['idgen'])): ?>
+                            <select name="identidad_gen"><?php catalogo_select_options($listas['idgen'], $row['identidad_gen'] ?? null); ?></select>
+                        <?php else: ?>
+                            <input type="number" name="identidad_gen" step="1" value="<?= $row['identidad_gen'] !== null && $row['identidad_gen'] !== '' ? (int) $row['identidad_gen'] : '' ?>" placeholder="Código (sin lista_identidad_genero)">
+                        <?php endif; ?>
                     </label>
                     <label>Orientación sexual
-                        <input type="number" name="orientacion_sex" step="1" value="<?= $row['orientacion_sex'] !== null && $row['orientacion_sex'] !== '' ? (int) $row['orientacion_sex'] : '' ?>" placeholder="código">
+                        <?php if (!empty($listas['orient'])): ?>
+                            <select name="orientacion_sex"><?php catalogo_select_options($listas['orient'], $row['orientacion_sex'] ?? null); ?></select>
+                        <?php else: ?>
+                            <input type="number" name="orientacion_sex" step="1" value="<?= $row['orientacion_sex'] !== null && $row['orientacion_sex'] !== '' ? (int) $row['orientacion_sex'] : '' ?>" placeholder="Código (sin lista_orientacion_sex)">
+                        <?php endif; ?>
                     </label>
                 <?php endif; ?>
                 <label>Fecha de nacimiento

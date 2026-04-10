@@ -72,6 +72,20 @@ final class OrdenesController
             'observaciones' => '',
         ];
 
+        if ($id < 1) {
+            $gf = trim((string) ($_GET['fecha'] ?? ''));
+            if ($gf !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $gf)) {
+                $row['fecha_orden'] = $gf;
+            }
+            $gd = (int) ($_GET['doctor'] ?? 0);
+            if ($gd < 1) {
+                $gd = (int) ($_GET['iddoctor'] ?? 0);
+            }
+            if ($gd > 0) {
+                $row['iddoctor'] = $gd;
+            }
+        }
+
         if ($id > 0) {
             $loaded = $repo->findById($id);
             if (!$loaded) {

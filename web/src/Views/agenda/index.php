@@ -34,6 +34,8 @@ declare(strict_types=1);
 
     <div class="page-actions">
         <a class="btn btn-primary" href="/turno_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Nuevo turno</a>
+        <a class="btn btn-ghost" href="/ordenes.php"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Órdenes</a>
+        <a class="btn btn-primary" href="/orden_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . (int) $doctorFiltro : '' ?>"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nueva orden</a>
     </div>
 
     <?php if ($rows === []): ?>
@@ -83,7 +85,24 @@ declare(strict_types=1);
                             <td><?= $r['idorden'] !== null ? (int) $r['idorden'] : '—' ?></td>
                             <td class="cell-clip" title="<?= h($obs) ?>"><?= h($obsOut) ?></td>
                             <td class="table-actions">
-                                <a class="btn btn-sm btn-ghost btn-icon" title="Editar" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
+                                <?php
+                                $nroHcRow = (int) $r['NroHC'];
+                                $idOrdenRow = isset($r['idorden']) && $r['idorden'] !== null && $r['idorden'] !== '' ? (int) $r['idorden'] : 0;
+                                $idDocRow = (int) ($r['Doctor'] ?? $r['doctor'] ?? 0);
+                                if ($idOrdenRow > 0) {
+                                    $hrefOrden = '/orden_form.php?id=' . $idOrdenRow;
+                                    $titleOrden = 'Ver / editar orden vinculada';
+                                } else {
+                                    $qOrden = 'nrohc=' . $nroHcRow . '&fecha=' . rawurlencode($fecha);
+                                    if ($idDocRow > 0) {
+                                        $qOrden .= '&doctor=' . $idDocRow;
+                                    }
+                                    $hrefOrden = '/orden_form.php?' . $qOrden;
+                                    $titleOrden = 'Nueva orden para este paciente y turno';
+                                }
+                                ?>
+                                <a class="btn btn-sm btn-ghost btn-icon" title="<?= h($titleOrden) ?>" href="<?= h($hrefOrden) ?>"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i><span class="btn-label"> Orden</span></a>
+                                <a class="btn btn-sm btn-ghost btn-icon" title="Editar turno" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
                                 <form action="/turno_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este turno?');">
                                     <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
