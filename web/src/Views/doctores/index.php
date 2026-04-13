@@ -46,7 +46,7 @@ declare(strict_types=1);
                             <td><?= (int) $r['activo'] ? 'Sí' : 'No' ?></td>
                             <td class="table-actions">
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Editar" href="/doctor_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
-                                <form action="/doctor_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este profesional? Si tiene turnos u órdenes asociadas, conviene revisar antes.');">
+                                <form action="/doctor_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este profesional? Si tiene datos vinculados (turnos, órdenes, sesiones, caja), se desactivará en lugar de borrarse.');">
                                     <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
                                 </form>

@@ -75,6 +75,29 @@ final class TurnosController
         $estados = ['pendiente', 'atendido', 'cancelado', 'no_asistio'];
         $error = '';
 
+        $formatearPacienteActual = static function (string $nombre, string $dni): string {
+            $nom = trim($nombre);
+            $doc = trim($dni);
+            if ($nom !== '' && $doc !== '') {
+                return $nom . ' - DNI ' . $doc;
+            }
+            return $nom;
+        };
+
+        $pacienteActual = '';
+        $nroHcActual = (int) ($row['NroHC'] ?? 0);
+        if ($nroHcActual > 0) {
+            $paciente = $repo->pacientePorNroHC($nroHcActual);
+            $nombreBase = $ext && trim((string) ($row['paciente_nombre'] ?? '')) !== ''
+                ? trim((string) $row['paciente_nombre'])
+                : (string) (($paciente['nombre'] ?? '') ?: $repo->pacienteNombreParaTurno($nroHcActual));
+            $dniBase = (string) ($paciente['dni'] ?? '');
+            $pacienteActual = $formatearPacienteActual($nombreBase, $dniBase);
+            if ($ext && trim((string) ($row['paciente_nombre'] ?? '')) === '' && $nombreBase !== '') {
+                $row['paciente_nombre'] = $nombreBase;
+            }
+        }
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = (int) ($_POST['id'] ?? 0);
             $Fecha = trim((string) ($_POST['Fecha'] ?? ''));
@@ -175,6 +198,20 @@ final class TurnosController
             if ($ext && isset($ex)) {
                 $row = array_merge($row, $ex);
             }
+
+            $pacienteActual = '';
+            $nroHcActual = (int) ($row['NroHC'] ?? 0);
+            if ($nroHcActual > 0) {
+                $paciente = $repo->pacientePorNroHC($nroHcActual);
+                $nombreBase = $ext && trim((string) ($row['paciente_nombre'] ?? '')) !== ''
+                    ? trim((string) $row['paciente_nombre'])
+                    : (string) (($paciente['nombre'] ?? '') ?: $repo->pacienteNombreParaTurno($nroHcActual));
+                $dniBase = (string) ($paciente['dni'] ?? '');
+                $pacienteActual = $formatearPacienteActual($nombreBase, $dniBase);
+                if ($ext && trim((string) ($row['paciente_nombre'] ?? '')) === '' && $nombreBase !== '') {
+                    $row['paciente_nombre'] = $nombreBase;
+                }
+            }
         }
 
         $titulo = $row['id'] ? 'Editar turno' : 'Nuevo turno';
@@ -188,6 +225,7 @@ final class TurnosController
             'ext' => $ext,
             'row' => $row,
             'error' => $error,
+            'pacienteActual' => $pacienteActual,
             'titulo' => $titulo,
             'volver' => $volver,
             'doctores' => $doctores,

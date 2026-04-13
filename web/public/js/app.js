@@ -23,3 +23,40 @@
     }
   });
 })();
+
+(function () {
+  function shouldIgnoreRowNavigation(target) {
+    return Boolean(
+      target.closest('a, button, input, select, textarea, label, form')
+    );
+  }
+
+  document.addEventListener('click', function (event) {
+    var row = event.target.closest('tr[data-turno-link]');
+    if (!row || shouldIgnoreRowNavigation(event.target)) {
+      return;
+    }
+
+    var href = row.getAttribute('data-turno-link');
+    if (href) {
+      window.location.href = href;
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    var row = event.target.closest('tr[data-turno-link]');
+    if (!row) {
+      return;
+    }
+
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    var href = row.getAttribute('data-turno-link');
+    if (href) {
+      window.location.href = href;
+    }
+  });
+})();

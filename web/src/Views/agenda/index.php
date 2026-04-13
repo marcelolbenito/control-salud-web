@@ -94,7 +94,13 @@ declare(strict_types=1);
                             $trClass .= ' is-selected';
                         }
                         ?>
-                        <tr class="<?= h($trClass) ?>">
+                        <tr
+                            class="<?= h($trClass) ?> agenda-row-selectable"
+                            data-turno-link="<?= h($turnoLink) ?>"
+                            tabindex="0"
+                            role="link"
+                            aria-label="Ver detalle del turno de <?= h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
+                        >
                             <td><?= $r['hora'] ? h(substr((string) $r['hora'], 0, 5)) : '—' ?></td>
                             <td><a class="agenda-paciente-link" href="<?= h($turnoLink) ?>"><?= h($r['paciente_nombre'] ?? '') ?></a></td>
                             <td><?= (int) $r['NroHC'] ?></td>
@@ -183,7 +189,7 @@ declare(strict_types=1);
                     <a class="btn btn-sm btn-primary" href="/turno_form.php?id=<?= (int) $turnoSel['id'] ?>">Editar turno</a>
                 </p>
             <?php else: ?>
-                <p class="muted">Seleccioná un turno de la grilla para ver el detalle rápido, como en la pantalla del exe.</p>
+                <p class="muted">Seleccioná un turno con click en la fila (o Enter desde teclado) para ver el detalle rápido, como en la pantalla del exe.</p>
             <?php endif; ?>
         </aside>
     </div>

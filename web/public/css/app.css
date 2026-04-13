@@ -1248,6 +1248,12 @@ code {
   word-break: break-word;
 }
 
+.table-compact input[type="time"],
+.table-compact input[type="number"] {
+  width: 100%;
+  min-width: 6.5rem;
+}
+
 /* Agenda diaria */
 .agenda-day-nav {
   display: flex;
@@ -1304,6 +1310,19 @@ code {
 
 .agenda-row.is-selected {
   outline: 2px solid #93c5fd;
+  outline-offset: -2px;
+}
+
+.agenda-row-selectable {
+  cursor: pointer;
+}
+
+.agenda-row-selectable:hover td {
+  background: rgba(13, 148, 136, 0.06);
+}
+
+.agenda-row-selectable:focus-visible {
+  outline: 2px solid #0d9488;
   outline-offset: -2px;
 }
 
@@ -1388,6 +1407,16 @@ code {
   border-color: #60a5fa;
 }
 
+.turno-dia-badge {
+  display: inline-block;
+  padding: 0.32rem 0.55rem;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1e3a8a;
+  border: 1px solid #93c5fd;
+  font-weight: 700;
+}
+
 .turno-paciente-resultados {
   margin-top: 0.35rem;
   border: 1px solid var(--header-border);
@@ -1395,6 +1424,13 @@ code {
   background: #ffffff;
   max-height: 220px;
   overflow: auto;
+}
+
+.turno-paciente-busqueda {
+  background: #f8fafc;
+  border: 1px solid var(--header-border);
+  border-radius: 10px;
+  padding: 0.75rem;
 }
 
 .turno-paciente-item {
@@ -1451,4 +1487,67 @@ code {
   display: inline-flex;
   gap: 0.4rem;
   align-items: center;
+}
+
+.turno-proximos-libres {
+  border: 1px solid var(--header-border);
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 0.65rem 0.75rem;
+}
+
+.turno-proximos-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.turno-proximos-lista {
+  margin-top: 0.45rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.turno-proximos-lista[hidden] {
+  display: none !important;
+}
+
+.turno-proximos-actions {
+  margin-top: 0.45rem;
+}
+
+.turno-proximos-actions[hidden] {
+  display: none !important;
+}
+
+.turno-proximo-item {
+  border: 1px solid #dbe4ee;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.turno-proximo-item:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.turno-proximo-item-dia.is-selected {
+  border-color: #60a5fa;
+  background: #dbeafe;
+}
+
+.turno-proximo-item-hora {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.turno-proximo-item-hora:hover {
+  border-color: #4ade80;
+  background: #bbf7d0;
 }

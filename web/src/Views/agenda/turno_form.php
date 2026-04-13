@@ -18,9 +18,28 @@ declare(strict_types=1);
     <form method="post" class="form-paciente">
         <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
 
+        <div class="form-actions form-section">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a class="btn btn-ghost" href="<?= h($volver) ?>">Cancelar</a>
+            <?php if ((int) ($row['id'] ?? 0) > 0): ?>
+                <button
+                    type="submit"
+                    class="btn btn-danger btn-icon"
+                    formaction="/turno_eliminar.php"
+                    formmethod="post"
+                    onclick="return confirm('¿Eliminar este turno?');"
+                ><i class="bi bi-trash" aria-hidden="true"></i><span>Borrar</span></button>
+            <?php endif; ?>
+        </div>
+
         <section class="form-section">
             <h2 class="form-section-title">Turno</h2>
             <div class="form-grid-ext">
+                <label class="span-2 turno-paciente-busqueda">Buscar paciente (DNI y/o nombre)
+                    <input type="text" id="turno-paciente-buscar" autocomplete="off" placeholder="Ej: 30111222 o Perez Ana">
+                    <small class="muted">Elegí un resultado para completar Nro HC automáticamente.</small>
+                    <div id="turno-paciente-resultados" class="turno-paciente-resultados" hidden></div>
+                </label>
                 <label>Fecha *
                     <input type="date" name="Fecha" required value="<?= h((string) $row['Fecha']) ?>">
                 </label>
@@ -30,10 +49,8 @@ declare(strict_types=1);
                 <label>Nro HC *
                     <input type="number" name="NroHC" required min="1" value="<?= $row['NroHC'] === '' ? '' : (int) $row['NroHC'] ?>">
                 </label>
-                <label class="span-2">Buscar paciente (DNI y/o nombre)
-                    <input type="text" id="turno-paciente-buscar" autocomplete="off" placeholder="Ej: 30111222 o Perez Ana">
-                    <small class="muted">Elegí un resultado para completar Nro HC automáticamente.</small>
-                    <div id="turno-paciente-resultados" class="turno-paciente-resultados" hidden></div>
+                <label>Paciente actual
+                    <input type="text" id="turno-paciente-actual" value="<?= h((string) ($pacienteActual !== '' ? $pacienteActual : '—')) ?>" readonly>
                 </label>
                 <?php if ($ext): ?>
                     <label class="span-2">Nombre paciente (texto)
@@ -48,6 +65,17 @@ declare(strict_types=1);
                         <?php endforeach; ?>
                     </select>
                 </label>
+                <div class="span-2 turno-proximos-libres" id="turno-proximos-libres">
+                    <div class="turno-proximos-head">
+                        <strong>Próximos turnos libres</strong>
+                        <button type="button" class="btn btn-sm btn-ghost" id="turno-proximos-buscar">Buscar opciones</button>
+                    </div>
+                    <p class="muted small">Busca los próximos horarios disponibles del profesional desde la fecha indicada.</p>
+                    <div id="turno-proximos-dias" class="turno-proximos-lista" hidden></div>
+                    <div class="turno-proximos-actions" id="turno-proximos-actions" hidden>
+                        <button type="button" class="btn btn-sm btn-ghost" id="turno-proximos-toggle">Ver más</button>
+                    </div>
+                </div>
                 <label>ID orden
                     <input type="number" name="idorden" min="1" value="<?= h((string) $row['idorden']) ?>">
                 </label>
@@ -88,6 +116,7 @@ declare(strict_types=1);
                  data-exclude-id="<?= $turnoExcludeId ?>"
                  style="">
                 <p class="muted small" id="turno-disp-lead"><strong>Disponibilidad por profesional:</strong> la grilla usa los horarios cargados para ese médico (tabla de planilla). Verde = libre, rojo = ocupado (clic para ver/anular), azul = seleccionada.</p>
+                <p class="muted small" id="turno-disp-dia"></p>
                 <p class="muted small" id="turno-disp-hint"><?= h($dispHintIni) ?></p>
                 <div class="turno-slots" id="turno-slots-grid">
                     <?php if ($dispSlots !== []): ?>
@@ -113,14 +142,37 @@ declare(strict_types=1);
                     const root = document.getElementById('turno-disponibilidad');
                     const grid = document.getElementById('turno-slots-grid');
                     const hint = document.getElementById('turno-disp-hint');
+                    const diaInfo = document.getElementById('turno-disp-dia');
                     const fechaInp = document.querySelector('input[name="Fecha"]');
                     const doctorSel = document.querySelector('select[name="Doctor"]');
                     const horaInput = document.querySelector('input[name="hora"]');
                     const nroHcInput = document.querySelector('input[name="NroHC"]');
                     const pacienteNombreInput = document.querySelector('input[name="paciente_nombre"]');
+                    const pacienteActualInput = document.getElementById('turno-paciente-actual');
                     const pacienteBuscarInput = document.getElementById('turno-paciente-buscar');
                     const pacienteResultados = document.getElementById('turno-paciente-resultados');
+                    const urlPacientePorHc = '/paciente_por_hc.php';
+                    const urlProximosLibres = '/agenda_proximos_libres.php';
+                    const proximosRoot = document.getElementById('turno-proximos-libres');
+                    const proximosBtn = document.getElementById('turno-proximos-buscar');
+                    const proximosDias = document.getElementById('turno-proximos-dias');
+                    const proximosActions = document.getElementById('turno-proximos-actions');
+                    const proximosToggle = document.getElementById('turno-proximos-toggle');
+                    const DIAS_INICIALES = 6;
+                    const DIAS_STEP = 6;
+                    let diasVisibles = DIAS_INICIALES;
+                    let diasCache = [];
                     if (!root || !grid || !fechaInp || !doctorSel || !horaInput) return;
+
+                    function formatearPacienteActual(item) {
+                        if (!item) return '—';
+                        const nombre = String(item.nombre || '').trim();
+                        const dni = String(item.dni || '').trim();
+                        if (nombre && dni) {
+                            return nombre + ' - DNI ' + dni;
+                        }
+                        return nombre || '—';
+                    }
 
                     const urlBase = root.getAttribute('data-slots-url') || '/agenda_slots.php';
                     const urlHoraDetalle = '/agenda_turnos_hora.php';
@@ -180,6 +232,128 @@ declare(strict_types=1);
                         });
                     }
 
+                    function fechaHumana(isoDate) {
+                        if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
+                        const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                        const parts = isoDate.split('-');
+                        const y = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10);
+                        const d = parseInt(parts[2], 10);
+                        const dt = new Date(y, m - 1, d);
+                        const wd = dias[dt.getDay()] || '';
+                        const dd = String(d).padStart(2, '0');
+                        const mm = String(m).padStart(2, '0');
+                        return wd + ' ' + dd + '/' + mm;
+                    }
+
+                    function actualizarDiaInfo() {
+                        if (!diaInfo || !fechaInp) return;
+                        const fecha = String(fechaInp.value || '');
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                            diaInfo.innerHTML = '<span class="turno-dia-badge">Día seleccionado: ' + fechaHumana(fecha) + '</span>';
+                        } else {
+                            diaInfo.textContent = '';
+                        }
+                    }
+
+                    function agruparProximos(items) {
+                        const out = {};
+                        (items || []).forEach((it) => {
+                            const f = String(it.fecha || '');
+                            const h = String(it.hora || '');
+                            if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{2}:\d{2}$/.test(h)) return;
+                            if (!out[f]) out[f] = [];
+                            out[f].push(h);
+                        });
+                        return out;
+                    }
+
+                    function renderDiasProximos(items) {
+                        if (!proximosDias) return;
+                        const grouped = agruparProximos(items);
+                        const fechasAll = Object.keys(grouped);
+                        const fechas = fechasAll.slice(0, diasVisibles);
+                        if (!fechas.length) {
+                            proximosDias.hidden = false;
+                            proximosDias.innerHTML = '<div class="muted small">No se encontraron opciones en los próximos días.</div>';
+                            if (proximosActions) {
+                                proximosActions.hidden = true;
+                            }
+                            return;
+                        }
+                        let html = '';
+                        fechas.forEach((f) => {
+                            html += '<button type="button" class="turno-proximo-item turno-proximo-item-dia" data-fecha="' + f + '">'
+                                + '<strong>' + fechaHumana(f) + '</strong> · ' + grouped[f].length + ' turnos libres'
+                                + '</button>';
+                        });
+                        proximosDias.hidden = false;
+                        proximosDias.innerHTML = html;
+                        proximosDias.querySelectorAll('.turno-proximo-item').forEach((btn) => {
+                            btn.addEventListener('click', () => {
+                                const f = String(btn.getAttribute('data-fecha') || '');
+                                if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+                                    fechaInp.value = f;
+                                    actualizarDiaInfo();
+                                    refreshDisp();
+                                }
+                                proximosDias.querySelectorAll('.turno-proximo-item-dia').forEach((el) => el.classList.remove('is-selected'));
+                                btn.classList.add('is-selected');
+                                proximosDias.hidden = true;
+                                if (proximosActions) {
+                                    proximosActions.hidden = true;
+                                }
+                            });
+                        });
+                        if (proximosActions && proximosToggle) {
+                            if (fechasAll.length > diasVisibles) {
+                                proximosActions.hidden = false;
+                                proximosToggle.textContent = 'Ver más';
+                            } else if (fechasAll.length > DIAS_INICIALES) {
+                                proximosActions.hidden = false;
+                                proximosToggle.textContent = 'Ver menos';
+                            } else {
+                                proximosActions.hidden = true;
+                            }
+                        }
+                    }
+
+                    async function buscarProximosLibres() {
+                        if (!proximosDias || !doctorSel || !fechaInp) return;
+                        const doctor = parseInt(String(doctorSel.value || '0'), 10) || 0;
+                        const fecha = String(fechaInp.value || '');
+                        if (doctor < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                            proximosDias.hidden = false;
+                            proximosDias.innerHTML = '<div class="muted small">Elegí profesional y fecha para buscar opciones.</div>';
+                            return;
+                        }
+                        proximosDias.hidden = false;
+                        proximosDias.innerHTML = '<div class="muted small">Buscando días disponibles...</div>';
+                        if (proximosActions) {
+                            proximosActions.hidden = true;
+                        }
+                        diasVisibles = DIAS_INICIALES;
+                        diasCache = [];
+                        const u = urlProximosLibres
+                            + '?doctor=' + encodeURIComponent(String(doctor))
+                            + '&desde=' + encodeURIComponent(fecha)
+                            + '&exclude_id=' + encodeURIComponent(excludeId)
+                            + '&limite=180&dias=30';
+                        try {
+                            const res = await fetch(u, { credentials: 'same-origin' });
+                            const data = await res.json();
+                            if (!data || !data.ok) throw new Error('bad');
+                            diasCache = data.items || [];
+                            renderDiasProximos(diasCache);
+                        } catch (e) {
+                            proximosDias.hidden = false;
+                            proximosDias.innerHTML = '<div class="muted small">No se pudo buscar opciones ahora.</div>';
+                            if (proximosActions) {
+                                proximosActions.hidden = true;
+                            }
+                        }
+                    }
+
                     async function verTurnosEnHora(slot) {
                         if (!ocupadosDetalle) return;
                         const fecha = fechaInp.value || '';
@@ -197,21 +371,34 @@ declare(strict_types=1);
                                 ocupadosDetalle.innerHTML = '<div class="muted small">No se encontraron turnos en esa hora.</div>';
                                 return;
                             }
+                            // Si hay un único turno en esa hora, abrir edición directa sin paso extra.
+                            if (items.length === 1 && items[0] && items[0].id) {
+                                window.location.href = '/turno_form.php?id=' + encodeURIComponent(String(items[0].id));
+                                return;
+                            }
                             let html = '<div class="turno-ocupados-head"><strong>Turnos en ' + slot + '</strong></div>';
                             html += '<div class="turno-ocupados-list">';
                             items.forEach((it) => {
                                 html += '<div class="turno-ocupado-item">';
                                 html += '<div><strong>HC ' + String(it.nrohc || 0) + '</strong> - ' + (it.paciente || '(sin nombre)') + ' <span class="muted">(' + (it.estado || 'pendiente') + ')</span></div>';
                                 html += '<div class="turno-ocupado-actions">';
-                                html += '<a class="btn btn-sm btn-ghost" href="/turno_form.php?id=' + encodeURIComponent(String(it.id)) + '">Editar</a>';
                                 html += '<button type="button" class="btn btn-sm btn-danger" data-anular-id="' + String(it.id) + '" data-anular-hora="' + slot + '">Anular</button>';
                                 html += '</div>';
                                 html += '</div>';
                             });
                             html += '</div>';
                             ocupadosDetalle.innerHTML = html;
+                            ocupadosDetalle.querySelectorAll('.turno-ocupado-item').forEach((rowEl, idx) => {
+                                rowEl.style.cursor = 'pointer';
+                                rowEl.addEventListener('click', () => {
+                                    const it = items[idx] || null;
+                                    if (!it || !it.id) return;
+                                    window.location.href = '/turno_form.php?id=' + encodeURIComponent(String(it.id));
+                                });
+                            });
                             ocupadosDetalle.querySelectorAll('button[data-anular-id]').forEach((btn) => {
-                                btn.addEventListener('click', async () => {
+                                btn.addEventListener('click', async (ev) => {
+                                    ev.stopPropagation();
                                     const id = parseInt(String(btn.getAttribute('data-anular-id') || '0'), 10) || 0;
                                     const h = String(btn.getAttribute('data-anular-hora') || slot);
                                     if (id < 1) return;
@@ -275,8 +462,10 @@ declare(strict_types=1);
                     }
 
                     fechaInp.addEventListener('change', refreshDisp);
+                    fechaInp.addEventListener('change', actualizarDiaInfo);
                     doctorSel.addEventListener('change', refreshDisp);
                     // Asegura que la grilla inicial también quede clickeable al abrir el formulario.
+                    actualizarDiaInfo();
                     refreshDisp();
 
                     function clearPacienteResultados() {
@@ -301,6 +490,7 @@ declare(strict_types=1);
                             btn.addEventListener('click', () => {
                                 if (nroHcInput) nroHcInput.value = String(it.nrohc || '');
                                 if (pacienteNombreInput && it.nombre) pacienteNombreInput.value = String(it.nombre);
+                                if (pacienteActualInput) pacienteActualInput.value = formatearPacienteActual(it);
                                 if (pacienteBuscarInput) pacienteBuscarInput.value = it.nombre ? (it.nombre + (it.dni ? ' - DNI ' + it.dni : '')) : ('HC ' + String(it.nrohc || ''));
                                 clearPacienteResultados();
                             });
@@ -343,6 +533,54 @@ declare(strict_types=1);
                             if ((pacienteBuscarInput.value || '').trim().length >= 2) {
                                 buscarPacienteTurno();
                             }
+                        });
+                    }
+
+                    let tHc = null;
+                    async function actualizarPacienteActualDesdeHc() {
+                        if (!nroHcInput || !pacienteActualInput) return;
+                        const nroHc = parseInt(String(nroHcInput.value || '0'), 10) || 0;
+                        if (nroHc < 1) {
+                            pacienteActualInput.value = '—';
+                            return;
+                        }
+                        try {
+                            const u = urlPacientePorHc + '?nrohc=' + encodeURIComponent(String(nroHc));
+                            const res = await fetch(u, { credentials: 'same-origin' });
+                            const data = await res.json();
+                            if (!data || !data.ok) throw new Error('bad');
+                            const item = data.item || null;
+                            pacienteActualInput.value = formatearPacienteActual(item);
+                            if (pacienteNombreInput && item && item.nombre) {
+                                pacienteNombreInput.value = String(item.nombre);
+                            }
+                        } catch (e) {
+                            pacienteActualInput.value = '—';
+                        }
+                    }
+
+                    if (nroHcInput) {
+                        nroHcInput.addEventListener('input', () => {
+                            if (tHc) clearTimeout(tHc);
+                            tHc = setTimeout(actualizarPacienteActualDesdeHc, 260);
+                        });
+                        nroHcInput.addEventListener('change', actualizarPacienteActualDesdeHc);
+                        nroHcInput.addEventListener('blur', actualizarPacienteActualDesdeHc);
+                    }
+
+                    if (proximosBtn && proximosRoot) {
+                        proximosBtn.addEventListener('click', buscarProximosLibres);
+                    }
+                    if (proximosToggle) {
+                        proximosToggle.addEventListener('click', () => {
+                            if (!diasCache.length) return;
+                            const totalDias = Object.keys(agruparProximos(diasCache)).length;
+                            if (diasVisibles < totalDias) {
+                                diasVisibles += DIAS_STEP;
+                            } else {
+                                diasVisibles = DIAS_INICIALES;
+                            }
+                            renderDiasProximos(diasCache);
                         });
                     }
                 })();
@@ -420,6 +658,15 @@ declare(strict_types=1);
         <div class="form-actions form-section">
             <button type="submit" class="btn btn-primary">Guardar</button>
             <a class="btn btn-ghost" href="<?= h($volver) ?>">Cancelar</a>
+            <?php if ((int) ($row['id'] ?? 0) > 0): ?>
+                <button
+                    type="submit"
+                    class="btn btn-danger btn-icon"
+                    formaction="/turno_eliminar.php"
+                    formmethod="post"
+                    onclick="return confirm('¿Eliminar este turno?');"
+                ><i class="bi bi-trash" aria-hidden="true"></i><span>Borrar</span></button>
+            <?php endif; ?>
         </div>
     </form>
 </div>

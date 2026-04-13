@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 final class DoctoresRepository
 {
+    private const LEGACY_HORARIO_TABLE = 'Agenda Turnos Horarios';
+    private const ESPECIALIDADES_TABLE = 'lista_especialidades_doctores';
+
     /** @var PDO */
     private $pdo;
 
@@ -46,10 +49,88 @@ final class DoctoresRepository
         return $r ?: null;
     }
 
+    public function hasEspecialidadesCatalog(): bool
+    {
+        return db_table_exists($this->pdo, self::ESPECIALIDADES_TABLE);
+    }
+
+    /**
+     * @return list<array{id:int,nombre:string}>
+     */
+    public function listEspecialidadesCatalog(): array
+    {
+        if (!$this->hasEspecialidadesCatalog()) {
+            return [];
+        }
+        try {
+            return $this->pdo->query(
+                'SELECT id, nombre FROM `' . self::ESPECIALIDADES_TABLE . '` ORDER BY nombre ASC'
+            )->fetchAll();
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    public function findEspecialidadNombreById(int $id): ?string
+    {
+        if ($id < 1 || !$this->hasEspecialidadesCatalog()) {
+            return null;
+        }
+        $st = $this->pdo->prepare(
+            'SELECT nombre FROM `' . self::ESPECIALIDADES_TABLE . '` WHERE id = ? LIMIT 1'
+        );
+        $st->execute([$id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        $nombre = trim((string) ($row['nombre'] ?? ''));
+        return $nombre !== '' ? $nombre : null;
+    }
+
     public function deleteById(int $id): void
     {
         $st = $this->pdo->prepare('DELETE FROM lista_doctores WHERE id = ?');
         $st->execute([$id]);
+    }
+
+    public function deactivateById(int $id): void
+    {
+        $st = $this->pdo->prepare('UPDATE lista_doctores SET activo = 0 WHERE id = ?');
+        $st->execute([$id]);
+    }
+
+    /**
+     * @return array{total:int,detalle:array<string,int>}
+     */
+    public function linkedUsageCounts(int $doctorId): array
+    {
+        $checks = [
+            'agenda_turnos' => ['table' => 'agenda_turnos', 'where' => 'Doctor'],
+            'ordenes' => ['table' => 'Pacientes Ordenes', 'where' => 'iddoctor'],
+            'sesiones' => ['table' => 'pacientes_sesiones', 'where' => 'iddoctor'],
+            'consultas' => ['table' => 'consultas', 'where' => 'iddoctor'],
+            'caja' => ['table' => 'caja', 'where' => 'doctor'],
+        ];
+
+        $detalle = [];
+        $total = 0;
+        foreach ($checks as $key => $cfg) {
+            $tbl = (string) $cfg['table'];
+            $col = (string) $cfg['where'];
+            if (!db_table_exists($this->pdo, $tbl) || !db_table_has_column($this->pdo, $tbl, $col)) {
+                $detalle[$key] = 0;
+                continue;
+            }
+            $sql = 'SELECT COUNT(*) AS c FROM `' . str_replace('`', '', $tbl) . '` WHERE `' . str_replace('`', '', $col) . '` = ?';
+            $st = $this->pdo->prepare($sql);
+            $st->execute([$doctorId]);
+            $cnt = (int) (($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0));
+            $detalle[$key] = $cnt;
+            $total += $cnt;
+        }
+
+        return ['total' => $total, 'detalle' => $detalle];
     }
 
     public function insertExtended(
@@ -127,6 +208,99 @@ final class DoctoresRepository
             'UPDATE lista_doctores SET nombre=?, medicoconvenio=?, bloquearmisconsultas=?, activo=?, notas=? WHERE id=?'
         );
         $st->execute([$nombre, $medicoconvenio, $bloquearmisconsultas, $activo, $notas, $id]);
+    }
+
+    public function hasLegacyHorarioTable(): bool
+    {
+        return db_table_exists($this->pdo, self::LEGACY_HORARIO_TABLE)
+            && db_table_has_column($this->pdo, self::LEGACY_HORARIO_TABLE, 'iddoctor')
+            && db_table_has_column($this->pdo, self::LEGACY_HORARIO_TABLE, 'fechadesde')
+            && db_table_has_column($this->pdo, self::LEGACY_HORARIO_TABLE, 'fechahasta');
+    }
+
+    public function findLegacyHorarioByDoctor(int $doctorId): ?array
+    {
+        if ($doctorId < 1 || !$this->hasLegacyHorarioTable()) {
+            return null;
+        }
+
+        $sql = 'SELECT * FROM `' . str_replace('`', '', self::LEGACY_HORARIO_TABLE) . '`
+                WHERE iddoctor = ?
+                ORDER BY fechadesde DESC
+                LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute([$doctorId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     */
+    public function saveLegacyHorarioByDoctor(int $doctorId, array $data): void
+    {
+        if ($doctorId < 1 || !$this->hasLegacyHorarioTable()) {
+            return;
+        }
+
+        $table = '`' . str_replace('`', '', self::LEGACY_HORARIO_TABLE) . '`';
+        $current = $this->findLegacyHorarioByDoctor($doctorId);
+
+        if ($current && isset($current['id'])) {
+            $sql = "UPDATE {$table} SET
+                    fechadesde=?, fechahasta=?,
+                    DoMaDesde=?, DoMaHasta=?, DoTaDesde=?, DoTaHasta=?,
+                    LuMaDesde=?, LuMaHasta=?, LuTaDesde=?, LuTaHasta=?,
+                    MaMaDesde=?, MaMaHasta=?, MaTaDesde=?, MaTaHasta=?,
+                    MiMaDesde=?, MiMaHasta=?, MiTaDesde=?, MiTaHasta=?,
+                    JuMaDesde=?, JuMaHasta=?, JuTaDesde=?, JuTaHasta=?,
+                    ViMaDesde=?, ViMaHasta=?, ViTaDesde=?, ViTaHasta=?,
+                    SaMaDesde=?, SaMaHasta=?, SaTaDesde=?, SaTaHasta=?,
+                    durtur1=?, durtur2=?, durtur3=?, durtur4=?, durtur5=?, durtur6=?, durtur7=?
+                WHERE id = ?";
+            $params = [
+                $data['fechadesde'], $data['fechahasta'],
+                $data['DoMaDesde'], $data['DoMaHasta'], $data['DoTaDesde'], $data['DoTaHasta'],
+                $data['LuMaDesde'], $data['LuMaHasta'], $data['LuTaDesde'], $data['LuTaHasta'],
+                $data['MaMaDesde'], $data['MaMaHasta'], $data['MaTaDesde'], $data['MaTaHasta'],
+                $data['MiMaDesde'], $data['MiMaHasta'], $data['MiTaDesde'], $data['MiTaHasta'],
+                $data['JuMaDesde'], $data['JuMaHasta'], $data['JuTaDesde'], $data['JuTaHasta'],
+                $data['ViMaDesde'], $data['ViMaHasta'], $data['ViTaDesde'], $data['ViTaHasta'],
+                $data['SaMaDesde'], $data['SaMaHasta'], $data['SaTaDesde'], $data['SaTaHasta'],
+                $data['durtur1'], $data['durtur2'], $data['durtur3'], $data['durtur4'], $data['durtur5'], $data['durtur6'], $data['durtur7'],
+                (int) $current['id'],
+            ];
+            $st = $this->pdo->prepare($sql);
+            $st->execute($params);
+            return;
+        }
+
+        $sql = "INSERT INTO {$table}
+                (iddoctor, fechadesde, fechahasta,
+                 DoMaDesde, DoMaHasta, DoTaDesde, DoTaHasta,
+                 LuMaDesde, LuMaHasta, LuTaDesde, LuTaHasta,
+                 MaMaDesde, MaMaHasta, MaTaDesde, MaTaHasta,
+                 MiMaDesde, MiMaHasta, MiTaDesde, MiTaHasta,
+                 JuMaDesde, JuMaHasta, JuTaDesde, JuTaHasta,
+                 ViMaDesde, ViMaHasta, ViTaDesde, ViTaHasta,
+                 SaMaDesde, SaMaHasta, SaTaDesde, SaTaHasta,
+                 durtur1, durtur2, durtur3, durtur4, durtur5, durtur6, durtur7)
+                VALUES
+                (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        $params = [
+            $doctorId, $data['fechadesde'], $data['fechahasta'],
+            $data['DoMaDesde'], $data['DoMaHasta'], $data['DoTaDesde'], $data['DoTaHasta'],
+            $data['LuMaDesde'], $data['LuMaHasta'], $data['LuTaDesde'], $data['LuTaHasta'],
+            $data['MaMaDesde'], $data['MaMaHasta'], $data['MaTaDesde'], $data['MaTaHasta'],
+            $data['MiMaDesde'], $data['MiMaHasta'], $data['MiTaDesde'], $data['MiTaHasta'],
+            $data['JuMaDesde'], $data['JuMaHasta'], $data['JuTaDesde'], $data['JuTaHasta'],
+            $data['ViMaDesde'], $data['ViMaHasta'], $data['ViTaDesde'], $data['ViTaHasta'],
+            $data['SaMaDesde'], $data['SaMaHasta'], $data['SaTaDesde'], $data['SaTaHasta'],
+            $data['durtur1'], $data['durtur2'], $data['durtur3'], $data['durtur4'], $data['durtur5'], $data['durtur6'], $data['durtur7'],
+        ];
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
     }
 }
 

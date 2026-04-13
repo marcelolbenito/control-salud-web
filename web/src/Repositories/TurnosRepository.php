@@ -66,6 +66,36 @@ final class TurnosRepository
     }
 
     /**
+     * @return array{nrohc:int,dni:string,nombre:string}|null
+     */
+    public function pacientePorNroHC(int $nroHC): ?array
+    {
+        if ($nroHC < 1) {
+            return null;
+        }
+        $hasApellido = db_table_has_column($this->pdo, 'pacientes', 'apellido');
+        $sqlNombre = $hasApellido
+            ? "TRIM(CONCAT(COALESCE(apellido,''), ' ', COALESCE(Nombres,'')))"
+            : "TRIM(COALESCE(Nombres,''))";
+        $sql = "SELECT NroHC AS nrohc, COALESCE(DNI,'') AS dni, {$sqlNombre} AS nombre
+                FROM pacientes
+                WHERE NroHC = ?
+                LIMIT 1";
+        $st = $this->pdo->prepare($sql);
+        $st->execute([$nroHC]);
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$r) {
+            return null;
+        }
+
+        return [
+            'nrohc' => (int) ($r['nrohc'] ?? 0),
+            'dni' => trim((string) ($r['dni'] ?? '')),
+            'nombre' => trim((string) ($r['nombre'] ?? '')),
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $ex
      */
     public function insertExtended(
@@ -271,6 +301,52 @@ final class TurnosRepository
                 'nrohc' => (int) ($r['nrohc'] ?? 0),
                 'paciente' => trim((string) ($r['paciente'] ?? '(sin nombre)')),
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Busca próximos horarios libres para un profesional.
+     *
+     * @return list<array{fecha:string,hora:string}>
+     */
+    public function proximosLibres(
+        int $doctor,
+        string $desdeFecha,
+        int $maxDias = 30,
+        int $limite = 5,
+        int $excludeTurnoId = 0
+    ): array {
+        if ($doctor < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $desdeFecha)) {
+            return [];
+        }
+        $dias = max(1, min(120, $maxDias));
+        $take = max(1, min(200, $limite));
+        $baseTs = strtotime($desdeFecha . ' 00:00:00');
+        if ($baseTs === false) {
+            return [];
+        }
+
+        $out = [];
+        for ($i = 0; $i < $dias; $i++) {
+            $fecha = date('Y-m-d', $baseTs + ($i * 86400));
+            $disp = $this->disponibilidadVisual($fecha, $doctor, $excludeTurnoId);
+            $slots = $disp['slots'] ?? [];
+            $occupied = $disp['occupied'] ?? [];
+            foreach ($slots as $slot) {
+                $h = (string) $slot;
+                if (!preg_match('/^\d{2}:\d{2}$/', $h)) {
+                    continue;
+                }
+                if ((int) ($occupied[$h] ?? 0) > 0) {
+                    continue;
+                }
+                $out[] = ['fecha' => $fecha, 'hora' => $h];
+                if (count($out) >= $take) {
+                    return $out;
+                }
+            }
         }
 
         return $out;
