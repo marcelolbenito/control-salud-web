@@ -1551,3 +1551,276 @@ code {
   border-color: #4ade80;
   background: #bbf7d0;
 }
+
+/* Odontograma (FDI) */
+.odontograma-aviso {
+  max-width: 52rem;
+  padding: 0.5rem 0;
+}
+
+.odontograma-leyenda {
+  margin-bottom: 1rem;
+}
+
+.odontograma-leyenda-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.odontograma-sim {
+  display: inline-block;
+  min-width: 1.75rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
+.label-like {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.35rem;
+}
+
+.fdi-caras-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.odontograma-svg-wrap {
+  overflow-x: auto;
+}
+
+.odontograma-svg {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}
+
+.fdi-svg-tooth {
+  cursor: pointer;
+}
+
+.fdi-svg-tooth:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.odontograma-row-anulada {
+  opacity: 0.78;
+  background: #fafafa;
+}
+
+.odontograma-row-anulada .odontograma-celda-tachada {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.badge-odontograma-anulado {
+  display: inline-block;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.odontograma-anular-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.odontograma-anular-motivo {
+  width: 100%;
+  max-width: 11rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.4rem;
+}
+
+/* Mapa odontograma por caras (SVG estilo clásico) */
+.odontograma-mapa-superficies {
+  margin-bottom: 1rem;
+}
+
+.odonto-mapa-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.odonto-mapa-chart {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.odontograma-mapa-visual {
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.odonto-mapa-sidebar {
+  flex: 0 0 15rem;
+  max-width: 100%;
+}
+
+.odonto-mapa-sidebar .btn {
+  width: 100%;
+}
+
+.odonto-mapa-archo {
+  margin-bottom: 1rem;
+}
+
+.odonto-mapa-archo-tit {
+  margin: 0 0 0.35rem 0;
+}
+
+.odonto-mapa-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.35rem 0.2rem;
+}
+
+.odonto-mapa-separador {
+  width: 0.65rem;
+  flex-shrink: 0;
+}
+
+.odonto-tooth-map {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+}
+
+.odonto-tooth-num {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1;
+}
+
+button.odonto-tooth-pick-fdi {
+  display: block;
+  border: none;
+  background: transparent;
+  padding: 0.1rem 0.2rem;
+  margin: 0;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+button.odonto-tooth-pick-fdi:hover {
+  color: var(--accent-dark);
+  background: rgba(13, 148, 136, 0.08);
+}
+
+.odonto-tooth-map.is-picked-form .odonto-tooth-svg {
+  outline: 2px solid #0d9488;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.odontograma-subtit-registro {
+  font-size: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--header-border);
+}
+
+.odontograma-mapa-embebido {
+  margin-bottom: 0;
+}
+
+.odontograma-mapa-embebido .odonto-mapa-layout {
+  margin-top: 0.35rem;
+}
+
+.odonto-tooth-svg {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: block;
+  flex-shrink: 0;
+}
+
+.odonto-surface {
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+
+.odonto-surface:hover,
+.odonto-surface:focus {
+  filter: brightness(0.94);
+  outline: none;
+}
+
+.odonto-surface:focus-visible {
+  filter: brightness(0.9);
+}
+
+.odonto-surface-static {
+  cursor: default;
+  pointer-events: none;
+}
+
+.odonto-pinceles {
+  padding: 0.55rem 0.65rem;
+  background: #f8fafc;
+  border: 1px solid var(--header-border);
+  border-radius: 8px;
+}
+
+.odonto-pinceles-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.odonto-pinceles-heading {
+  margin: 0 0 0.15rem 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.odonto-pincel-op {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  line-height: 1.25;
+}
+
+.odonto-pincel-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 3px;
+  border: 1px solid #64748b;
+  flex-shrink: 0;
+  margin-top: 0.12rem;
+}
+
+.odonto-pincel-borrar {
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  border: 1px dashed #94a3b8;
+  background: #fff;
+}

@@ -8,13 +8,15 @@ function h(?string $s): string
 }
 
 /**
- * @param array<string, mixed>|null $layout Opciones: skip_datatables (bool), extra_footer_html (string)
+ * @param array<string, mixed>|null $layout Opciones: skip_datatables (bool), extra_footer_html (string), extra_head_html (string), body_class (string)
  */
 function layout_render(string $title, string $bodyHtml, ?array $user, ?array $layout = null): void
 {
     $layout = $layout ?? [];
     $skipDatatables = !empty($layout['skip_datatables']);
     $extraFooter = (string) ($layout['extra_footer_html'] ?? '');
+    $extraHead = (string) ($layout['extra_head_html'] ?? '');
+    $bodyClass = trim((string) ($layout['body_class'] ?? ''));
     $cfg = require dirname(__DIR__) . '/config/config.php';
     $appName = $cfg['app']['name'] ?? 'Control Salud Web';
     $fullTitle = $title === '' ? $appName : $title . ' · ' . $appName;
@@ -31,8 +33,9 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/simple-datatables@10.0.0/dist/style.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/app.css">
+    <?= $extraHead ?>
 </head>
-<body>
+<body<?= $bodyClass !== '' ? ' class="' . h($bodyClass) . '"' : '' ?>>
     <header class="site-header">
         <div class="inner">
             <a class="brand" href="/"><i class="bi bi-heart-pulse-fill" aria-hidden="true"></i><span><?= h($appName) ?></span></a>

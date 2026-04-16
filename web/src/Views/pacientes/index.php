@@ -95,6 +95,7 @@ $qsSuffix = $pacientesQueryString !== '' ? '&' . $pacientesQueryString : '';
                             <td><?= (int) $r['activo'] ? 'Sí' : 'No' ?></td>
                             <td class="table-actions">
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Órdenes (HC)" href="/ordenes.php?nrohc=<?= (int) $r['NroHC'] ?>"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i><span class="btn-label"> Ord.</span></a>
+                                <a class="btn btn-sm btn-ghost btn-icon" title="Odontograma" href="/odontograma.php?id=<?= (int) $r['id'] ?><?= h($qsSuffix) ?>"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i><span class="btn-label"> Odonto</span></a>
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Historia clínica" href="/historia_clinica.php?id=<?= (int) $r['id'] ?><?= h($qsSuffix) ?>"><i class="bi bi-journal-medical" aria-hidden="true"></i><span class="btn-label"> HC</span></a>
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Editar" href="/paciente_form.php?id=<?= (int) $r['id'] ?><?= h($qsSuffix) ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
                                 <form action="/paciente_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este paciente? Esta acción no se puede deshacer.');">

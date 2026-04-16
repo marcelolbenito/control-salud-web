@@ -48,6 +48,20 @@ final class CatalogRegistry
             'lista_orientacion_sex' => self::simplePrioridadNombre('Orientación sexual', 150),
             'lista_motivos_consulta' => self::simplePrioridadNombre('Motivos de consulta (agenda)', 255),
             'lista_primera_vez' => self::simplePrioridadNombre('Tipo de atención inicial (agenda)', 120),
+            'lista_practicas' => self::simplePrioridadNombre('Prácticas / estudios (órdenes)', 255),
+            'lista_derivaciones' => self::simplePrioridadNombre('Derivaciones / derivadores (órdenes)', 255),
+            'lista_sucursales' => self::simplePrioridadNombre('Sucursales (órdenes)', 100),
+            'lista_odontograma_codigos' => [
+                'titulo' => 'Códigos odontograma (leyenda clínica)',
+                'orden' => 'prioridad_id',
+                'campos' => [
+                    'prioridad' => ['tipo' => 'int', 'label' => 'Prioridad', 'requerido' => false],
+                    'codigo' => ['tipo' => 'text', 'label' => 'Símbolo / abrev.', 'requerido' => false, 'max' => 12],
+                    'nombre' => ['tipo' => 'text', 'label' => 'Descripción', 'requerido' => true, 'max' => 255],
+                    'color_hex' => ['tipo' => 'text', 'label' => 'Color mapa (#RRGGBB)', 'requerido' => false, 'max' => 7],
+                    'mapa_overlay' => ['tipo' => 'text', 'label' => 'Marca pieza (mapa): vacío=caras; pieza_diagonal|pieza_x|pieza_circulo|pieza_relleno', 'requerido' => false, 'max' => 24],
+                ],
+            ],
         ];
     }
 

@@ -244,6 +244,55 @@ CREATE TABLE IF NOT EXISTS camas_pacientes (
   CONSTRAINT fk_camas_pacientes_cama FOREIGN KEY (idcama) REFERENCES camas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ------------------------------------------
+-- Odontograma (registros FDI por paciente; leyenda tipificada)
+-- ------------------------------------------
+CREATE TABLE IF NOT EXISTS lista_odontograma_codigos (
+  id INT NOT NULL PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  codigo VARCHAR(12) NULL COMMENT 'Símbolo o abreviatura en leyenda',
+  nombre VARCHAR(255) NOT NULL,
+  color_hex VARCHAR(7) NULL COMMENT 'Color en mapa (#RRGGBB)',
+  mapa_overlay VARCHAR(24) NULL COMMENT 'Vacío=caras; pieza_diagonal|pieza_x|pieza_circulo|pieza_relleno'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS pacientes_odontograma (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  NroHC INT NOT NULL COMMENT 'NroHC paciente',
+  pieza_fdi SMALLINT NOT NULL COMMENT 'FDI ISO 3950',
+  cara VARCHAR(20) NULL COMMENT 'Caras M,O,D,V,L,I',
+  id_codigo INT NULL,
+  notas TEXT NULL,
+  iddoctor INT NULL,
+  idusuario_web INT NULL,
+  id_orden INT NULL COMMENT 'id Pacientes Ordenes',
+  anulado TINYINT(1) NOT NULL DEFAULT 0,
+  anulado_motivo VARCHAR(255) NULL,
+  anulado_en DATETIME NULL,
+  anulado_por_usuario INT NULL,
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_odontograma_nrohc (NroHC),
+  KEY idx_odontograma_pieza (pieza_fdi),
+  KEY idx_odontograma_creado (creado_en),
+  KEY idx_odontograma_codigo (id_codigo),
+  KEY idx_odontograma_doctor (iddoctor),
+  KEY idx_odontograma_orden (id_orden),
+  CONSTRAINT fk_odontograma_codigo FOREIGN KEY (id_codigo) REFERENCES lista_odontograma_codigos (id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS pacientes_odontograma_superficies (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  NroHC INT NOT NULL,
+  pieza_fdi SMALLINT NOT NULL,
+  cara CHAR(1) NOT NULL COMMENT 'M O D V L P (P=marca pieza completa)',
+  id_codigo INT NOT NULL,
+  actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  idusuario_web INT NULL,
+  UNIQUE KEY uk_odontograma_superficie (NroHC, pieza_fdi, cara),
+  KEY idx_odontograma_sup_nrohc (NroHC),
+  CONSTRAINT fk_odontograma_sup_codigo FOREIGN KEY (id_codigo) REFERENCES lista_odontograma_codigos (id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- Usuario inicial de ejemplo (cambiar contraseña en producción)

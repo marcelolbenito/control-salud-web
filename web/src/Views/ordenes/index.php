@@ -195,14 +195,24 @@ function orden_fmt_money($v): string
                             <td><?= (int) $r['NroPaci'] ?></td>
                             <td><?= h(orden_vista_paciente($r)) ?></td>
                             <td><?= $numOrden !== null && $numOrden !== '' ? h((string) $numOrden) : '—' ?></td>
-                            <td><?= isset($r['sucursal']) && $r['sucursal'] !== '' && $r['sucursal'] !== null ? (int) $r['sucursal'] : '—' ?></td>
+                            <?php
+                            $idSuc = isset($r['sucursal']) && $r['sucursal'] !== '' && $r['sucursal'] !== null ? (int) $r['sucursal'] : 0;
+                            $nomSuc = trim((string) ($r['sucursal_nombre'] ?? ''));
+                            $sucTxt = $nomSuc !== '' ? $nomSuc : ($idSuc > 0 ? (string) $idSuc : '—');
+                            ?>
+                            <td class="cell-clip" title="<?= h($sucTxt) ?>"><?= h($sucTxt) ?></td>
                             <?php
                             $idOs = (int) ($r['idobrasocial'] ?? 0);
                             $nomCob = trim((string) ($r['cobertura_nombre'] ?? ''));
                             $cobTxt = $nomCob !== '' ? $nomCob : ($idOs > 0 ? (string) $idOs : '—');
                             ?>
                             <td class="cell-clip" title="<?= h($cobTxt) ?>"><?= h($cobTxt) ?></td>
-                            <td><?= isset($r['idpractica']) && (int) $r['idpractica'] > 0 ? (int) $r['idpractica'] : '—' ?></td>
+                            <?php
+                            $idPr = (int) ($r['idpractica'] ?? 0);
+                            $nomPr = trim((string) ($r['practica_nombre'] ?? ''));
+                            $prTxt = $nomPr !== '' ? $nomPr : ($idPr > 0 ? (string) $idPr : '—');
+                            ?>
+                            <td class="cell-clip" title="<?= h($prTxt) ?>"><?= h($prTxt) ?></td>
                             <td><?= h((string) ($r['doctor_nombre'] ?? '')) ?></td>
                             <td><?= !empty($r['fecha_orden']) ? h((string) $r['fecha_orden']) : '—' ?></td>
                             <td><?= h(orden_fmt_money($r['costo'] ?? null)) ?></td>

@@ -1,0 +1,108 @@
+/* Pantalla: barra de acciones */
+.odontograma-print-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.65rem 0;
+  margin-bottom: 1rem;
+  background: transparent;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.odontograma-print-body .site-main {
+  padding-top: 0.5rem;
+}
+
+.odontograma-print-sheet {
+  padding-bottom: 2rem;
+}
+
+.odontograma-print-header h1 {
+  font-size: 1.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.odontograma-print-meta {
+  margin: 0.2rem 0;
+  font-size: 0.95rem;
+}
+
+.odontograma-mapa-impresion-integrada {
+  margin: 0;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.odontograma-print-leyenda,
+.odontograma-print-graficos,
+.odontograma-mapa-superficies,
+.odontograma-print-historial {
+  margin-top: 1.25rem;
+  page-break-inside: avoid;
+}
+
+.odontograma-print-leyenda h2,
+.odontograma-print-graficos h2,
+.odontograma-mapa-superficies h2,
+.odontograma-print-historial h2 {
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.25rem;
+}
+
+.odontograma-print-table {
+  font-size: 0.82rem;
+}
+
+.odontograma-print-table th,
+.odontograma-print-table td {
+  padding: 0.35rem 0.45rem;
+  vertical-align: top;
+}
+
+@media print {
+  .no-print,
+  .site-header,
+  .odontograma-print-toolbar {
+    display: none !important;
+  }
+
+  body.odontograma-print-body {
+    background: #fff !important;
+  }
+
+  .odontograma-print-body .site-main {
+    padding: 0 !important;
+  }
+
+  .odontograma-print-sheet {
+    max-width: 100% !important;
+  }
+
+  .odontograma-svg-wrap {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+
+  .odontograma-print-table {
+    break-inside: auto;
+  }
+
+  .odontograma-print-table thead {
+    display: table-header-group;
+  }
+
+  .odonto-surface-static {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
+}

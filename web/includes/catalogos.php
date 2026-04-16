@@ -41,6 +41,39 @@ function post_string_null(string $key): ?string
     return $v;
 }
 
+/** Decimal desde POST (coma o punto). Vacío → null. */
+function post_float_null(string $key): ?float
+{
+    $v = trim(str_replace(',', '.', (string) ($_POST[$key] ?? '')));
+    if ($v === '') {
+        return null;
+    }
+    if (!is_numeric($v)) {
+        return null;
+    }
+
+    return (float) $v;
+}
+
+/**
+ * Si/No/Todos para SMALLINT: '' → null, '1' → 1, '0' → 0.
+ */
+function post_smallint_tri(string $key): ?int
+{
+    $v = trim((string) ($_POST[$key] ?? ''));
+    if ($v === '') {
+        return null;
+    }
+    if ($v === '1') {
+        return 1;
+    }
+    if ($v === '0') {
+        return 0;
+    }
+
+    return null;
+}
+
 /** Fecha Y-m-d o datetime-local → NULL o cadena compatible con MySQL. */
 function post_date_mysql_null(string $key): ?string
 {

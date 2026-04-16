@@ -98,6 +98,18 @@ final class PacientesRepository
         return $row ?: null;
     }
 
+    public function findByNroHC(int $nroHC): ?array
+    {
+        if ($nroHC < 1) {
+            return null;
+        }
+        $st = $this->pdo->prepare('SELECT * FROM pacientes WHERE NroHC = ? LIMIT 1');
+        $st->execute([$nroHC]);
+        $row = $st->fetch();
+
+        return $row ?: null;
+    }
+
     public function updateHistoriaClinica(int $id, string $hcText, string $antecedentes, bool $hasHcTexto, bool $hasAnteced): void
     {
         if ($hasHcTexto && $hasAnteced) {

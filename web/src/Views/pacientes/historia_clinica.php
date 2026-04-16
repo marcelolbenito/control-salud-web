@@ -39,6 +39,7 @@ declare(strict_types=1);
 
         <div class="form-actions form-section">
             <button type="submit" class="btn btn-primary">Guardar historia clínica</button>
+            <a class="btn btn-ghost" href="/odontograma.php?id=<?= (int) $id ?>"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> Odontograma</a>
             <a class="btn btn-ghost" href="/paciente_form.php?id=<?= (int) $id ?>">Editar datos del paciente</a>
         </div>
     </form>
