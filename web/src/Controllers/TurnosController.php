@@ -99,6 +99,7 @@ final class TurnosController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
             $Fecha = trim((string) ($_POST['Fecha'] ?? ''));
             $horaRaw = trim((string) ($_POST['hora'] ?? ''));
@@ -247,6 +248,7 @@ final class TurnosController
             header('Location: /agenda.php');
             exit;
         }
+        csrf_verify();
         $id = (int) ($_POST['id'] ?? 0);
         if ($id < 1) {
             header('Location: /agenda.php');

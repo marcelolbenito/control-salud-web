@@ -100,6 +100,7 @@ final class CatalogosController
         $fkOptions = $this->fkOptionsFor($def['campos']);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
             $parsed = $this->parseCampos($def['campos'], $_POST, $error);
             if ($error === '') {
@@ -134,6 +135,7 @@ final class CatalogosController
             header('Location: /catalogos.php');
             exit;
         }
+        csrf_verify();
         $tabla = trim((string) ($_POST['tabla'] ?? ''));
         $def = CatalogRegistry::get($tabla);
         if ($def === null) {

@@ -228,6 +228,7 @@ function orden_fmt_money($v): string
                             <td class="table-actions">
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Editar" href="/orden_form.php?id=<?= (int) $r['id'] ?><?= h($qsSuffix) ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
                                 <form action="/orden_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar esta orden?');">
+                                    <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
                                 </form>

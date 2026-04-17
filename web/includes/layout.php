@@ -30,8 +30,8 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@10.0.0/dist/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@10.0.0/dist/style.css" rel="stylesheet" integrity="sha384-CinX6s1UC1GpaQwL9eKshF7JhtC8H2xchDD0dWqlCgZ8t+GCCcjluxCgmsbVpdEh" crossorigin="anonymous">
     <link rel="stylesheet" href="/css/app.css">
     <?= $extraHead ?>
 </head>
@@ -65,7 +65,7 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
         <?= $bodyHtml ?>
     </main>
     <?php if (!$skipDatatables): ?>
-    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@10.0.0/dist/umd/simple-datatables.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@10.0.0/dist/umd/simple-datatables.js" defer integrity="sha384-zC4qlxpbZLn7OW9yPcJveO8HidLdXKcboqjS6ypXOEqQUNNj4TGnW7XH51eSHVoE" crossorigin="anonymous"></script>
     <script src="/js/app.js" defer></script>
     <?php endif; ?>
     <?= $extraFooter ?>

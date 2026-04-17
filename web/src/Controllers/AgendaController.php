@@ -54,6 +54,7 @@ final class AgendaController
 
     public function quickStatusPost(): void
     {
+        csrf_verify();
         $id = (int) ($_POST['id'] ?? 0);
         $accion = trim((string) ($_POST['accion'] ?? ''));
         $fecha = trim((string) ($_POST['fecha'] ?? ''));

@@ -87,6 +87,7 @@ Checklist mínimo por PR/cambio grande:
 - [ ] ¿Se creó/renombró Controller/Repository/View?
 - [ ] ¿Hubo cambios de esquema/migraciones?
 - [ ] ¿Este archivo (`web/ARQUITECTURA_PROPUESTA.md`) quedó actualizado?
+- [ ] ¿Se eliminaron archivos temporales, dumps locales o documentación obsoleta que ya no aportan al repo?
 
 ## Próximos pasos recomendados
 
@@ -107,4 +108,3 @@ Checklist mínimo por PR/cambio grande:
 - Se incorporó `ConfigExeFieldMap` para mapear `Config` del exe a `config` web (clave/valor).
 - Se actualizó navegación principal (`layout`) con accesos a Catálogos y Sistema.
 - Se formalizó convención de limpieza del repo (sin scripts de prueba/dumps grandes versionados).
-

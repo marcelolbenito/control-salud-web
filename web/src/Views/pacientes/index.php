@@ -99,6 +99,7 @@ $qsSuffix = $pacientesQueryString !== '' ? '&' . $pacientesQueryString : '';
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Historia clínica" href="/historia_clinica.php?id=<?= (int) $r['id'] ?><?= h($qsSuffix) ?>"><i class="bi bi-journal-medical" aria-hidden="true"></i><span class="btn-label"> HC</span></a>
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Editar" href="/paciente_form.php?id=<?= (int) $r['id'] ?><?= h($qsSuffix) ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
                                 <form action="/paciente_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este paciente? Esta acción no se puede deshacer.');">
+                                    <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
                                 </form>

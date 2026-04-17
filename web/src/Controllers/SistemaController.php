@@ -37,6 +37,7 @@ final class SistemaController
             header('Location: /sistema.php');
             exit;
         }
+        csrf_verify();
         $n = ConfigExeFieldMap::aplicarSembradoConfig($this->pdo);
         if ($n === 0) {
             flash_set('No se importó ningún valor: verificá tabla config, y que exista backup_legacy_Config_* con datos.');
@@ -66,6 +67,7 @@ final class SistemaController
 
         $error = '';
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
             $clave = trim((string) ($_POST['clave'] ?? ''));
             $valor = (string) ($_POST['valor'] ?? '');
@@ -113,6 +115,7 @@ final class SistemaController
             header('Location: /sistema.php');
             exit;
         }
+        csrf_verify();
         $id = (int) ($_POST['id'] ?? 0);
         if ($id > 0 && db_table_exists($this->pdo, 'config')) {
             $st = $this->pdo->prepare('DELETE FROM config WHERE id = ?');

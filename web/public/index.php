@@ -86,7 +86,8 @@ try {
         $dashboard['doctorCounts'][] = (int) $row['c'];
 }
 } catch (Throwable $e) {
-    $dbError = $e->getMessage();
+    $dbError = true;
+    error_log('[control-salud] dashboard DB error: ' . $e->getMessage());
 }
 
 $dashboardJson = '';
@@ -96,7 +97,7 @@ if (!isset($dbError)) {
         $dashboard,
         JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS
     );
-    $extraFooter = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>'
+    $extraFooter = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>'
         . '<script src="/js/dashboard.js" defer></script>';
 }
 
@@ -105,7 +106,6 @@ if (!isset($dbError)) {
     <?php if (isset($dbError)): ?>
         <h1>Inicio</h1>
         <p class="alert alert-error">No se pudo leer la base de datos. Revisá <code>web/config/config.local.php</code> y que exista la BD con el esquema importado.</p>
-        <pre class="error-detail"><?= h($dbError) ?></pre>
     <?php else: ?>
         <header class="dashboard-head">
             <div class="dashboard-head-text">

@@ -37,6 +37,7 @@ $triSel = static function ($cur, $v): string {
         <p class="alert alert-error"><?= h($error) ?></p>
     <?php endif; ?>
     <form method="post" class="form-paciente" id="form-orden">
+        <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
         <input type="hidden" name="ordenes_return_qs" value="<?= h((string) ($ordenesReturnQs ?? '')) ?>">
 

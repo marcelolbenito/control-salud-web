@@ -99,6 +99,7 @@ $idOrdVal = (string) $fo('id_orden', '');
             es la “constancia” clínica por visita o procedimiento. Podés usar solo el mapa, solo el historial, o ambos según tu práctica.
         </p>
         <form method="post" class="form-paciente" id="form-odontograma">
+            <?= csrf_field() ?>
             <input type="hidden" name="_action" value="registrar">
 
             <div class="form-grid-ext">
@@ -113,6 +114,7 @@ $idOrdVal = (string) $fo('id_orden', '');
     <section class="form-card">
         <h2 class="form-section-title">Nuevo registro</h2>
         <form method="post" class="form-paciente" id="form-odontograma">
+            <?= csrf_field() ?>
             <input type="hidden" name="_action" value="registrar">
             <p class="muted small" style="margin:0 0 0.5rem 0;">Elegí la pieza en el <strong>esquema dental</strong> (clic o teclado) o en el desplegable <strong>Pieza (FDI)</strong>.</p>
             <p class="muted small" style="margin:0 0 0.65rem 0;">Cada <strong>Registrar en odontograma</strong> guarda una fila en el historial (fecha, usuario, notas, etc.). No tenés mapa de colores en esta instalación hasta aplicar la migración del mapa por superficies.</p>
@@ -284,6 +286,7 @@ $idOrdVal = (string) $fo('id_orden', '');
                                         <?php if (!$anul): ?>
                                             <form method="post" class="odontograma-anular-form" action="/odontograma.php?id=<?= (int) $idPac ?>"
                                                   onsubmit="var m=this.anular_motivo.value.trim(); if(!m){alert('Indicá el motivo de anulación.'); return false;} return confirm('¿Anular este registro? Quedará marcado como anulado en el historial.');">
+                                                <?= csrf_field() ?>
                                                 <input type="hidden" name="_action" value="anular">
                                                 <input type="hidden" name="registro_id" value="<?= $rid ?>">
                                                 <input type="text" name="anular_motivo" class="odontograma-anular-motivo" placeholder="Motivo" required maxlength="255" autocomplete="off">

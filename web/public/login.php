@@ -19,6 +19,7 @@ try {
 }
 
 if ($pdo !== null && $error === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
     $usuario = trim((string) ($_POST['usuario'] ?? ''));
     $clave = (string) ($_POST['clave'] ?? '');
 
@@ -53,6 +54,7 @@ ob_start();
     <?php endif; ?>
     <?php if ($pdo !== null): ?>
     <form method="post" class="form-card">
+        <?= csrf_field() ?>
         <label>
             Usuario
             <input type="text" name="usuario" required autocomplete="username" value="<?= h($_POST['usuario'] ?? '') ?>">

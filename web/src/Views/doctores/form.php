@@ -16,6 +16,7 @@ declare(strict_types=1);
         <p class="alert alert-error"><?= h($error) ?></p>
     <?php endif; ?>
     <form method="post" class="form-paciente">
+        <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
 
         <section class="form-section">

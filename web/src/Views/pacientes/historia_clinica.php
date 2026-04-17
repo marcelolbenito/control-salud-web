@@ -17,6 +17,7 @@ declare(strict_types=1);
     <?php endif; ?>
 
     <form method="post" class="form-paciente">
+        <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $id ?>">
 
         <section class="form-section">

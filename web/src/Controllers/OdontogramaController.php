@@ -71,6 +71,7 @@ final class OdontogramaController
         $mapaSuperficiesActivo = $repo->tablaSuperficiesExiste();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['_action'] ?? '') === 'anular') {
+            csrf_verify();
             if (!$odontogramaExt) {
                 flash_set('Ejecutá sql/migration_015_odontograma_orden_anulacion.sql para habilitar anulaciones con motivo.');
                 header('Location: /odontograma.php?id=' . $idPac);
@@ -105,6 +106,7 @@ final class OdontogramaController
         $formOld = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $pieza = (int) ($_POST['pieza_fdi'] ?? 0);
             $caras = $_POST['cara'] ?? [];
             if (!is_array($caras)) {

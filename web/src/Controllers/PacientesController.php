@@ -69,6 +69,7 @@ final class PacientesController
         $error = '';
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $hcTextoIn = trim((string) ($_POST['hc_texto'] ?? ''));
             $antecedIn = trim((string) ($_POST['antecedentes_hc'] ?? ''));
 
@@ -164,6 +165,7 @@ final class PacientesController
         $fotoDisponible = $ext && db_table_has_column($this->pdo, 'pacientes', 'ruta_foto');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
             $NroHC = (int) ($_POST['NroHC'] ?? 0);
             $Nombres = trim((string) ($_POST['Nombres'] ?? ''));
@@ -452,6 +454,7 @@ final class PacientesController
             header('Location: /pacientes.php');
             exit;
         }
+        csrf_verify();
         $id = (int) ($_POST['id'] ?? 0);
         if ($id < 1) {
             header('Location: /pacientes.php');

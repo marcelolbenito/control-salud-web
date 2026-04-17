@@ -111,6 +111,7 @@ final class OrdenesController
         $error = '';
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
             $parsed = self::ordenParsePost($this->pdo, $repo, $this->user);
             $error = $parsed['error'];
@@ -157,6 +158,7 @@ final class OrdenesController
             header('Location: /ordenes.php');
             exit;
         }
+        csrf_verify();
         $id = (int) ($_POST['id'] ?? 0);
         if ($id < 1) {
             header('Location: /ordenes.php');

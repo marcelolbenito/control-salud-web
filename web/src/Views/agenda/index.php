@@ -133,6 +133,7 @@ declare(strict_types=1);
                                 ?>
                                 <?php if ($extAgenda): ?>
                                     <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
+                                        <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                         <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
                                         <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
@@ -140,6 +141,7 @@ declare(strict_types=1);
                                         <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar llegó"><i class="bi bi-person-check"></i><span class="btn-label"> Llegó</span></button>
                                     </form>
                                     <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
+                                        <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                         <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
                                         <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
@@ -147,6 +149,7 @@ declare(strict_types=1);
                                         <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar atendido"><i class="bi bi-check2-square"></i><span class="btn-label"> Atendido</span></button>
                                     </form>
                                     <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
+                                        <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                         <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
                                         <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
@@ -157,6 +160,7 @@ declare(strict_types=1);
                                 <a class="btn btn-sm btn-ghost btn-icon" title="<?= h($titleOrden) ?>" href="<?= h($hrefOrden) ?>"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i><span class="btn-label"> Orden</span></a>
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Editar turno" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
                                 <form action="/turno_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este turno?');">
+                                    <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
                                 </form>

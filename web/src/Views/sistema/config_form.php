@@ -9,6 +9,7 @@ $isEdit = (int) ($row['id'] ?? 0) > 0;
         <p class="alert alert-error"><?= h($error) ?></p>
     <?php endif; ?>
     <form method="post" class="form-card">
+        <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) ($row['id'] ?? 0) ?>">
         <label>
             Clave

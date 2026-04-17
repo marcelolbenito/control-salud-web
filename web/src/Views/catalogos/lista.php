@@ -28,6 +28,7 @@ declare(strict_types=1);
                     <td class="actions">
                         <a class="btn btn-sm btn-ghost" href="<?= h('/catalogos.php?a=form&tabla=' . rawurlencode($tabla) . '&id=' . (int) $r['id']) ?>">Editar</a>
                         <form method="post" action="/catalogos.php?a=delete" class="inline-form" onsubmit="return confirm('¿Eliminar este ítem?');">
+                            <?= csrf_field() ?>
                             <input type="hidden" name="tabla" value="<?= h($tabla) ?>">
                             <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>

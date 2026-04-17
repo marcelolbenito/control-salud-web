@@ -74,6 +74,7 @@ final class DoctoresController
         $error = '';
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
             $nombre = trim((string) ($_POST['nombre'] ?? ''));
             $medicoconvenio = isset($_POST['medicoconvenio']) ? 1 : 0;
@@ -191,6 +192,7 @@ final class DoctoresController
             header('Location: /doctores.php');
             exit;
         }
+        csrf_verify();
         $id = (int) ($_POST['id'] ?? 0);
         if ($id < 1) {
             header('Location: /doctores.php');

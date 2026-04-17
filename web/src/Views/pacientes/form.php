@@ -67,6 +67,7 @@ function paciente_date_only($v): string
     <?php endif; ?>
 
     <form method="post" class="form-paciente" enctype="multipart/form-data">
+        <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
 
         <section id="pf-ident" class="form-section patient-form-section">

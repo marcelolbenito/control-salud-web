@@ -44,6 +44,7 @@ declare(strict_types=1);
         <?php endif; ?>
         <?php if (!empty($canSeedFromExe)): ?>
             <form method="post" action="/sistema.php?a=seed_exe_config" class="toolbar" onsubmit="return confirm('Se actualizarán claves existentes con el mismo nombre. ¿Continuar?');">
+                <?= csrf_field() ?>
                 <button type="submit" class="btn btn-primary">Importar valores desde backup (.exe) a config</button>
             </form>
         <?php endif; ?>
@@ -95,6 +96,7 @@ declare(strict_types=1);
                             <td class="actions">
                                 <a class="btn btn-sm btn-ghost" href="/sistema.php?a=config_form&amp;id=<?= (int) $cr['id'] ?>">Editar</a>
                                 <form method="post" action="/sistema.php?a=config_delete" class="inline-form" onsubmit="return confirm('¿Eliminar este parámetro?');">
+                                    <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $cr['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
                                 </form>
