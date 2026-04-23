@@ -26,7 +26,7 @@ if ($pdo !== null && $error === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($usuario === '' || $clave === '') {
         $error = 'Completá usuario y contraseña.';
     } else {
-        $st = $pdo->prepare('SELECT id, usuario, nombre, password_hash, activo FROM usuarios WHERE usuario = ? LIMIT 1');
+        $st = $pdo->prepare('SELECT id, usuario, nombre, password_hash, activo, id_clinica FROM usuarios WHERE usuario = ? LIMIT 1');
         $st->execute([$usuario]);
         $row = $st->fetch();
 
@@ -35,7 +35,8 @@ if ($pdo !== null && $error === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!password_verify($clave, $row['password_hash'])) {
             $error = 'Usuario o contraseña incorrectos.';
         } else {
-            auth_login((int) $row['id'], $row['usuario'], (string) $row['nombre']);
+            $idClinica = isset($row['id_clinica']) ? (int) $row['id_clinica'] : 1;
+            auth_login((int) $row['id'], $row['usuario'], (string) $row['nombre'], $idClinica > 0 ? $idClinica : 1);
             header('Location: /index.php');
             exit;
         }

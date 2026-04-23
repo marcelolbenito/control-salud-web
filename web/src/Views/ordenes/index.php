@@ -5,6 +5,7 @@ declare(strict_types=1);
 /** @var array<string, string|int> $f */
 /** @var list<array<string, mixed>> $rows */
 /** @var list<array<string, mixed>> $doctores */
+/** @var list<array{id:int|string,nombre:?string}> $cobOpts */
 /** @var string $ordenesQueryString */
 /** @var bool $ordenesFiltrosActivos */
 
@@ -33,6 +34,12 @@ function orden_tri_selected(string $cur, string $val): string
     return (string) $cur === $val ? ' selected' : '';
 }
 
+function orden_estado_checked(array $f, string $key, string $estado): string
+{
+    $vals = isset($f[$key]) && is_array($f[$key]) ? $f[$key] : [];
+    return in_array($estado, $vals, true) ? ' checked' : '';
+}
+
 function orden_fmt_money($v): string
 {
     if ($v === null || $v === '') {
@@ -44,6 +51,32 @@ function orden_fmt_money($v): string
 
     return number_format((float) $v, 2, ',', '.');
 }
+
+function orden_num($v): float
+{
+    if ($v === null || $v === '' || !is_numeric($v)) {
+        return 0.0;
+    }
+
+    return (float) $v;
+}
+
+function orden_fmt_ref($idRaw, $nombreRaw): string
+{
+    $id = ($idRaw !== null && $idRaw !== '' && is_numeric($idRaw)) ? (int) $idRaw : 0;
+    $nom = trim((string) $nombreRaw);
+    if ($nom !== '' && $id > 0) {
+        return $nom . ' · #' . $id;
+    }
+    if ($nom !== '') {
+        return $nom;
+    }
+    if ($id > 0) {
+        return 'Sin catálogo · #' . $id;
+    }
+
+    return '—';
+}
 ?>
 <div class="container container-wide">
     <div class="page-head">
@@ -52,10 +85,15 @@ function orden_fmt_money($v): string
     </div>
 
     <form method="get" class="agenda-filters form-card" action="/ordenes.php">
+        <h2 class="form-section-title" style="margin-bottom:0.35rem;">Buscador de órdenes</h2>
+        <p class="muted small" style="margin-top:0;margin-bottom:0.75rem;">
+            Empezá con filtros rápidos (paciente, profesional y fecha). Si necesitás más precisión, abrí «Filtros avanzados».
+        </p>
+
         <div class="filter-row">
             <label>
-                Nro. HC
-                <input type="number" name="nrohc" min="1" placeholder="Todos" value="<?= ($f['nrohc'] ?? 0) > 0 ? (int) $f['nrohc'] : '' ?>">
+                Nro. HC (paciente)
+                <input type="number" name="nrohc" min="1" placeholder="Ej. 1234" value="<?= ($f['nrohc'] ?? 0) > 0 ? (int) $f['nrohc'] : '' ?>">
             </label>
             <label>
                 Profesional
@@ -67,80 +105,151 @@ function orden_fmt_money($v): string
                 </select>
             </label>
             <label>
-                ID desde
-                <input type="number" name="id_desde" min="1" placeholder="—" value="<?= ($f['id_desde'] ?? 0) > 0 ? (int) $f['id_desde'] : '' ?>">
-            </label>
-            <label>
-                ID hasta
-                <input type="number" name="id_hasta" min="1" placeholder="—" value="<?= ($f['id_hasta'] ?? 0) > 0 ? (int) $f['id_hasta'] : '' ?>">
-            </label>
-            <label>
-                Fecha desde
+                Fecha orden desde
                 <input type="date" name="fecha_desde" value="<?= h((string) ($f['fecha_desde'] ?? '')) ?>">
             </label>
             <label>
-                Fecha hasta
+                Fecha orden hasta
                 <input type="date" name="fecha_hasta" value="<?= h((string) ($f['fecha_hasta'] ?? '')) ?>">
             </label>
-        </div>
-        <div class="filter-row">
             <label>
-                Sucursal
-                <input type="number" name="sucursal" min="1" placeholder="—" value="<?= ($f['sucursal'] ?? 0) > 0 ? (int) $f['sucursal'] : '' ?>">
+                ID desde
+                <input type="number" name="id_desde" min="1" placeholder="Opcional" value="<?= ($f['id_desde'] ?? 0) > 0 ? (int) $f['id_desde'] : '' ?>">
             </label>
             <label>
-                Id cobertura / OS
-                <input type="number" name="idobrasocial" min="1" placeholder="—" value="<?= ($f['idobrasocial'] ?? 0) > 0 ? (int) $f['idobrasocial'] : '' ?>">
-            </label>
-            <label>
-                Id práctica
-                <input type="number" name="idpractica" min="1" placeholder="—" value="<?= ($f['idpractica'] ?? 0) > 0 ? (int) $f['idpractica'] : '' ?>">
-            </label>
-            <label>
-                Id derivado
-                <input type="number" name="idderivado" min="1" placeholder="—" value="<?= ($f['idderivado'] ?? 0) > 0 ? (int) $f['idderivado'] : '' ?>">
-            </label>
-            <label>
-                Id plan
-                <input type="number" name="idplan" min="1" placeholder="—" value="<?= ($f['idplan'] ?? 0) > 0 ? (int) $f['idplan'] : '' ?>">
+                ID hasta
+                <input type="number" name="id_hasta" min="1" placeholder="Opcional" value="<?= ($f['id_hasta'] ?? 0) > 0 ? (int) $f['id_hasta'] : '' ?>">
             </label>
         </div>
-        <div class="filter-row">
-            <label>
-                Estado
-                <input type="text" name="estado" maxlength="4" placeholder="Código" value="<?= h((string) ($f['estado'] ?? '')) ?>">
-            </label>
-            <label>
-                Estado OS
-                <input type="text" name="estado_os" maxlength="4" placeholder="Código" value="<?= h((string) ($f['estado_os'] ?? '')) ?>">
-            </label>
-            <label>
-                Autorizada
-                <select name="autorizada">
-                    <option value=""<?= orden_tri_selected((string) ($f['autorizada'] ?? ''), '') ?>>Todas</option>
-                    <option value="1"<?= orden_tri_selected((string) ($f['autorizada'] ?? ''), '1') ?>>Sí</option>
-                    <option value="0"<?= orden_tri_selected((string) ($f['autorizada'] ?? ''), '0') ?>>No</option>
-                </select>
-            </label>
-            <label>
-                Entregada
-                <select name="entregada">
-                    <option value=""<?= orden_tri_selected((string) ($f['entregada'] ?? ''), '') ?>>Todas</option>
-                    <option value="1"<?= orden_tri_selected((string) ($f['entregada'] ?? ''), '1') ?>>Sí</option>
-                    <option value="0"<?= orden_tri_selected((string) ($f['entregada'] ?? ''), '0') ?>>No</option>
-                </select>
-            </label>
-            <label>
-                Liquidada
-                <select name="liquidada">
-                    <option value=""<?= orden_tri_selected((string) ($f['liquidada'] ?? ''), '') ?>>Todas</option>
-                    <option value="1"<?= orden_tri_selected((string) ($f['liquidada'] ?? ''), '1') ?>>Sí</option>
-                    <option value="0"<?= orden_tri_selected((string) ($f['liquidada'] ?? ''), '0') ?>>No</option>
-                </select>
-            </label>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Filtrar</button>
+
+        <details style="margin-top:0.75rem;">
+            <summary><strong>Filtros avanzados</strong> (cobertura, estados, IVA, autorización, honorarios)</summary>
+            <div class="filter-row" style="margin-top:0.6rem;">
+                <?php if ($cobOpts !== []): ?>
+                    <label>
+                        Cobertura / OS
+                        <select name="idobrasocial">
+                            <?php catalogo_select_options($cobOpts, (int) ($f['idobrasocial'] ?? 0), 'Todas') ?>
+                        </select>
+                    </label>
+                <?php else: ?>
+                    <label>
+                        Id cobertura / OS
+                        <input type="number" name="idobrasocial" min="1" placeholder="Código" value="<?= ($f['idobrasocial'] ?? 0) > 0 ? (int) $f['idobrasocial'] : '' ?>">
+                    </label>
+                <?php endif; ?>
+                <label>
+                    Id plan
+                    <input type="number" name="idplan" min="1" placeholder="Código" value="<?= ($f['idplan'] ?? 0) > 0 ? (int) $f['idplan'] : '' ?>">
+                </label>
+                <label>
+                    Id práctica
+                    <input type="number" name="idpractica" min="1" placeholder="Código" value="<?= ($f['idpractica'] ?? 0) > 0 ? (int) $f['idpractica'] : '' ?>">
+                </label>
+                <label>
+                    Id derivado
+                    <input type="number" name="idderivado" min="1" placeholder="Código" value="<?= ($f['idderivado'] ?? 0) > 0 ? (int) $f['idderivado'] : '' ?>">
+                </label>
+                <label>
+                    Médico sesión
+                    <select name="sesion_doctor">
+                        <option value="0">Todos</option>
+                        <?php foreach ($doctores as $d): ?>
+                            <option value="<?= (int) $d['id'] ?>"<?= (int) ($f['sesion_doctor'] ?? 0) === (int) $d['id'] ? ' selected' : '' ?>><?= h($d['nombre']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
+                    Estado sesiones
+                    <select name="sesion_estado">
+                        <option value=""<?= orden_tri_selected((string) ($f['sesion_estado'] ?? ''), '') ?>>Todos</option>
+                        <option value="con"<?= orden_tri_selected((string) ($f['sesion_estado'] ?? ''), 'con') ?>>Con sesiones</option>
+                        <option value="sin"<?= orden_tri_selected((string) ($f['sesion_estado'] ?? ''), 'sin') ?>>Sin sesiones</option>
+                        <option value="pendientes"<?= orden_tri_selected((string) ($f['sesion_estado'] ?? ''), 'pendientes') ?>>Sesiones pendientes</option>
+                        <option value="completas"<?= orden_tri_selected((string) ($f['sesion_estado'] ?? ''), 'completas') ?>>Sesiones completas</option>
+                    </select>
+                </label>
+            </div>
+            <div class="filter-row">
+                <label>
+                    Estado (orden)
+                    <input type="text" name="estado" maxlength="4" placeholder="A / F / P" value="<?= h((string) ($f['estado'] ?? '')) ?>">
+                </label>
+                <label>
+                    Estado (multi A/F/P)
+                    <span class="checkbox-inline-group">
+                        <label><input type="checkbox" name="estado_multi[]" value="A"<?= orden_estado_checked($f, 'estado_multi', 'A') ?>> A</label>
+                        <label><input type="checkbox" name="estado_multi[]" value="F"<?= orden_estado_checked($f, 'estado_multi', 'F') ?>> F</label>
+                        <label><input type="checkbox" name="estado_multi[]" value="P"<?= orden_estado_checked($f, 'estado_multi', 'P') ?>> P</label>
+                    </span>
+                </label>
+                <label>
+                    Estado OS
+                    <input type="text" name="estado_os" maxlength="4" placeholder="A / F / P" value="<?= h((string) ($f['estado_os'] ?? '')) ?>">
+                </label>
+                <label>
+                    Estado OS (multi A/F/P)
+                    <span class="checkbox-inline-group">
+                        <label><input type="checkbox" name="estado_os_multi[]" value="A"<?= orden_estado_checked($f, 'estado_os_multi', 'A') ?>> A</label>
+                        <label><input type="checkbox" name="estado_os_multi[]" value="F"<?= orden_estado_checked($f, 'estado_os_multi', 'F') ?>> F</label>
+                        <label><input type="checkbox" name="estado_os_multi[]" value="P"<?= orden_estado_checked($f, 'estado_os_multi', 'P') ?>> P</label>
+                    </span>
+                </label>
+                <label>
+                    Autorizada
+                    <select name="autorizada">
+                        <option value=""<?= orden_tri_selected((string) ($f['autorizada'] ?? ''), '') ?>>Todas</option>
+                        <option value="1"<?= orden_tri_selected((string) ($f['autorizada'] ?? ''), '1') ?>>Sí</option>
+                        <option value="0"<?= orden_tri_selected((string) ($f['autorizada'] ?? ''), '0') ?>>No</option>
+                    </select>
+                </label>
+                <label>
+                    Entregada
+                    <select name="entregada">
+                        <option value=""<?= orden_tri_selected((string) ($f['entregada'] ?? ''), '') ?>>Todas</option>
+                        <option value="1"<?= orden_tri_selected((string) ($f['entregada'] ?? ''), '1') ?>>Sí</option>
+                        <option value="0"<?= orden_tri_selected((string) ($f['entregada'] ?? ''), '0') ?>>No</option>
+                    </select>
+                </label>
+                <label>
+                    Liquidada
+                    <select name="liquidada">
+                        <option value=""<?= orden_tri_selected((string) ($f['liquidada'] ?? ''), '') ?>>Todas</option>
+                        <option value="1"<?= orden_tri_selected((string) ($f['liquidada'] ?? ''), '1') ?>>Sí</option>
+                        <option value="0"<?= orden_tri_selected((string) ($f['liquidada'] ?? ''), '0') ?>>No</option>
+                    </select>
+                </label>
+                <label>
+                    Paga IVA
+                    <select name="pagaiva">
+                        <option value=""<?= orden_tri_selected((string) ($f['pagaiva'] ?? ''), '') ?>>Todas</option>
+                        <option value="1"<?= orden_tri_selected((string) ($f['pagaiva'] ?? ''), '1') ?>>Sí</option>
+                        <option value="0"<?= orden_tri_selected((string) ($f['pagaiva'] ?? ''), '0') ?>>No</option>
+                    </select>
+                </label>
+                <label>
+                    Nº autorización
+                    <select name="numeautorizacion">
+                        <option value=""<?= orden_tri_selected((string) ($f['numeautorizacion'] ?? ''), '') ?>>Todas</option>
+                        <option value="con"<?= orden_tri_selected((string) ($f['numeautorizacion'] ?? ''), 'con') ?>>Con número</option>
+                        <option value="sin"<?= orden_tri_selected((string) ($f['numeautorizacion'] ?? ''), 'sin') ?>>Sin número</option>
+                    </select>
+                </label>
+                <label>
+                    Honorario desde
+                    <input type="date" name="honorariofecha_desde" value="<?= h((string) ($f['honorariofecha_desde'] ?? '')) ?>">
+                </label>
+                <label>
+                    Honorario hasta
+                    <input type="date" name="honorariofecha_hasta" value="<?= h((string) ($f['honorariofecha_hasta'] ?? '')) ?>">
+                </label>
+            </div>
+        </details>
+
+        <div class="filter-row" style="margin-top:0.85rem;align-items:center;">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Buscar órdenes</button>
             <?php if ($ordenesFiltrosActivos): ?>
-                <a class="btn btn-ghost" href="/ordenes.php">Limpiar</a>
+                <a class="btn btn-ghost" href="/ordenes.php"><i class="bi bi-funnel" aria-hidden="true"></i> Limpiar filtros</a>
             <?php endif; ?>
         </div>
     </form>
@@ -156,11 +265,9 @@ function orden_fmt_money($v): string
             <table id="tbl-ordenes" class="table">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>Nro HC</th>
                         <th>Paciente</th>
                         <th>Nº orden</th>
-                        <th>Suc.</th>
                         <th>Cobertura</th>
                         <th>Práct.</th>
                         <th>Profesional</th>
@@ -168,6 +275,8 @@ function orden_fmt_money($v): string
                         <th>Costo</th>
                         <th>Pago</th>
                         <th>Costo OS</th>
+                        <th>Debe Paci.</th>
+                        <th>Hon. extra</th>
                         <th>Ses.</th>
                         <th>Aut.</th>
                         <th>Entr.</th>
@@ -179,7 +288,27 @@ function orden_fmt_money($v): string
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($rows as $r): ?>
+                    <?php
+                    $sumCosto = 0.0;
+                    $sumPago = 0.0;
+                    $sumCostoOs = 0.0;
+                    $sumDebePaci = 0.0;
+                    $sumHonorarioExtra = 0.0;
+                    $sumSesiones = 0;
+                    foreach ($rows as $r):
+                        $costoNum = orden_num($r['costo'] ?? null);
+                        $pagoNum = orden_num($r['pago'] ?? null);
+                        $costoOsNum = orden_num($r['costo_os'] ?? null);
+                        $honorNum = orden_num($r['honorarioextra'] ?? null);
+                        $sesNum = isset($r['sesiones']) && $r['sesiones'] !== '' && $r['sesiones'] !== null && is_numeric($r['sesiones']) ? (int) $r['sesiones'] : 0;
+                        $debePaciNum = $costoNum - $pagoNum;
+                        $sumCosto += $costoNum;
+                        $sumPago += $pagoNum;
+                        $sumCostoOs += $costoOsNum;
+                        $sumDebePaci += $debePaciNum;
+                        $sumHonorarioExtra += $honorNum;
+                        $sumSesiones += $sesNum;
+                    ?>
                         <?php
                         $obs = (string) ($r['observaciones'] ?? '');
                         $obsClip = function_exists('mb_strimwidth')
@@ -191,34 +320,25 @@ function orden_fmt_money($v): string
                         $numOrden = $r['numero'] ?? null;
                         ?>
                         <tr>
-                            <td><?= (int) $r['id'] ?></td>
                             <td><?= (int) $r['NroPaci'] ?></td>
                             <td><?= h(orden_vista_paciente($r)) ?></td>
                             <td><?= $numOrden !== null && $numOrden !== '' ? h((string) $numOrden) : '—' ?></td>
                             <?php
-                            $idSuc = isset($r['sucursal']) && $r['sucursal'] !== '' && $r['sucursal'] !== null ? (int) $r['sucursal'] : 0;
-                            $nomSuc = trim((string) ($r['sucursal_nombre'] ?? ''));
-                            $sucTxt = $nomSuc !== '' ? $nomSuc : ($idSuc > 0 ? (string) $idSuc : '—');
-                            ?>
-                            <td class="cell-clip" title="<?= h($sucTxt) ?>"><?= h($sucTxt) ?></td>
-                            <?php
-                            $idOs = (int) ($r['idobrasocial'] ?? 0);
-                            $nomCob = trim((string) ($r['cobertura_nombre'] ?? ''));
-                            $cobTxt = $nomCob !== '' ? $nomCob : ($idOs > 0 ? (string) $idOs : '—');
+                            $cobTxt = orden_fmt_ref($r['idobrasocial'] ?? null, $r['cobertura_nombre'] ?? '');
                             ?>
                             <td class="cell-clip" title="<?= h($cobTxt) ?>"><?= h($cobTxt) ?></td>
                             <?php
-                            $idPr = (int) ($r['idpractica'] ?? 0);
-                            $nomPr = trim((string) ($r['practica_nombre'] ?? ''));
-                            $prTxt = $nomPr !== '' ? $nomPr : ($idPr > 0 ? (string) $idPr : '—');
+                            $prTxt = orden_fmt_ref($r['idpractica'] ?? null, $r['practica_nombre'] ?? '');
                             ?>
                             <td class="cell-clip" title="<?= h($prTxt) ?>"><?= h($prTxt) ?></td>
                             <td><?= h((string) ($r['doctor_nombre'] ?? '')) ?></td>
                             <td><?= !empty($r['fecha_orden']) ? h((string) $r['fecha_orden']) : '—' ?></td>
-                            <td><?= h(orden_fmt_money($r['costo'] ?? null)) ?></td>
-                            <td><?= h(orden_fmt_money($r['pago'] ?? null)) ?></td>
-                            <td><?= h(orden_fmt_money($r['costo_os'] ?? null)) ?></td>
-                            <td><?= isset($r['sesiones']) && $r['sesiones'] !== '' && $r['sesiones'] !== null ? h((string) $r['sesiones']) : '—' ?></td>
+                            <td><?= h(orden_fmt_money($costoNum)) ?></td>
+                            <td><?= h(orden_fmt_money($pagoNum)) ?></td>
+                            <td><?= h(orden_fmt_money($costoOsNum)) ?></td>
+                            <td><?= h(orden_fmt_money($debePaciNum)) ?></td>
+                            <td><?= h(orden_fmt_money($honorNum)) ?></td>
+                            <td><?= $sesNum > 0 ? h((string) $sesNum) : '—' ?></td>
                             <td><?= $siNo($r['autorizada'] ?? 0) ?></td>
                             <td><?= $siNo($r['entregada'] ?? 0) ?></td>
                             <td><?= $siNo($r['liquidada'] ?? 0) ?></td>
@@ -235,6 +355,16 @@ function orden_fmt_money($v): string
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    <tr class="ordenes-totales-row">
+                        <td colspan="7"><strong>Totales (filtro actual)</strong></td>
+                        <td><strong><?= h(orden_fmt_money($sumCosto)) ?></strong></td>
+                        <td><strong><?= h(orden_fmt_money($sumPago)) ?></strong></td>
+                        <td><strong><?= h(orden_fmt_money($sumCostoOs)) ?></strong></td>
+                        <td><strong><?= h(orden_fmt_money($sumDebePaci)) ?></strong></td>
+                        <td><strong><?= h(orden_fmt_money($sumHonorarioExtra)) ?></strong></td>
+                        <td><strong><?= h((string) $sumSesiones) ?></strong></td>
+                        <td colspan="7"></td>
+                    </tr>
                 </tbody>
             </table>
         </div>

@@ -6,10 +6,44 @@ final class TurnosRepository
 {
     /** @var PDO */
     private $pdo;
+    /** @var int */
+    private $idClinica;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, int $idClinica = 1)
     {
         $this->pdo = $pdo;
+        $this->idClinica = max(1, $idClinica);
+    }
+
+    private function agendaTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'agenda_turnos', 'id_clinica');
+    }
+
+    private function pacientesTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'pacientes', 'id_clinica');
+    }
+
+    /**
+     * @param list<mixed> $params
+     */
+    private function appendAgendaClinica(string &$sql, array &$params): void
+    {
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+    }
+
+    private function joinPacienteNroHC(string $aliasTurno = 't'): string
+    {
+        $on = "p.NroHC = {$aliasTurno}.NroHC";
+        if ($this->agendaTieneClinica() && $this->pacientesTieneClinica()) {
+            $on .= " AND p.id_clinica = {$aliasTurno}.id_clinica";
+        }
+
+        return $on;
     }
 
     public function hasExtendedAgendaColumns(): bool
@@ -19,35 +53,63 @@ final class TurnosRepository
 
     public function listDoctores(): array
     {
+        if (db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $st = $this->pdo->prepare('SELECT id, nombre FROM lista_doctores WHERE id_clinica = ? ORDER BY nombre ASC');
+            $st->execute([$this->idClinica]);
+
+            return $st->fetchAll();
+        }
+
         return $this->pdo->query('SELECT id, nombre FROM lista_doctores ORDER BY nombre ASC')->fetchAll();
     }
 
     public function findById(int $id): ?array
     {
-        $st = $this->pdo->prepare('SELECT * FROM agenda_turnos WHERE id = ? LIMIT 1');
-        $st->execute([$id]);
+        $sql = 'SELECT * FROM agenda_turnos WHERE id = ?';
+        $par = [$id];
+        $this->appendAgendaClinica($sql, $par);
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         $r = $st->fetch();
         return $r ?: null;
     }
 
     public function deleteById(int $id): void
     {
-        $st = $this->pdo->prepare('DELETE FROM agenda_turnos WHERE id = ?');
-        $st->execute([$id]);
+        $sql = 'DELETE FROM agenda_turnos WHERE id = ?';
+        $par = [$id];
+        $this->appendAgendaClinica($sql, $par);
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     public function pacienteExistsByNroHC(int $nroHC): bool
     {
-        $st = $this->pdo->prepare('SELECT id FROM pacientes WHERE NroHC = ? LIMIT 1');
-        $st->execute([$nroHC]);
+        $sql = 'SELECT id FROM pacientes WHERE NroHC = ?';
+        $par = [$nroHC];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         return (bool) $st->fetch();
     }
 
     public function pacienteNombreParaTurno(int $nroHC): string
     {
         if (db_table_has_column($this->pdo, 'pacientes', 'apellido')) {
-            $stn = $this->pdo->prepare('SELECT apellido, Nombres FROM pacientes WHERE NroHC = ? LIMIT 1');
-            $stn->execute([$nroHC]);
+            $sql = 'SELECT apellido, Nombres FROM pacientes WHERE NroHC = ?';
+            $par = [$nroHC];
+            if ($this->pacientesTieneClinica()) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
+            $sql .= ' LIMIT 1';
+            $stn = $this->pdo->prepare($sql);
+            $stn->execute($par);
             $pn = $stn->fetch();
             if ($pn) {
                 $a = trim((string) ($pn['apellido'] ?? ''));
@@ -55,8 +117,15 @@ final class TurnosRepository
                 return trim($a . ' ' . $n) ?: $n;
             }
         } else {
-            $stn = $this->pdo->prepare('SELECT Nombres FROM pacientes WHERE NroHC = ? LIMIT 1');
-            $stn->execute([$nroHC]);
+            $sql = 'SELECT Nombres FROM pacientes WHERE NroHC = ?';
+            $par = [$nroHC];
+            if ($this->pacientesTieneClinica()) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
+            $sql .= ' LIMIT 1';
+            $stn = $this->pdo->prepare($sql);
+            $stn->execute($par);
             $pn = $stn->fetch();
             if ($pn) {
                 return trim((string) ($pn['Nombres'] ?? ''));
@@ -79,10 +148,15 @@ final class TurnosRepository
             : "TRIM(COALESCE(Nombres,''))";
         $sql = "SELECT NroHC AS nrohc, COALESCE(DNI,'') AS dni, {$sqlNombre} AS nombre
                 FROM pacientes
-                WHERE NroHC = ?
-                LIMIT 1";
+                WHERE NroHC = ?";
+        $par = [$nroHC];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
         $st = $this->pdo->prepare($sql);
-        $st->execute([$nroHC]);
+        $st->execute($par);
         $r = $st->fetch(PDO::FETCH_ASSOC);
         if (!$r) {
             return null;
@@ -108,6 +182,22 @@ final class TurnosRepository
         string $observaciones,
         array $ex
     ): void {
+        if ($this->agendaTieneClinica()) {
+            $st = $this->pdo->prepare(
+                'INSERT INTO agenda_turnos (id_clinica, Fecha, hora, NroHC, Doctor, idorden, estado, observaciones,
+                paciente_nombre, motivo, atendido, pagado, llegado, llegado_hora, confirmado, falta_turno, reingresar, primera_vez,
+                num_sesion, id_sesion, id_caja, usuario_asignado, fechahora_asignado, alta_paci_web)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            );
+            $st->execute([
+                $this->idClinica, $fecha, $hora, $nroHC, $doctor, $idorden, $estado, $observaciones,
+                $ex['paciente_nombre'] ?: null, $ex['motivo'], $ex['atendido'], $ex['pagado'], $ex['llegado'], $ex['llegado_hora'],
+                $ex['confirmado'], $ex['falta_turno'], $ex['reingresar'], $ex['primera_vez'],
+                $ex['num_sesion'], $ex['id_sesion'], $ex['id_caja'], $ex['usuario_asignado'], $ex['fechahora_asignado'], $ex['alta_paci_web'],
+            ]);
+
+            return;
+        }
         $st = $this->pdo->prepare(
             'INSERT INTO agenda_turnos (Fecha, hora, NroHC, Doctor, idorden, estado, observaciones,
             paciente_nombre, motivo, atendido, pagado, llegado, llegado_hora, confirmado, falta_turno, reingresar, primera_vez,
@@ -136,19 +226,23 @@ final class TurnosRepository
         string $observaciones,
         array $ex
     ): void {
-        $st = $this->pdo->prepare(
-            'UPDATE agenda_turnos SET Fecha=?, hora=?, NroHC=?, Doctor=?, idorden=?, estado=?, observaciones=?,
+        $sql = 'UPDATE agenda_turnos SET Fecha=?, hora=?, NroHC=?, Doctor=?, idorden=?, estado=?, observaciones=?,
             paciente_nombre=?, motivo=?, atendido=?, pagado=?, llegado=?, llegado_hora=?, confirmado=?, falta_turno=?, reingresar=?, primera_vez=?,
             num_sesion=?, id_sesion=?, id_caja=?, usuario_asignado=?, fechahora_asignado=?, alta_paci_web=?
-            WHERE id=?'
-        );
-        $st->execute([
+            WHERE id=?';
+        $par = [
             $fecha, $hora, $nroHC, $doctor, $idorden, $estado, $observaciones,
             $ex['paciente_nombre'] ?: null, $ex['motivo'], $ex['atendido'], $ex['pagado'], $ex['llegado'], $ex['llegado_hora'],
             $ex['confirmado'], $ex['falta_turno'], $ex['reingresar'], $ex['primera_vez'],
             $ex['num_sesion'], $ex['id_sesion'], $ex['id_caja'], $ex['usuario_asignado'], $ex['fechahora_asignado'], $ex['alta_paci_web'],
             $id,
-        ]);
+        ];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     public function insertBase(
@@ -160,6 +254,14 @@ final class TurnosRepository
         string $estado,
         string $observaciones
     ): void {
+        if ($this->agendaTieneClinica()) {
+            $st = $this->pdo->prepare(
+                'INSERT INTO agenda_turnos (id_clinica, Fecha, hora, NroHC, Doctor, idorden, estado, observaciones) VALUES (?,?,?,?,?,?,?,?)'
+            );
+            $st->execute([$this->idClinica, $fecha, $hora, $nroHC, $doctor, $idorden, $estado, $observaciones]);
+
+            return;
+        }
         $st = $this->pdo->prepare(
             'INSERT INTO agenda_turnos (Fecha, hora, NroHC, Doctor, idorden, estado, observaciones) VALUES (?,?,?,?,?,?,?)'
         );
@@ -176,10 +278,14 @@ final class TurnosRepository
         string $estado,
         string $observaciones
     ): void {
-        $st = $this->pdo->prepare(
-            'UPDATE agenda_turnos SET Fecha=?, hora=?, NroHC=?, Doctor=?, idorden=?, estado=?, observaciones=? WHERE id=?'
-        );
-        $st->execute([$fecha, $hora, $nroHC, $doctor, $idorden, $estado, $observaciones, $id]);
+        $sql = 'UPDATE agenda_turnos SET Fecha=?, hora=?, NroHC=?, Doctor=?, idorden=?, estado=?, observaciones=? WHERE id=?';
+        $par = [$fecha, $hora, $nroHC, $doctor, $idorden, $estado, $observaciones, $id];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     /**
@@ -195,6 +301,7 @@ final class TurnosRepository
                 FROM agenda_turnos
                 WHERE Fecha = ? AND Doctor = ? AND hora IS NOT NULL";
         $params = [$fecha, $doctor];
+        $this->appendAgendaClinica($sql, $params);
         if ($excludeId > 0) {
             $sql .= ' AND id <> ?';
             $params[] = $excludeId;
@@ -237,7 +344,13 @@ final class TurnosRepository
                        COALESCE(p.DNI,'') AS dni,
                        {$sqlNombre} AS nombre
                 FROM pacientes p
-                WHERE p.NroHC IS NOT NULL
+                WHERE p.NroHC IS NOT NULL";
+        $bind = ['like' => $like];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND p.id_clinica = :cid';
+            $bind['cid'] = $this->idClinica;
+        }
+        $sql .= "
                   AND (
                     p.DNI LIKE :like
                     OR p.Nombres LIKE :like
@@ -247,7 +360,7 @@ final class TurnosRepository
                 ORDER BY p.NroHC DESC
                 LIMIT {$lim}";
         $st = $this->pdo->prepare($sql);
-        $st->execute(['like' => $like]);
+        $st->execute($bind);
 
         $out = [];
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -283,14 +396,22 @@ final class TurnosRepository
                        COALESCE(t.NroHC, 0) AS nrohc,
                        COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), {$nombrePaciente}, '(sin nombre)') AS paciente
                 FROM agenda_turnos t
-                LEFT JOIN pacientes p ON p.NroHC = t.NroHC
-                WHERE t.Fecha = ?
+                LEFT JOIN pacientes p ON " . $this->joinPacienteNroHC('t') . "
+                WHERE t.Fecha = ?";
+        $par = [$fecha];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND t.id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= "
                   AND t.Doctor = ?
                   AND t.hora IS NOT NULL
                   AND DATE_FORMAT(t.hora, '%H:%i') = ?
                 ORDER BY t.id ASC";
+        $par[] = $doctor;
+        $par[] = $hora;
         $st = $this->pdo->prepare($sql);
-        $st->execute([$fecha, $doctor, $hora]);
+        $st->execute($par);
 
         $out = [];
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -334,12 +455,16 @@ final class TurnosRepository
             $disp = $this->disponibilidadVisual($fecha, $doctor, $excludeTurnoId);
             $slots = $disp['slots'] ?? [];
             $occupied = $disp['occupied'] ?? [];
+            $blocked = $disp['blocked'] ?? [];
             foreach ($slots as $slot) {
                 $h = (string) $slot;
                 if (!preg_match('/^\d{2}:\d{2}$/', $h)) {
                     continue;
                 }
                 if ((int) ($occupied[$h] ?? 0) > 0) {
+                    continue;
+                }
+                if ((int) ($blocked[$h] ?? 0) > 0) {
                     continue;
                 }
                 $out[] = ['fecha' => $fecha, 'hora' => $h];
@@ -365,10 +490,163 @@ final class TurnosRepository
         6 => 'Sa',
     ];
 
+    private function agendaBloqueosTableExists(): bool
+    {
+        static $cache = null;
+        if ($cache === null) {
+            $cache = db_table_exists($this->pdo, 'agenda_bloqueos');
+        }
+
+        return (bool) $cache;
+    }
+
+    private function bloqueosTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'agenda_bloqueos', 'id_clinica');
+    }
+
+    /**
+     * @param array<string, mixed> $row fila agenda_bloqueos (hora_desde / hora_hasta)
+     */
+    private function slotMatchesBloqueo(string $slotHi, array $row): bool
+    {
+        $hd = $row['hora_desde'] ?? null;
+        $hh = $row['hora_hasta'] ?? null;
+        $hdEmpty = $hd === null || $hd === '';
+        $hhEmpty = $hh === null || $hh === '';
+        if ($hdEmpty && $hhEmpty) {
+            return true;
+        }
+        if ($hdEmpty || $hhEmpty) {
+            return false;
+        }
+        $from = $this->normalizarHoraHi($hd);
+        $to = $this->normalizarHoraHi($hh);
+        if ($from === null || $to === null) {
+            return false;
+        }
+        $sm = $this->minutosDesdeMedianoche($slotHi);
+        $fm = $this->minutosDesdeMedianoche($from);
+        $tm = $this->minutosDesdeMedianoche($to);
+
+        return $sm >= $fm && $sm < $tm;
+    }
+
+    /**
+     * @param mixed $v TIME / datetime / string
+     */
+    private function normalizarHoraHi($v): ?string
+    {
+        if ($v === null || $v === '') {
+            return null;
+        }
+        $s = (string) $v;
+        if (preg_match('/^(\d{1,2}):(\d{2})/', $s, $m)) {
+            return sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+        }
+        $ts = strtotime($s);
+        if ($ts === false) {
+            return null;
+        }
+
+        return date('H:i', $ts);
+    }
+
+    private function minutosDesdeMedianoche(string $hi): int
+    {
+        if (!preg_match('/^(\d{1,2}):(\d{2})$/', $hi, $m)) {
+            return 0;
+        }
+
+        return ((int) $m[1]) * 60 + (int) $m[2];
+    }
+
+    /**
+     * @param list<string> $slotList HH:MM
+     *
+     * @return array<string,int>
+     */
+    public function horasBloqueadasPorFechaDoctor(string $fecha, int $doctor, array $slotList): array
+    {
+        if (!$this->agendaBloqueosTableExists() || $doctor < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $slotList === []) {
+            return [];
+        }
+
+        $sql = 'SELECT hora_desde, hora_hasta FROM agenda_bloqueos
+                WHERE doctor = ? AND ? BETWEEN fecha_desde AND fecha_hasta';
+        $par = [$doctor, $fecha];
+        if ($this->bloqueosTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows === []) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($slotList as $slot) {
+            if (!preg_match('/^\d{2}:\d{2}$/', (string) $slot)) {
+                continue;
+            }
+            foreach ($rows as $r) {
+                if ($this->slotMatchesBloqueo((string) $slot, $r)) {
+                    $out[(string) $slot] = 1;
+                    break;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    public function isHoraBloqueada(string $fecha, int $doctor, string $slotHi): bool
+    {
+        $m = $this->horasBloqueadasPorFechaDoctor($fecha, $doctor, [$slotHi]);
+
+        return ($m[$slotHi] ?? 0) > 0;
+    }
+
+    /**
+     * @param list<string> $rawSlots slots sin merge final con occupied
+     * @param array<string,int> $occupied
+     *
+     * @return array{slots: list<string>, occupied: array<string,int>, blocked: array<string,int>, source: string, step: int, sin_franja_dia: bool}
+     */
+    private function finalizeDisponibilidad(
+        string $fecha,
+        int $doctor,
+        array $rawSlots,
+        array $occupied,
+        string $source,
+        int $step,
+        bool $sinFranjaDia
+    ): array {
+        $merged = $this->mergeSlotsWithOccupied($rawSlots, $occupied);
+        $blocked = [];
+        if ($doctor >= 1 && $this->agendaBloqueosTableExists()) {
+            $blocked = $this->horasBloqueadasPorFechaDoctor($fecha, $doctor, $merged);
+            if ($blocked !== []) {
+                $merged = $this->mergeSlotsWithOccupied($merged, $blocked);
+            }
+        }
+
+        return [
+            'slots' => $merged,
+            'occupied' => $occupied,
+            'blocked' => $blocked,
+            'source' => $source,
+            'step' => $step,
+            'sin_franja_dia' => $sinFranjaDia,
+        ];
+    }
+
     /**
      * Slots + ocupación para la grilla de nuevo/editar turno (respeta `Agenda Turnos Horarios` si existe).
      *
-     * @return array{slots: list<string>, occupied: array<string,int>, source: string, step: int, sin_franja_dia: bool}
+     * @return array{slots: list<string>, occupied: array<string,int>, blocked: array<string,int>, source: string, step: int, sin_franja_dia: bool}
      */
     public function disponibilidadVisual(string $fecha, int $doctor, int $excludeTurnoId = 0): array
     {
@@ -377,24 +655,12 @@ final class TurnosRepository
         $defaultSlots = $this->buildSlotList('08:00', '20:15', 15);
 
         if ($doctor < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
-            return [
-                'slots' => $this->mergeSlotsWithOccupied($defaultSlots, $occupied),
-                'occupied' => $occupied,
-                'source' => 'none',
-                'step' => 15,
-                'sin_franja_dia' => false,
-            ];
+            return $this->finalizeDisponibilidad($fecha, $doctor, $defaultSlots, $occupied, 'none', 15, false);
         }
 
         $legacy = $this->findLegacyHorarioRow($doctor, $fecha);
         if ($legacy === null) {
-            return [
-                'slots' => $this->mergeSlotsWithOccupied($defaultSlots, $occupied),
-                'occupied' => $occupied,
-                'source' => 'default',
-                'step' => 15,
-                'sin_franja_dia' => false,
-            ];
+            return $this->finalizeDisponibilidad($fecha, $doctor, $defaultSlots, $occupied, 'default', 15, false);
         }
 
         $w = (int) date('w', strtotime($fecha));
@@ -417,34 +683,16 @@ final class TurnosRepository
 
         $sinFranja = $slots === [];
         if ($sinFranja) {
-            return [
-                'slots' => $this->mergeSlotsWithOccupied($defaultSlots, $occupied),
-                'occupied' => $occupied,
-                'source' => 'legacy_no_day',
-                'step' => 15,
-                'sin_franja_dia' => true,
-            ];
+            return $this->finalizeDisponibilidad($fecha, $doctor, $defaultSlots, $occupied, 'legacy_no_day', 15, true);
         }
 
         // Si la franja legacy queda demasiado limitada, completamos con la base
         // para asegurar opciones visibles al cargar un nuevo turno.
         if (count($slots) <= max(3, count($occupied))) {
-            return [
-                'slots' => $this->mergeSlotsWithOccupied($defaultSlots, $occupied),
-                'occupied' => $occupied,
-                'source' => 'legacy_sparse',
-                'step' => 15,
-                'sin_franja_dia' => false,
-            ];
+            return $this->finalizeDisponibilidad($fecha, $doctor, $defaultSlots, $occupied, 'legacy_sparse', 15, false);
         }
 
-        return [
-            'slots' => $this->mergeSlotsWithOccupied($slots, $occupied),
-            'occupied' => $occupied,
-            'source' => 'legacy',
-            'step' => $step,
-            'sin_franja_dia' => false,
-        ];
+        return $this->finalizeDisponibilidad($fecha, $doctor, $slots, $occupied, 'legacy', $step, false);
     }
 
     /**
@@ -459,14 +707,20 @@ final class TurnosRepository
             return null;
         }
 
-        $sql = 'SELECT * FROM `' . str_replace('`', '', self::LEGACY_HORARIO_TABLE) . '`
-                WHERE iddoctor = ?
-                  AND DATE(fechadesde) <= ?
-                  AND DATE(fechahasta) >= ?
-                ORDER BY fechadesde DESC
+        $sql = 'SELECT h.* FROM `' . str_replace('`', '', self::LEGACY_HORARIO_TABLE) . '` h
+                WHERE h.iddoctor = ?
+                  AND DATE(h.fechadesde) <= ?
+                  AND DATE(h.fechahasta) >= ?';
+        $par = [$doctor, $fecha, $fecha];
+        if (db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM lista_doctores ld WHERE ld.id = h.iddoctor AND ld.id_clinica = ?)';
+            $par[] = $this->idClinica;
+        }
+        $sql .= '
+                ORDER BY h.fechadesde DESC
                 LIMIT 1';
         $st = $this->pdo->prepare($sql);
-        $st->execute([$doctor, $fecha, $fecha]);
+        $st->execute($par);
         $r = $st->fetch(PDO::FETCH_ASSOC);
 
         return $r ?: null;

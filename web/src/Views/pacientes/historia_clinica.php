@@ -9,7 +9,7 @@ declare(strict_types=1);
             Paciente: <strong><?= h($nombre) ?></strong>
             · Nro HC: <strong><?= (int) ($p['NroHC'] ?? 0) ?></strong>
         </p>
-        <p class="muted"><a href="/pacientes.php">← Volver a Pacientes</a></p>
+        <p class="muted"><a href="/pacientes.php"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a Pacientes</a></p>
     </div>
 
     <?php if ($error !== ''): ?>
@@ -41,7 +41,7 @@ declare(strict_types=1);
         <div class="form-actions form-section">
             <button type="submit" class="btn btn-primary">Guardar historia clínica</button>
             <a class="btn btn-ghost" href="/odontograma.php?id=<?= (int) $id ?>"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> Odontograma</a>
-            <a class="btn btn-ghost" href="/paciente_form.php?id=<?= (int) $id ?>">Editar datos del paciente</a>
+            <a class="btn btn-ghost" href="/paciente_form.php?id=<?= (int) $id ?>"><i class="bi bi-person-lines-fill" aria-hidden="true"></i> Editar datos del paciente</a>
         </div>
     </form>
 </div>

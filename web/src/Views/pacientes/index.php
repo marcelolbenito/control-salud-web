@@ -52,7 +52,7 @@ $qsSuffix = $pacientesQueryString !== '' ? '&' . $pacientesQueryString : '';
             </label>
             <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Buscar</button>
             <?php if ($pacientesFiltrosActivos): ?>
-                <a class="btn btn-ghost" href="/pacientes.php">Limpiar</a>
+                <a class="btn btn-ghost" href="/pacientes.php"><i class="bi bi-funnel" aria-hidden="true"></i> Limpiar</a>
             <?php endif; ?>
         </div>
     </form>

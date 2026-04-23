@@ -19,7 +19,7 @@ final class PacientesController
 
     public function index(): void
     {
-        $repo = new PacientesRepository($this->pdo);
+        $repo = new PacientesRepository($this->pdo, user_clinica_id($this->user));
         $hasExt = $repo->hasExtendedColumns();
         $hasListaCob = $repo->hasListaCoberturas();
         $f = self::collectFiltrosPacientes();
@@ -40,7 +40,7 @@ final class PacientesController
 
     public function historiaClinica(): void
     {
-        $repo = new PacientesRepository($this->pdo);
+        $repo = new PacientesRepository($this->pdo, user_clinica_id($this->user));
         $id = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
         if ($id < 1) {
             flash_set('Paciente no válido.');
@@ -105,7 +105,7 @@ final class PacientesController
     {
         require_once dirname(__DIR__, 2) . '/includes/catalogos.php';
 
-        $repo = new PacientesRepository($this->pdo);
+        $repo = new PacientesRepository($this->pdo, user_clinica_id($this->user));
         $ext = $repo->hasExtendedColumns();
 
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
@@ -460,7 +460,7 @@ final class PacientesController
             header('Location: /pacientes.php');
             exit;
         }
-        $repo = new PacientesRepository($this->pdo);
+        $repo = new PacientesRepository($this->pdo, user_clinica_id($this->user));
         $p = $repo->findById($id);
         if ($p !== null && !empty($p['ruta_foto']) && db_table_has_column($this->pdo, 'pacientes', 'ruta_foto')) {
             self::unlinkPacienteFotoPublic(dirname(__DIR__, 2) . '/public', (string) $p['ruta_foto']);

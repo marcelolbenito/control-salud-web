@@ -27,7 +27,7 @@ declare(strict_types=1);
 
                 <?php if ($it['ok']): ?>
                     <p class="catalog-card-actions">
-                        <a class="btn btn-primary btn-sm" href="<?= h('/catalogos.php?a=list&tabla=' . rawurlencode($it['tabla'])) ?>">Abrir</a>
+                        <a class="btn btn-primary btn-sm" href="<?= h('/catalogos.php?a=list&tabla=' . rawurlencode($it['tabla'])) ?>"><i class="bi bi-folder2-open" aria-hidden="true"></i> Abrir</a>
                     </p>
                 <?php else: ?>
                     <p class="muted small">Ejecutá las migraciones de listas para habilitarla.</p>
@@ -35,5 +35,5 @@ declare(strict_types=1);
             </article>
         <?php endforeach; ?>
     </div>
-    <p><a href="/sistema.php">Volver a Sistema y configuración</a></p>
+    <p><a href="/sistema.php"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a Sistema y configuración</a></p>
 </div>

@@ -38,7 +38,7 @@ final class SistemaController
             exit;
         }
         csrf_verify();
-        $n = ConfigExeFieldMap::aplicarSembradoConfig($this->pdo);
+        $n = ConfigExeFieldMap::aplicarSembradoConfig($this->pdo, user_clinica_id($this->user));
         if ($n === 0) {
             flash_set('No se importó ningún valor: verificá tabla config, y que exista backup_legacy_Config_* con datos.');
         } else {
@@ -53,8 +53,17 @@ final class SistemaController
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         $row = ['id' => 0, 'clave' => '', 'valor' => ''];
         if ($id > 0 && db_table_exists($this->pdo, 'config')) {
-            $st = $this->pdo->prepare('SELECT id, clave, valor FROM config WHERE id = ? LIMIT 1');
-            $st->execute([$id]);
+            $cid = user_clinica_id($this->user);
+            $hasClin = db_table_has_column($this->pdo, 'config', 'id_clinica');
+            $sql = 'SELECT id, clave, valor FROM config WHERE id = ?';
+            $par = [$id];
+            if ($hasClin) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $cid;
+            }
+            $sql .= ' LIMIT 1';
+            $st = $this->pdo->prepare($sql);
+            $st->execute($par);
             $loaded = $st->fetch(PDO::FETCH_ASSOC);
             if ($loaded) {
                 $row = $loaded;
@@ -76,14 +85,27 @@ final class SistemaController
             } elseif (!preg_match('/^[a-z0-9_.-]{1,100}$/i', $clave)) {
                 $error = 'Clave inválida: usá letras, números, puntos, guiones o guión bajo (máx. 100).';
             } else {
+                $cid = user_clinica_id($this->user);
+                $hasClin = db_table_has_column($this->pdo, 'config', 'id_clinica');
                 if ($id > 0) {
-                    $st = $this->pdo->prepare('UPDATE config SET clave = ?, valor = ? WHERE id = ?');
-                    $st->execute([$clave, $valor === '' ? null : $valor, $id]);
+                    $sql = 'UPDATE config SET clave = ?, valor = ? WHERE id = ?';
+                    $par = [$clave, $valor === '' ? null : $valor, $id];
+                    if ($hasClin) {
+                        $sql .= ' AND id_clinica = ?';
+                        $par[] = $cid;
+                    }
+                    $st = $this->pdo->prepare($sql);
+                    $st->execute($par);
                     flash_set('Parámetro actualizado.');
                 } else {
                     try {
-                        $st = $this->pdo->prepare('INSERT INTO config (clave, valor) VALUES (?, ?)');
-                        $st->execute([$clave, $valor === '' ? null : $valor]);
+                        if ($hasClin) {
+                            $st = $this->pdo->prepare('INSERT INTO config (id_clinica, clave, valor) VALUES (?, ?, ?)');
+                            $st->execute([$cid, $clave, $valor === '' ? null : $valor]);
+                        } else {
+                            $st = $this->pdo->prepare('INSERT INTO config (clave, valor) VALUES (?, ?)');
+                            $st->execute([$clave, $valor === '' ? null : $valor]);
+                        }
                     } catch (Throwable $e) {
                         $error = 'No se pudo guardar (¿clave duplicada?).';
                     }
@@ -118,8 +140,16 @@ final class SistemaController
         csrf_verify();
         $id = (int) ($_POST['id'] ?? 0);
         if ($id > 0 && db_table_exists($this->pdo, 'config')) {
-            $st = $this->pdo->prepare('DELETE FROM config WHERE id = ?');
-            $st->execute([$id]);
+            $cid = user_clinica_id($this->user);
+            $hasClin = db_table_has_column($this->pdo, 'config', 'id_clinica');
+            $sql = 'DELETE FROM config WHERE id = ?';
+            $par = [$id];
+            if ($hasClin) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $cid;
+            }
+            $st = $this->pdo->prepare($sql);
+            $st->execute($par);
             flash_set('Parámetro eliminado.');
         }
         header('Location: /sistema.php');
@@ -133,6 +163,13 @@ final class SistemaController
     {
         if (!db_table_exists($this->pdo, 'config')) {
             return [];
+        }
+        $cid = user_clinica_id($this->user);
+        if (db_table_has_column($this->pdo, 'config', 'id_clinica')) {
+            $st = $this->pdo->prepare('SELECT id, clave, valor FROM config WHERE id_clinica = ? ORDER BY clave ASC');
+            $st->execute([$cid]);
+
+            return $st->fetchAll(PDO::FETCH_ASSOC);
         }
         $st = $this->pdo->query('SELECT id, clave, valor FROM config ORDER BY clave ASC');
 

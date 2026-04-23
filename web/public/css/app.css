@@ -434,6 +434,20 @@ body {
   min-width: 11rem;
 }
 
+.checkbox-inline-group {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.checkbox-inline-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 500;
+}
+
 .badge-estado {
   display: inline-block;
   padding: 0.2rem 0.5rem;
@@ -1083,6 +1097,17 @@ code {
   border: 1px solid transparent;
 }
 
+.form-subnav.patient-form-subnav a .bi {
+  margin-right: 0.28rem;
+  opacity: 0.92;
+  vertical-align: -0.06em;
+}
+
+.page-head .muted a .bi {
+  margin-right: 0.3rem;
+  vertical-align: -0.06em;
+}
+
 .form-subnav.patient-form-subnav a:hover {
   background: var(--accent-soft);
   border-color: rgba(13, 148, 136, 0.25);
@@ -1338,6 +1363,14 @@ code {
   background: rgba(59, 130, 246, 0.04);
 }
 
+.agenda-row-llegado td {
+  background: rgba(34, 197, 94, 0.22) !important;
+}
+
+.agenda-row-llegado:hover td {
+  background: rgba(34, 197, 94, 0.3) !important;
+}
+
 .agenda-paciente-link {
   color: inherit;
   text-decoration: none;
@@ -1346,6 +1379,12 @@ code {
 
 .agenda-paciente-link:hover {
   color: var(--accent-dark);
+}
+
+.agenda-paciente-link .bi {
+  margin-right: 0.3rem;
+  opacity: 0.85;
+  vertical-align: -0.05em;
 }
 
 @media (max-width: 1200px) {
@@ -1401,10 +1440,31 @@ code {
   color: #991b1b;
 }
 
+.turno-slot.is-blocked {
+  background: #e2e8f0;
+  color: #475569;
+  cursor: not-allowed;
+}
+
 .turno-slot.is-selected {
   background: #dbeafe;
   color: #1e3a8a;
   border-color: #60a5fa;
+}
+
+/* Rango elegido en formulario de bloqueos (mantiene verde/rojo debajo) */
+.turno-slot.is-range {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+  border-color: #60a5fa;
+}
+
+/* Varios turnos marcados con doble clic (bloqueo) */
+.turno-slot.is-picked-multi {
+  outline: 2px solid #7c3aed;
+  outline-offset: -2px;
+  border-color: #a78bfa;
+  box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.35);
 }
 
 .turno-dia-badge {

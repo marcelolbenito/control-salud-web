@@ -14,7 +14,7 @@ if ($nroHc < 1) {
     exit;
 }
 
-$repo = new TurnosRepository(db());
+$repo = new TurnosRepository(db(), user_clinica_id(auth_user()));
 $item = $repo->pacientePorNroHC($nroHc);
 
 echo json_encode(['ok' => true, 'item' => $item], JSON_UNESCAPED_UNICODE);

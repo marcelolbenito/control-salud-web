@@ -3,7 +3,7 @@ declare(strict_types=1);
 $isEdit = (int) ($row['id'] ?? 0) > 0;
 ?>
 <div class="container container-narrow">
-    <p><a href="<?= h('/catalogos.php?a=list&tabla=' . rawurlencode($tabla)) ?>">← Volver al listado</a></p>
+    <p><a href="<?= h('/catalogos.php?a=list&tabla=' . rawurlencode($tabla)) ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al listado</a></p>
     <h1><?= $isEdit ? 'Editar' : 'Nuevo' ?> · <?= h($titulo) ?></h1>
     <?php if ($error !== ''): ?>
         <p class="alert alert-error"><?= h($error) ?></p>

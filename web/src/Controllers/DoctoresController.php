@@ -19,7 +19,7 @@ final class DoctoresController
 
     public function index(): void
     {
-        $repo = new DoctoresRepository($this->pdo);
+        $repo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
         $extDoc = $repo->hasExtendedColumns();
         $rows = $repo->listForIndex($extDoc);
 
@@ -32,7 +32,7 @@ final class DoctoresController
 
     public function form(): void
     {
-        $repo = new DoctoresRepository($this->pdo);
+        $repo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
         $ext = $repo->hasExtendedColumns();
         $legacyAgendaDisponible = $repo->hasLegacyHorarioTable();
         $especialidadesOpts = $ext ? $repo->listEspecialidadesCatalog() : [];
@@ -198,7 +198,7 @@ final class DoctoresController
             header('Location: /doctores.php');
             exit;
         }
-        $repo = new DoctoresRepository($this->pdo);
+        $repo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
         $uso = $repo->linkedUsageCounts($id);
         if ($uso['total'] > 0) {
             $repo->deactivateById($id);

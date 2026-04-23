@@ -10,6 +10,9 @@ Uso:
   python migrar_mdb_a_mysql.py
 
 Antes: ejecutar en MySQL schema_mysql.sql, migration_002 (opcional), schema_listas_minimo.sql
+(incluye lista_practicas / lista_derivaciones / lista_sucursales). Si falla el nombre de una tabla
+en Access, listá tablas con: python list_mdb_tablas.py Lista
+Las prácticas suelen estar en [Lista Practicas]; en algunos .mdb la tabla es [Nomenclador] (mismo esquema id/prioridad/nombre si aplica).
 """
 from __future__ import annotations
 
@@ -120,12 +123,29 @@ def main() -> None:
             ["id", "prioridad", "nombre"],
             ["id", "prioridad", "nombre"],
         ),
+        # lista_practicas: ver bloque después del bucle (Lista Practicas o Nomenclador)
+        ("Lista Derivaciones", "lista_derivaciones", ["id", "prioridad", "nombre"], ["id", "prioridad", "nombre"]),
+        ("Lista Sucursales", "lista_sucursales", ["id", "prioridad", "nombre"], ["id", "prioridad", "nombre"]),
     ]
 
     for access_t, mysql_t, acols, mcols in jobs:
         print(f"{access_t} -> {mysql_t} ...")
         n = migrate_simple(mdb, mysql, access_t, mysql_t, acols, mcols)
         print(f"  {n} filas.")
+
+    print("lista_practicas (Lista Practicas o Nomenclador) ...")
+    pract_cols = ["id", "prioridad", "nombre"]
+    practicas_ok = False
+    for access_t in ("Lista Practicas", "Nomenclador"):
+        try:
+            n_pr = migrate_simple(mdb, mysql, access_t, "lista_practicas", pract_cols, pract_cols)
+            print(f"  {n_pr} filas desde [{access_t}].")
+            practicas_ok = True
+            break
+        except Exception as e:
+            print(f"  [{access_t}]: {e}")
+    if not practicas_ok:
+        print("  (no se pudo leer ninguna tabla de prácticas)")
 
     mdb.close()
     mysql.close()

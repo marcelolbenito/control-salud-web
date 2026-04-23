@@ -81,7 +81,33 @@ JOBS: list[tuple[str, str, list[str], list[str]]] = [
         ["id", "prioridad", "nombre"],
         ["id", "prioridad", "nombre"],
     ),
+    # lista_practicas: ver append_lista_practicas_desde_mdb() (Lista Practicas o Nomenclador)
+    ("Lista Derivaciones", "lista_derivaciones", ["id", "prioridad", "nombre"], ["id", "prioridad", "nombre"]),
+    ("Lista Sucursales", "lista_sucursales", ["id", "prioridad", "nombre"], ["id", "prioridad", "nombre"]),
 ]
+
+
+def append_lista_practicas_desde_mdb(cur, lines: list[str]) -> None:
+    """En algunos .mdb las prácticas están en [Nomenclador] en lugar de [Lista Practicas]."""
+    acols = ["id", "prioridad", "nombre"]
+    mcols = ["id", "prioridad", "nombre"]
+    col_sql = ", ".join(f"`{c}`" for c in mcols)
+    sel = ", ".join(f"[{c}]" for c in acols)
+    for access_t in ("Lista Practicas", "Nomenclador"):
+        try:
+            cur.execute(f"SELECT {sel} FROM [{access_t}]")
+            rows = cur.fetchall()
+            lines.append(f"-- lista_practicas desde Access [{access_t}]")
+            lines.append("DELETE FROM `lista_practicas`;")
+            for row in rows:
+                vals = ", ".join(sql_literal(row[i]) for i in range(len(row)))
+                lines.append(f"INSERT INTO `lista_practicas` ({col_sql}) VALUES ({vals});")
+            lines.append("")
+            return
+        except Exception:
+            continue
+    lines.append("-- lista_practicas: no se encontró [Lista Practicas] ni [Nomenclador] en el .mdb")
+    lines.append("")
 
 
 def main() -> None:
@@ -100,7 +126,11 @@ def main() -> None:
     ]
 
     cur = mdb.cursor()
+    practicas_hecho = False
     for access_t, mysql_t, acols, mcols in JOBS:
+        if mysql_t == "lista_derivaciones" and not practicas_hecho:
+            append_lista_practicas_desde_mdb(cur, lines)
+            practicas_hecho = True
         sel = ", ".join(f"[{c}]" for c in acols)
         cur.execute(f"SELECT {sel} FROM [{access_t}]")
         rows = cur.fetchall()

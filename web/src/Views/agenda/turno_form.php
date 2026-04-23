@@ -5,7 +5,7 @@ declare(strict_types=1);
 <div class="container container-wide">
     <div class="page-head">
         <h1><?= h($titulo) ?></h1>
-        <p class="muted"><a href="<?= h($volver) ?>">← Volver a la agenda</a></p>
+        <p class="muted"><a href="<?= h($volver) ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a la agenda</a></p>
     </div>
     <?php if (!$ext): ?>
         <p class="alert alert-error" style="background:#fffbeb;border-color:#fcd34d;color:#92400e;">
@@ -21,7 +21,7 @@ declare(strict_types=1);
 
         <div class="form-actions form-section">
             <button type="submit" class="btn btn-primary">Guardar</button>
-            <a class="btn btn-ghost" href="<?= h($volver) ?>">Cancelar</a>
+            <a class="btn btn-ghost" href="<?= h($volver) ?>"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancelar</a>
             <?php if ((int) ($row['id'] ?? 0) > 0): ?>
                 <button
                     type="submit"
@@ -116,7 +116,7 @@ declare(strict_types=1);
                  data-slots-url="/agenda_slots.php"
                  data-exclude-id="<?= $turnoExcludeId ?>"
                  style="">
-                <p class="muted small" id="turno-disp-lead"><strong>Disponibilidad por profesional:</strong> la grilla usa los horarios cargados para ese médico (tabla de planilla). Verde = libre, rojo = ocupado (clic para ver/anular), azul = seleccionada.</p>
+                <p class="muted small" id="turno-disp-lead"><strong>Disponibilidad por profesional:</strong> la grilla usa la planilla de horarios. Verde = libre, rojo = ocupado (clic para ver/anular), gris = bloqueado (no asignable), azul = seleccionada.</p>
                 <p class="muted small" id="turno-disp-dia"></p>
                 <p class="muted small" id="turno-disp-hint"><?= h($dispHintIni) ?></p>
                 <div class="turno-slots" id="turno-slots-grid">
@@ -124,12 +124,14 @@ declare(strict_types=1);
                         <?php foreach ($dispSlots as $slot): ?>
                             <?php
                             $ocup = (int) ($dispOcupadas[$slot] ?? 0);
+                            $bloq = (int) (($dispBloqueadas ?? [])[$slot] ?? 0);
                             $isSel = $horaSel === $slot;
-                            $cls = $isSel ? 'is-selected' : ($ocup > 0 ? 'is-occupied' : 'is-free');
+                            $cls = $isSel ? 'is-selected' : ($bloq > 0 ? 'is-blocked' : ($ocup > 0 ? 'is-occupied' : 'is-free'));
                             ?>
                             <button type="button"
                                     class="turno-slot <?= h($cls) ?>"
-                                    data-slot="<?= h($slot) ?>">
+                                    data-slot="<?= h($slot) ?>"
+                                    <?= $bloq > 0 ? ' disabled' : '' ?>>
                                 <span><?= h($slot) ?></span>
                                 <?php if ($ocup > 0): ?><small><?= $ocup ?></small><?php endif; ?>
                             </button>
@@ -198,16 +200,20 @@ declare(strict_types=1);
                         return '';
                     }
 
-                    function renderSlots(slots, occupied, selectedHora) {
+                    function renderSlots(slots, occupied, blocked, selectedHora) {
                         grid.innerHTML = '';
                         slots.forEach((slot) => {
                             const ocup = parseInt(String(occupied[slot] || 0), 10) || 0;
+                            const bloq = parseInt(String((blocked || {})[slot] || 0), 10) || 0;
                             const isSel = selectedHora === slot;
-                            const cls = isSel ? 'is-selected' : (ocup > 0 ? 'is-occupied' : 'is-free');
+                            const cls = isSel ? 'is-selected' : (bloq > 0 ? 'is-blocked' : (ocup > 0 ? 'is-occupied' : 'is-free'));
                             const btn = document.createElement('button');
                             btn.type = 'button';
                             btn.className = 'turno-slot ' + cls;
                             btn.setAttribute('data-slot', slot);
+                            if (bloq > 0) {
+                                btn.disabled = true;
+                            }
                             const sp = document.createElement('span');
                             sp.textContent = slot;
                             btn.appendChild(sp);
@@ -217,6 +223,9 @@ declare(strict_types=1);
                                 btn.appendChild(sm);
                             }
                             btn.addEventListener('click', () => {
+                                if (bloq > 0) {
+                                    return;
+                                }
                                 if (ocup > 0) {
                                     verTurnosEnHora(slot);
                                     return;
@@ -449,7 +458,7 @@ declare(strict_types=1);
                             if (hint) hint.textContent = hintText(data);
                             const sel = (horaInput.value || '').trim().substring(0, 5);
                             if (data.slots && data.slots.length) {
-                                renderSlots(data.slots, data.occupied || {}, sel);
+                                renderSlots(data.slots, data.occupied || {}, data.blocked || {}, sel);
                             } else {
                                 grid.innerHTML = '';
                                 if (hint) {
@@ -658,7 +667,7 @@ declare(strict_types=1);
 
         <div class="form-actions form-section">
             <button type="submit" class="btn btn-primary">Guardar</button>
-            <a class="btn btn-ghost" href="<?= h($volver) ?>">Cancelar</a>
+            <a class="btn btn-ghost" href="<?= h($volver) ?>"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancelar</a>
             <?php if ((int) ($row['id'] ?? 0) > 0): ?>
                 <button
                     type="submit"

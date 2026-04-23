@@ -72,6 +72,25 @@ CREATE TABLE IF NOT EXISTS lista_estatus_pais (
   nombre VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Pacientes Ordenes / mantenimiento (Access: Lista Practicas, Lista Derivaciones, Lista Sucursales)
+CREATE TABLE IF NOT EXISTS lista_practicas (
+  id INT NOT NULL PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(255) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS lista_derivaciones (
+  id INT NOT NULL PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(255) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS lista_sucursales (
+  id SMALLINT NOT NULL PRIMARY KEY,
+  prioridad SMALLINT NULL,
+  nombre VARCHAR(100) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS lista_sexo (
   id INT PRIMARY KEY,
   prioridad SMALLINT NULL,

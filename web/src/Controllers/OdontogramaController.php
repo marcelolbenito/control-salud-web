@@ -22,7 +22,7 @@ final class OdontogramaController
 
     public function index(): void
     {
-        $repo = new OdontogramaRepository($this->pdo);
+        $repo = new OdontogramaRepository($this->pdo, user_clinica_id($this->user));
         if (!$repo->tablaExiste()) {
             $body = '<div class="container"><p class="alert alert-error">Falta la tabla <code>pacientes_odontograma</code>. Ejecutá en MySQL <code>sql/migration_014_odontograma.sql</code>.</p>'
                 . '<p class="muted"><a href="/pacientes.php">← Volver a Pacientes</a></p></div>';
@@ -31,7 +31,7 @@ final class OdontogramaController
             return;
         }
 
-        $pacRepo = new PacientesRepository($this->pdo);
+        $pacRepo = new PacientesRepository($this->pdo, user_clinica_id($this->user));
         $idPac = (int) ($_GET['id'] ?? 0);
         $nroHcGet = (int) ($_GET['nrohc'] ?? 0);
 
@@ -59,13 +59,13 @@ final class OdontogramaController
         }
 
         $nombre = $this->pacienteNombre($p);
-        $docRepo = new DoctoresRepository($this->pdo);
+        $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
         $doctores = $docRepo->listActivos();
         if ($doctores === []) {
             $doctores = $docRepo->listAllOrdered();
         }
 
-        $ordRepo = new OrdenesRepository($this->pdo);
+        $ordRepo = new OrdenesRepository($this->pdo, user_clinica_id($this->user));
         $ordenesMini = $ordRepo->listMiniPorNroPaci($nroHC, 40);
         $odontogramaExt = $repo->tieneExtensionV2();
         $mapaSuperficiesActivo = $repo->tablaSuperficiesExiste();
@@ -177,7 +177,7 @@ final class OdontogramaController
      */
     public function imprimir(): void
     {
-        $repo = new OdontogramaRepository($this->pdo);
+        $repo = new OdontogramaRepository($this->pdo, user_clinica_id($this->user));
         if (!$repo->tablaExiste()) {
             $body = '<div class="container"><p class="alert alert-error">Falta la tabla <code>pacientes_odontograma</code>.</p>'
                 . '<p class="muted"><a href="/pacientes.php">← Pacientes</a></p></div>';
@@ -186,7 +186,7 @@ final class OdontogramaController
             return;
         }
 
-        $pacRepo = new PacientesRepository($this->pdo);
+        $pacRepo = new PacientesRepository($this->pdo, user_clinica_id($this->user));
         $idPac = (int) ($_GET['id'] ?? 0);
         $nroHcGet = (int) ($_GET['nrohc'] ?? 0);
 

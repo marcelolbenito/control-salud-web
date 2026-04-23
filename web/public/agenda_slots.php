@@ -19,7 +19,7 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $doctor < 1) {
 }
 
 $pdo = db();
-$repo = new TurnosRepository($pdo);
+$repo = new TurnosRepository($pdo, user_clinica_id(auth_user()));
 $d = $repo->disponibilidadVisual($fecha, $doctor, $excludeId);
 
 echo json_encode(
@@ -27,6 +27,7 @@ echo json_encode(
         'ok' => true,
         'slots' => $d['slots'],
         'occupied' => $d['occupied'],
+        'blocked' => $d['blocked'] ?? [],
         'source' => $d['source'],
         'step' => $d['step'],
         'sin_franja_dia' => $d['sin_franja_dia'],

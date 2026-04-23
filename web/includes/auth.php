@@ -11,14 +11,29 @@ function auth_user(): ?array
     return $_SESSION['user'] ?? null;
 }
 
-function auth_login(int $id, string $usuario, string $nombre): void
+/**
+ * id_clinica activo para el usuario logueado (multi-clínica). Sin sesión devuelve 1.
+ */
+function user_clinica_id(?array $user): int
+{
+    if ($user === null) {
+        return 1;
+    }
+    $n = (int) ($user['id_clinica'] ?? 1);
+
+    return $n > 0 ? $n : 1;
+}
+
+function auth_login(int $id, string $usuario, string $nombre, int $idClinica = 1): void
 {
     session_regenerate_id(true);
     unset($_SESSION['_csrf']); // regenerar token CSRF tras login
+    $cid = $idClinica > 0 ? $idClinica : 1;
     $_SESSION['user'] = [
-        'id'      => $id,
-        'usuario' => $usuario,
-        'nombre'  => $nombre,
+        'id'         => $id,
+        'usuario'    => $usuario,
+        'nombre'     => $nombre,
+        'id_clinica' => $cid,
     ];
     $_SESSION['_last_activity'] = time();
 }

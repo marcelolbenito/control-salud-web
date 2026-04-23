@@ -15,8 +15,9 @@ $uid = $user !== null ? (int) ($user['id'] ?? 0) : 0;
 $uid = $uid > 0 ? $uid : null;
 
 $pdo = db();
-$repo = new OdontogramaRepository($pdo);
-$pacRepo = new PacientesRepository($pdo);
+$cid = user_clinica_id(auth_user());
+$repo = new OdontogramaRepository($pdo, $cid);
+$pacRepo = new PacientesRepository($pdo, $cid);
 
 $jsonError = static function (string $msg, int $http = 400): void {
     http_response_code($http);

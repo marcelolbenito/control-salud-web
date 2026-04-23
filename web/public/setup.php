@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/includes/db_schema.php';
 
 $error = '';
 $pdo = null;
@@ -42,7 +43,11 @@ if ($error === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'La contraseña debe tener al menos 8 caracteres.';
     } else {
         $hash = password_hash($clave, PASSWORD_DEFAULT);
-        $st = $pdo->prepare('INSERT INTO usuarios (usuario, password_hash, nombre, activo) VALUES (?, ?, ?, 1)');
+        if (db_table_has_column($pdo, 'usuarios', 'id_clinica')) {
+            $st = $pdo->prepare('INSERT INTO usuarios (usuario, password_hash, nombre, activo, id_clinica) VALUES (?, ?, ?, 1, 1)');
+        } else {
+            $st = $pdo->prepare('INSERT INTO usuarios (usuario, password_hash, nombre, activo) VALUES (?, ?, ?, 1)');
+        }
         $st->execute([$usuario, $hash, $nombre ?: $usuario]);
         header('Location: /login.php');
         exit;

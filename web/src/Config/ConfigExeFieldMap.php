@@ -453,11 +453,12 @@ final class ConfigExeFieldMap
      *
      * @return int Cantidad de claves escritas
      */
-    public static function aplicarSembradoConfig(PDO $pdo): int
+    public static function aplicarSembradoConfig(PDO $pdo, int $idClinica = 1): int
     {
         if (!db_table_exists($pdo, 'config')) {
             return 0;
         }
+        $cid = $idClinica > 0 ? $idClinica : 1;
         $tabla = self::detectarTablaBackup($pdo);
         if ($tabla === null) {
             return 0;
@@ -471,9 +472,14 @@ final class ConfigExeFieldMap
             return 0;
         }
         $map = self::porColumna();
-        $ins = $pdo->prepare(
-            'INSERT INTO config (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)'
-        );
+        $hasClin = db_table_has_column($pdo, 'config', 'id_clinica');
+        $ins = $hasClin
+            ? $pdo->prepare(
+                'INSERT INTO config (id_clinica, clave, valor) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)'
+            )
+            : $pdo->prepare(
+                'INSERT INTO config (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)'
+            );
         $n = 0;
         foreach ($map as $col => $meta) {
             if (empty($meta['sembrar']) || !array_key_exists($col, $row)) {
@@ -487,7 +493,11 @@ final class ConfigExeFieldMap
                 continue;
             }
             $str = is_scalar($v) ? (string) $v : '';
-            $ins->execute([$meta['clave'], $str]);
+            if ($hasClin) {
+                $ins->execute([$cid, $meta['clave'], $str]);
+            } else {
+                $ins->execute([$meta['clave'], $str]);
+            }
             $n++;
         }
 

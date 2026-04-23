@@ -5,7 +5,7 @@ declare(strict_types=1);
 <div class="container container-wide">
     <div class="page-head">
         <h1><?= h($titulo) ?></h1>
-        <p class="muted"><a href="/doctores.php">← Volver al listado</a></p>
+        <p class="muted"><a href="/doctores.php"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al listado</a></p>
     </div>
     <?php if (!$ext): ?>
         <p class="alert alert-error" style="background:#fffbeb;border-color:#fcd34d;color:#92400e;">
@@ -179,7 +179,7 @@ declare(strict_types=1);
 
         <div class="form-actions form-section">
             <button type="submit" class="btn btn-primary">Guardar</button>
-            <a class="btn btn-ghost" href="/doctores.php">Cancelar</a>
+            <a class="btn btn-ghost" href="/doctores.php"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancelar</a>
         </div>
     </form>
 </div>

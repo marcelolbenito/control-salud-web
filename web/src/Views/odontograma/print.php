@@ -21,7 +21,7 @@ $mapaSuperficiesActivo = $mapaSuperficiesActivo ?? false;
 ?>
 <div class="odontograma-print-toolbar no-print">
     <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> Imprimir / PDF</button>
-    <a class="btn btn-ghost" href="/odontograma.php?id=<?= (int) $idPac ?>">← Volver al odontograma</a>
+    <a class="btn btn-ghost" href="/odontograma.php?id=<?= (int) $idPac ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al odontograma</a>
 </div>
 
 <div class="container container-wide odontograma-print-sheet">

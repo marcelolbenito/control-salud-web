@@ -6,10 +6,33 @@ final class AgendaRepository
 {
     /** @var PDO */
     private $pdo;
+    /** @var int */
+    private $idClinica;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, int $idClinica = 1)
     {
         $this->pdo = $pdo;
+        $this->idClinica = max(1, $idClinica);
+    }
+
+    private function agendaTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'agenda_turnos', 'id_clinica');
+    }
+
+    private function pacientesTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'pacientes', 'id_clinica');
+    }
+
+    private function joinPacienteTurno(): string
+    {
+        $on = 'p.NroHC = t.NroHC';
+        if ($this->agendaTieneClinica() && $this->pacientesTieneClinica()) {
+            $on .= ' AND p.id_clinica = t.id_clinica';
+        }
+
+        return $on;
     }
 
     public function hasExtendedColumns(): bool
@@ -26,13 +49,21 @@ final class AgendaRepository
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno'
             : '';
 
+        $joinDoc = 'd.id = t.Doctor';
+        if ($this->agendaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $joinDoc .= ' AND d.id_clinica = t.id_clinica';
+        }
         $sql = "SELECT t.id, t.Fecha, t.hora, t.NroHC, t.Doctor, t.estado, t.idorden, t.observaciones,
             {$pacienteExpr}, d.nombre AS doctor_nombre{$extraSel}
             FROM agenda_turnos t
-            LEFT JOIN pacientes p ON p.NroHC = t.NroHC
-            LEFT JOIN lista_doctores d ON d.id = t.Doctor
-            WHERE t.Fecha = ?";
+            LEFT JOIN pacientes p ON " . $this->joinPacienteTurno() . '
+            LEFT JOIN lista_doctores d ON ' . $joinDoc . '
+            WHERE t.Fecha = ?';
         $params = [$fecha];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND t.id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
 
         if ($doctorFiltro > 0) {
             $sql .= ' AND t.Doctor = ?';
@@ -54,16 +85,25 @@ final class AgendaRepository
         $extraSel = $extAgenda
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno, t.pagado, t.motivo'
             : '';
-        $st = $this->pdo->prepare(
-            "SELECT t.id, t.Fecha, t.hora, t.NroHC, t.Doctor, t.estado, t.idorden, t.observaciones,
+        $joinDoc = 'd.id = t.Doctor';
+        if ($this->agendaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $joinDoc .= ' AND d.id_clinica = t.id_clinica';
+        }
+        $sql = "SELECT t.id, t.Fecha, t.hora, t.NroHC, t.Doctor, t.estado, t.idorden, t.observaciones,
             {$pacienteExpr}, d.nombre AS doctor_nombre{$extraSel}
             FROM agenda_turnos t
-            LEFT JOIN pacientes p ON p.NroHC = t.NroHC
-            LEFT JOIN lista_doctores d ON d.id = t.Doctor
-            WHERE t.id = ?
-            LIMIT 1"
-        );
-        $st->execute([$id]);
+            LEFT JOIN pacientes p ON " . $this->joinPacienteTurno() . '
+            LEFT JOIN lista_doctores d ON ' . $joinDoc . '
+            WHERE t.id = ?';
+        $par = [$id];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND t.id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= '
+            LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         $row = $st->fetch();
 
         return $row ?: null;
@@ -76,6 +116,10 @@ final class AgendaRepository
     {
         $where = ' WHERE Fecha = ?';
         $params = [$fecha];
+        if ($this->agendaTieneClinica()) {
+            $where .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
         if ($doctorFiltro > 0) {
             $where .= ' AND Doctor = ?';
             $params[] = $doctorFiltro;
@@ -121,20 +165,48 @@ final class AgendaRepository
         }
 
         if ($accion === 'llego') {
-            $st = $this->pdo->prepare("UPDATE agenda_turnos SET llegado = 1, estado = IF(estado='no_asistio','pendiente',estado) WHERE id = ?");
-            return $st->execute([$id]);
+            $sql = "UPDATE agenda_turnos SET llegado = 1, estado = IF(estado='no_asistio','pendiente',estado) WHERE id = ?";
+            $par = [$id];
+            if ($this->agendaTieneClinica()) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
+            $st = $this->pdo->prepare($sql);
+
+            return $st->execute($par);
         }
         if ($accion === 'confirmado') {
-            $st = $this->pdo->prepare("UPDATE agenda_turnos SET confirmado = 1 WHERE id = ?");
-            return $st->execute([$id]);
+            $sql = 'UPDATE agenda_turnos SET confirmado = 1 WHERE id = ?';
+            $par = [$id];
+            if ($this->agendaTieneClinica()) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
+            $st = $this->pdo->prepare($sql);
+
+            return $st->execute($par);
         }
         if ($accion === 'atendido') {
-            $st = $this->pdo->prepare("UPDATE agenda_turnos SET atendido = 1, falta_turno = 0, estado = 'atendido' WHERE id = ?");
-            return $st->execute([$id]);
+            $sql = "UPDATE agenda_turnos SET atendido = 1, falta_turno = 0, estado = 'atendido' WHERE id = ?";
+            $par = [$id];
+            if ($this->agendaTieneClinica()) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
+            $st = $this->pdo->prepare($sql);
+
+            return $st->execute($par);
         }
         if ($accion === 'ausente') {
-            $st = $this->pdo->prepare("UPDATE agenda_turnos SET falta_turno = 1, atendido = 0, estado = 'no_asistio' WHERE id = ?");
-            return $st->execute([$id]);
+            $sql = "UPDATE agenda_turnos SET falta_turno = 1, atendido = 0, estado = 'no_asistio' WHERE id = ?";
+            $par = [$id];
+            if ($this->agendaTieneClinica()) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
+            $st = $this->pdo->prepare($sql);
+
+            return $st->execute($par);
         }
 
         return false;

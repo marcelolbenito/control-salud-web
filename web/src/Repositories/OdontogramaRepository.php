@@ -10,10 +10,28 @@ final class OdontogramaRepository
 
     /** @var PDO */
     private $pdo;
+    /** @var int */
+    private $idClinica;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, int $idClinica = 1)
     {
         $this->pdo = $pdo;
+        $this->idClinica = max(1, $idClinica);
+    }
+
+    private function odoTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, self::TABLE, 'id_clinica');
+    }
+
+    private function supTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, self::TABLE_SUPERFICIES, 'id_clinica');
+    }
+
+    private function ordenesTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'Pacientes Ordenes', 'id_clinica');
     }
 
     public static function tableName(): string
@@ -97,10 +115,15 @@ final class OdontogramaRepository
             FROM ' . self::TABLE_SUPERFICIES . ' s
             INNER JOIN lista_odontograma_codigos c ON c.id = s.id_codigo
             WHERE s.NroHC = ?';
+        $par = [$nroHC];
+        if ($this->supTieneClinica()) {
+            $sql .= ' AND s.id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
 
         try {
             $st = $this->pdo->prepare($sql);
-            $st->execute([$nroHC]);
+            $st->execute($par);
 
             return $st->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
@@ -120,11 +143,19 @@ final class OdontogramaRepository
         $carasOk = ['M' => true, 'O' => true, 'D' => true, 'V' => true, 'L' => true, 'P' => true];
         $this->pdo->beginTransaction();
         try {
-            $del = $this->pdo->prepare('DELETE FROM ' . self::TABLE_SUPERFICIES . ' WHERE NroHC = ?');
-            $del->execute([$nroHC]);
-            $ins = $this->pdo->prepare(
-                'INSERT INTO ' . self::TABLE_SUPERFICIES . ' (NroHC, pieza_fdi, cara, id_codigo, idusuario_web) VALUES (?,?,?,?,?)'
-            );
+            if ($this->supTieneClinica()) {
+                $del = $this->pdo->prepare('DELETE FROM ' . self::TABLE_SUPERFICIES . ' WHERE NroHC = ? AND id_clinica = ?');
+                $del->execute([$nroHC, $this->idClinica]);
+                $ins = $this->pdo->prepare(
+                    'INSERT INTO ' . self::TABLE_SUPERFICIES . ' (id_clinica, NroHC, pieza_fdi, cara, id_codigo, idusuario_web) VALUES (?,?,?,?,?,?)'
+                );
+            } else {
+                $del = $this->pdo->prepare('DELETE FROM ' . self::TABLE_SUPERFICIES . ' WHERE NroHC = ?');
+                $del->execute([$nroHC]);
+                $ins = $this->pdo->prepare(
+                    'INSERT INTO ' . self::TABLE_SUPERFICIES . ' (NroHC, pieza_fdi, cara, id_codigo, idusuario_web) VALUES (?,?,?,?,?)'
+                );
+            }
             foreach ($celdas as $c) {
                 $pieza = (int) ($c['pieza_fdi'] ?? 0);
                 $cara = strtoupper(trim((string) ($c['cara'] ?? '')));
@@ -132,7 +163,11 @@ final class OdontogramaRepository
                 if (!isset($permitidas[$pieza]) || !isset($carasOk[$cara]) || $idc < 1) {
                     continue;
                 }
-                $ins->execute([$nroHC, $pieza, $cara, $idc, $idUsuarioWeb]);
+                if ($this->supTieneClinica()) {
+                    $ins->execute([$this->idClinica, $nroHC, $pieza, $cara, $idc, $idUsuarioWeb]);
+                } else {
+                    $ins->execute([$nroHC, $pieza, $cara, $idc, $idUsuarioWeb]);
+                }
             }
             $this->pdo->commit();
         } catch (Throwable $e) {
@@ -156,7 +191,11 @@ final class OdontogramaRepository
             $sel .= ', o.id_orden, o.anulado, o.anulado_motivo, o.anulado_en, o.anulado_por_usuario';
             if (db_table_exists($this->pdo, OrdenesRepository::tableSqlName())) {
                 $sel .= ', DATE(ord.fecha) AS orden_fecha';
-                $join .= ' LEFT JOIN `Pacientes Ordenes` ord ON ord.id = o.id_orden';
+                $joinOrd = 'ord.id = o.id_orden';
+                if ($this->odoTieneClinica() && $this->ordenesTieneClinica()) {
+                    $joinOrd .= ' AND ord.id_clinica = o.id_clinica';
+                }
+                $join .= ' LEFT JOIN `Pacientes Ordenes` ord ON ' . $joinOrd;
             } else {
                 $sel .= ', NULL AS orden_fecha';
             }
@@ -166,17 +205,27 @@ final class OdontogramaRepository
             $sel .= ', NULL AS id_orden, NULL AS orden_fecha, 0 AS anulado, NULL AS anulado_motivo, NULL AS anulado_en, NULL AS anulado_por_usuario, NULL AS anulado_usuario';
         }
 
+        $joinDoc = 'd.id = o.iddoctor';
+        if ($this->odoTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $joinDoc .= ' AND d.id_clinica = o.id_clinica';
+        }
         $sql = 'SELECT ' . $sel . '
             FROM ' . self::TABLE . ' o
             LEFT JOIN lista_odontograma_codigos c ON c.id = o.id_codigo
-            LEFT JOIN lista_doctores d ON d.id = o.iddoctor
+            LEFT JOIN lista_doctores d ON ' . $joinDoc . '
             LEFT JOIN usuarios u ON u.id = o.idusuario_web'
             . $join . '
-            WHERE o.NroHC = ?
+            WHERE o.NroHC = ?';
+        $par = [$nroHC];
+        if ($this->odoTieneClinica()) {
+            $sql .= ' AND o.id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= '
             ORDER BY o.creado_en DESC, o.id DESC';
 
         $st = $this->pdo->prepare($sql);
-        $st->execute([$nroHC]);
+        $st->execute($par);
 
         return $st->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -186,8 +235,15 @@ final class OdontogramaRepository
      */
     public function findById(int $id): ?array
     {
-        $st = $this->pdo->prepare('SELECT * FROM ' . self::TABLE . ' WHERE id = ? LIMIT 1');
-        $st->execute([$id]);
+        $sql = 'SELECT * FROM ' . self::TABLE . ' WHERE id = ?';
+        $par = [$id];
+        if ($this->odoTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         $r = $st->fetch(PDO::FETCH_ASSOC);
 
         return $r ?: null;
@@ -205,6 +261,10 @@ final class OdontogramaRepository
     ): void {
         $cols = ['NroHC', 'pieza_fdi', 'cara', 'id_codigo', 'notas', 'iddoctor', 'idusuario_web'];
         $vals = [$nroHC, $piezaFdi, $cara, $idCodigo, $notas !== '' ? $notas : null, $iddoctor, $idUsuarioWeb];
+        if ($this->odoTieneClinica()) {
+            array_unshift($cols, 'id_clinica');
+            array_unshift($vals, $this->idClinica);
+        }
 
         if ($this->tieneExtensionV2()) {
             $cols[] = 'id_orden';
@@ -225,12 +285,16 @@ final class OdontogramaRepository
         if (!$this->tieneExtensionV2() || $id < 1 || $nroHC < 1 || trim($motivo) === '' || $idUsuarioWeb < 1) {
             return false;
         }
-        $st = $this->pdo->prepare(
-            'UPDATE ' . self::TABLE . ' SET anulado = 1, anulado_motivo = ?, anulado_en = NOW(), anulado_por_usuario = ?
-            WHERE id = ? AND NroHC = ? AND (anulado = 0 OR anulado IS NULL)'
-        );
+        $sql = 'UPDATE ' . self::TABLE . ' SET anulado = 1, anulado_motivo = ?, anulado_en = NOW(), anulado_por_usuario = ?
+            WHERE id = ? AND NroHC = ? AND (anulado = 0 OR anulado IS NULL)';
+        $par = [$motivo, $idUsuarioWeb, $id, $nroHC];
+        if ($this->odoTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
 
-        return $st->execute([$motivo, $idUsuarioWeb, $id, $nroHC]) && $st->rowCount() > 0;
+        return $st->execute($par) && $st->rowCount() > 0;
     }
 
     /**

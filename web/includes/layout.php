@@ -45,7 +45,11 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                     <a href="/pacientes.php"><i class="bi bi-people" aria-hidden="true"></i> Pacientes</a>
                     <a href="/doctores.php"><i class="bi bi-person-badge" aria-hidden="true"></i> Doctores</a>
                     <a href="/agenda.php"><i class="bi bi-calendar3-event" aria-hidden="true"></i> Agenda</a>
+                    <a href="/agenda_bloqueos.php"><i class="bi bi-calendar-x" aria-hidden="true"></i> Bloqueos</a>
                     <a href="/ordenes.php"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Órdenes</a>
+                    <a href="/sesiones.php"><i class="bi bi-calendar2-check" aria-hidden="true"></i> Sesiones</a>
+                    <a href="/pagos.php"><i class="bi bi-receipt-cutoff" aria-hidden="true"></i> Pagos</a>
+                    <a href="/caja.php"><i class="bi bi-cash-coin" aria-hidden="true"></i> Caja</a>
                     <a href="/catalogos.php"><i class="bi bi-journals" aria-hidden="true"></i> Tablas auxiliares</a>
                     <a href="/sistema.php"><i class="bi bi-gear" aria-hidden="true"></i> Sistema</a>
                 </nav>

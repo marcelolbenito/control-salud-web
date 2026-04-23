@@ -3,7 +3,7 @@ declare(strict_types=1);
 $isEdit = (int) ($row['id'] ?? 0) > 0;
 ?>
 <div class="container container-narrow">
-    <p><a href="/sistema.php">← Volver</a></p>
+    <p><a href="/sistema.php"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver</a></p>
     <h1><?= $isEdit ? 'Editar parámetro' : 'Nuevo parámetro' ?></h1>
     <?php if ($error !== ''): ?>
         <p class="alert alert-error"><?= h($error) ?></p>

@@ -6,10 +6,18 @@ final class PacientesRepository
 {
     /** @var PDO */
     private $pdo;
+    /** @var int */
+    private $idClinica;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, int $idClinica = 1)
     {
         $this->pdo = $pdo;
+        $this->idClinica = max(1, $idClinica);
+    }
+
+    private function pacientesTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'pacientes', 'id_clinica');
     }
 
     public function hasExtendedColumns(): bool
@@ -37,6 +45,10 @@ final class PacientesRepository
         }
         $sql .= ' WHERE 1=1';
         $params = [];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND p.id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
 
         $activo = isset($filters['activo']) ? trim((string) $filters['activo']) : '1';
         if ($activo === '1') {
@@ -91,8 +103,15 @@ final class PacientesRepository
 
     public function findById(int $id): ?array
     {
-        $st = $this->pdo->prepare('SELECT * FROM pacientes WHERE id = ? LIMIT 1');
-        $st->execute([$id]);
+        $sql = 'SELECT * FROM pacientes WHERE id = ?';
+        $par = [$id];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         $row = $st->fetch();
 
         return $row ?: null;
@@ -103,8 +122,15 @@ final class PacientesRepository
         if ($nroHC < 1) {
             return null;
         }
-        $st = $this->pdo->prepare('SELECT * FROM pacientes WHERE NroHC = ? LIMIT 1');
-        $st->execute([$nroHC]);
+        $sql = 'SELECT * FROM pacientes WHERE NroHC = ?';
+        $par = [$nroHC];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         $row = $st->fetch();
 
         return $row ?: null;
@@ -112,41 +138,63 @@ final class PacientesRepository
 
     public function updateHistoriaClinica(int $id, string $hcText, string $antecedentes, bool $hasHcTexto, bool $hasAnteced): void
     {
+        $wc = $this->pacientesTieneClinica() ? ' AND id_clinica = ?' : '';
+        $wcPar = $this->pacientesTieneClinica() ? [$this->idClinica] : [];
         if ($hasHcTexto && $hasAnteced) {
-            $u = $this->pdo->prepare('UPDATE pacientes SET hc_texto=?, antecedentes_hc=? WHERE id=?');
-            $u->execute([$hcText, $antecedentes, $id]);
+            $u = $this->pdo->prepare('UPDATE pacientes SET hc_texto=?, antecedentes_hc=? WHERE id=?' . $wc);
+            $u->execute(array_merge([$hcText, $antecedentes, $id], $wcPar));
             return;
         }
         if ($hasHcTexto) {
-            $u = $this->pdo->prepare('UPDATE pacientes SET hc_texto=? WHERE id=?');
-            $u->execute([$hcText, $id]);
+            $u = $this->pdo->prepare('UPDATE pacientes SET hc_texto=? WHERE id=?' . $wc);
+            $u->execute(array_merge([$hcText, $id], $wcPar));
             return;
         }
         if ($hasAnteced) {
-            $u = $this->pdo->prepare('UPDATE pacientes SET HC=?, antecedentes_hc=? WHERE id=?');
-            $u->execute([$hcText, $antecedentes, $id]);
+            $u = $this->pdo->prepare('UPDATE pacientes SET HC=?, antecedentes_hc=? WHERE id=?' . $wc);
+            $u->execute(array_merge([$hcText, $antecedentes, $id], $wcPar));
             return;
         }
 
-        $u = $this->pdo->prepare('UPDATE pacientes SET HC=? WHERE id=?');
-        $u->execute([$hcText, $id]);
+        $u = $this->pdo->prepare('UPDATE pacientes SET HC=? WHERE id=?' . $wc);
+        $u->execute(array_merge([$hcText, $id], $wcPar));
     }
 
     public function deleteById(int $id): void
     {
-        $st = $this->pdo->prepare('DELETE FROM pacientes WHERE id = ?');
-        $st->execute([$id]);
+        $sql = 'DELETE FROM pacientes WHERE id = ?';
+        $par = [$id];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     public function suggestedNextNroHC(): int
     {
+        if ($this->pacientesTieneClinica()) {
+            $st = $this->pdo->prepare('SELECT COALESCE(MAX(NroHC), 0) + 1 AS n FROM pacientes WHERE id_clinica = ?');
+            $st->execute([$this->idClinica]);
+
+            return (int) $st->fetch()['n'];
+        }
+
         return (int) $this->pdo->query('SELECT COALESCE(MAX(NroHC), 0) + 1 AS n FROM pacientes')->fetch()['n'];
     }
 
     public function existsOtherWithNroHC(int $nroHC, int $excludeId): bool
     {
-        $st = $this->pdo->prepare('SELECT id FROM pacientes WHERE NroHC = ? AND id != ? LIMIT 1');
-        $st->execute([$nroHC, $excludeId]);
+        $sql = 'SELECT id FROM pacientes WHERE NroHC = ? AND id != ?';
+        $par = [$nroHC, $excludeId];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         return (bool) $st->fetch();
     }
 
@@ -200,6 +248,9 @@ final class PacientesRepository
     {
         unset($payload['id'], $payload['creado_en'], $payload['actualizado_en']);
         $payload = $this->filterPayloadToExistingColumns($payload);
+        if ($this->pacientesTieneClinica()) {
+            $payload['id_clinica'] = $this->idClinica;
+        }
         if ($payload === []) {
             throw new \InvalidArgumentException('insertPacienteFull: payload vacío tras filtrar columnas.');
         }
@@ -220,7 +271,7 @@ final class PacientesRepository
      */
     public function updatePacienteFull(int $id, array $payload): void
     {
-        unset($payload['id'], $payload['creado_en']);
+        unset($payload['id'], $payload['creado_en'], $payload['id_clinica']);
         $payload = $this->filterPayloadToExistingColumns($payload);
         if ($payload === []) {
             return;
@@ -233,6 +284,10 @@ final class PacientesRepository
         }
         $vals[] = $id;
         $sql = 'UPDATE pacientes SET ' . implode(', ', $sets) . ' WHERE id = ?';
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $vals[] = $this->idClinica;
+        }
         $st = $this->pdo->prepare($sql);
         $st->execute($vals);
     }
@@ -320,6 +375,14 @@ final class PacientesRepository
         int $activo,
         string $notas
     ): void {
+        if ($this->pacientesTieneClinica()) {
+            $st = $this->pdo->prepare(
+                'INSERT INTO pacientes (id_clinica, NroHC, Nombres, DNI, convenio, fecha_nacimiento, telefono, email, direccion, activo, notas) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+            );
+            $st->execute([$this->idClinica, $nroHC, $nombres, $dni, $convenio, $fechaNac, $telefono, $email, $direccion, $activo, $notas]);
+
+            return;
+        }
         $st = $this->pdo->prepare(
             'INSERT INTO pacientes (NroHC, Nombres, DNI, convenio, fecha_nacimiento, telefono, email, direccion, activo, notas) VALUES (?,?,?,?,?,?,?,?,?,?)'
         );
@@ -339,6 +402,14 @@ final class PacientesRepository
         int $activo,
         string $notas
     ): void {
+        if ($this->pacientesTieneClinica()) {
+            $st = $this->pdo->prepare(
+                'UPDATE pacientes SET NroHC=?, Nombres=?, DNI=?, convenio=?, fecha_nacimiento=?, telefono=?, email=?, direccion=?, activo=?, notas=? WHERE id=? AND id_clinica=?'
+            );
+            $st->execute([$nroHC, $nombres, $dni, $convenio, $fechaNac, $telefono, $email, $direccion, $activo, $notas, $id, $this->idClinica]);
+
+            return;
+        }
         $st = $this->pdo->prepare(
             'UPDATE pacientes SET NroHC=?, Nombres=?, DNI=?, convenio=?, fecha_nacimiento=?, telefono=?, email=?, direccion=?, activo=?, notas=? WHERE id=?'
         );

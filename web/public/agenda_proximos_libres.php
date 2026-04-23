@@ -20,7 +20,7 @@ if ($doctor < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde)) {
     exit;
 }
 
-$repo = new TurnosRepository(db());
+$repo = new TurnosRepository(db(), user_clinica_id(auth_user()));
 $items = $repo->proximosLibres($doctor, $desde, $dias, $limite, $excludeId);
 
 echo json_encode(['ok' => true, 'items' => $items], JSON_UNESCAPED_UNICODE);

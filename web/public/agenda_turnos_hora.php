@@ -18,7 +18,7 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $doctor < 1 || !preg_match('
     exit;
 }
 
-$repo = new TurnosRepository(db());
+$repo = new TurnosRepository(db(), user_clinica_id(auth_user()));
 $items = $repo->turnosEnHorario($fecha, $doctor, $hora);
 
 echo json_encode(['ok' => true, 'items' => $items], JSON_UNESCAPED_UNICODE);

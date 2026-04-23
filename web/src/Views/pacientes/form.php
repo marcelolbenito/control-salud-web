@@ -30,7 +30,7 @@ function paciente_date_only($v): string
 <div class="container container-wide patient-form-page">
     <div class="page-head">
         <h1><?= h($titulo) ?></h1>
-        <p class="muted"><a href="/pacientes.php">← Volver al listado</a></p>
+        <p class="muted"><a href="/pacientes.php"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al listado</a></p>
     </div>
     <?php if (!$ext): ?>
         <p class="alert alert-error" style="background:#fffbeb;border-color:#fcd34d;color:#92400e;">
@@ -53,16 +53,16 @@ function paciente_date_only($v): string
 
     <?php if ($ext): ?>
     <nav class="form-subnav patient-form-subnav" aria-label="Secciones">
-        <a href="#pf-ident">Identificación</a>
-        <a href="#pf-foto">Foto</a>
-        <a href="#pf-seg">Seguimiento</a>
-        <a href="#pf-cob">Cobertura</a>
-        <a href="#pf-ubic">Ubicación</a>
-        <a href="#pf-contacto">Contacto</a>
-        <a href="#pf-familia">Familia</a>
-        <a href="#pf-contacto2">Contacto alt.</a>
-        <a href="#pf-clin">Clínico / HC</a>
-        <a href="#pf-notas">Notas</a>
+        <a href="#pf-ident"><i class="bi bi-person-badge" aria-hidden="true"></i> Identificación</a>
+        <a href="#pf-foto"><i class="bi bi-camera" aria-hidden="true"></i> Foto</a>
+        <a href="#pf-seg"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i> Seguimiento</a>
+        <a href="#pf-cob"><i class="bi bi-card-heading" aria-hidden="true"></i> Cobertura</a>
+        <a href="#pf-ubic"><i class="bi bi-geo-alt" aria-hidden="true"></i> Ubicación</a>
+        <a href="#pf-contacto"><i class="bi bi-telephone" aria-hidden="true"></i> Contacto</a>
+        <a href="#pf-familia"><i class="bi bi-people" aria-hidden="true"></i> Familia</a>
+        <a href="#pf-contacto2"><i class="bi bi-telephone-forward" aria-hidden="true"></i> Contacto alt.</a>
+        <a href="#pf-clin"><i class="bi bi-heart-pulse" aria-hidden="true"></i> Clínico / HC</a>
+        <a href="#pf-notas"><i class="bi bi-sticky" aria-hidden="true"></i> Notas</a>
     </nav>
     <?php endif; ?>
 
@@ -418,7 +418,7 @@ function paciente_date_only($v): string
 
         <div class="form-actions form-section">
             <button type="submit" class="btn btn-primary">Guardar</button>
-            <a class="btn btn-ghost" href="/pacientes.php">Cancelar</a>
+            <a class="btn btn-ghost" href="/pacientes.php"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancelar</a>
         </div>
     </form>
 </div>

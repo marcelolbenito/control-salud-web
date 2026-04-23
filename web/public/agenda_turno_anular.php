@@ -21,7 +21,7 @@ if ($id < 1) {
     exit;
 }
 
-$repo = new TurnosRepository(db());
+$repo = new TurnosRepository(db(), user_clinica_id(auth_user()));
 $repo->deleteById($id);
 
 echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);

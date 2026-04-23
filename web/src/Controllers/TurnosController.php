@@ -21,7 +21,7 @@ final class TurnosController
     {
         require_once dirname(__DIR__, 2) . '/includes/catalogos.php';
 
-        $repo = new TurnosRepository($this->pdo);
+        $repo = new TurnosRepository($this->pdo, user_clinica_id($this->user));
         $ext = $repo->hasExtendedAgendaColumns();
         $doctores = $repo->listDoctores();
         $primeraVezOpts = catalogo_lista($this->pdo, 'lista_primera_vez', 'prioridad_id');
@@ -101,6 +101,7 @@ final class TurnosController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
+            $existente = $id > 0 ? $repo->findById($id) : null;
             $Fecha = trim((string) ($_POST['Fecha'] ?? ''));
             $horaRaw = trim((string) ($_POST['hora'] ?? ''));
             $NroHC = (int) ($_POST['NroHC'] ?? 0);
@@ -149,6 +150,27 @@ final class TurnosController
                 $error = 'Estado no válido.';
             } elseif (!$repo->pacienteExistsByNroHC($NroHC)) {
                 $error = 'No existe un paciente con ese Nro HC. Cargalo primero en Pacientes.';
+            }
+
+            if ($error === '' && $hora !== null && $hora !== '') {
+                $hi = '';
+                if (preg_match('/^\d{2}:\d{2}/', $horaRaw, $hm)) {
+                    $hi = $hm[0];
+                } elseif (strlen($horaRaw) >= 5) {
+                    $hi = substr($horaRaw, 0, 5);
+                }
+                if ($hi !== '' && preg_match('/^\d{2}:\d{2}$/', $hi)) {
+                    $slotIgual = false;
+                    if ($existente) {
+                        $oldH = !empty($existente['hora']) ? substr((string) $existente['hora'], 0, 5) : '';
+                        $slotIgual = ((string) ($existente['Fecha'] ?? '') === $Fecha
+                            && (int) ($existente['Doctor'] ?? 0) === $Doctor
+                            && $oldH === $hi);
+                    }
+                    if (!$slotIgual && $repo->isHoraBloqueada($Fecha, $Doctor, $hi)) {
+                        $error = 'Ese horario está bloqueado para el profesional. Elegí otro horario o editá los bloqueos en Agenda — Bloqueos.';
+                    }
+                }
             }
 
             if ($error === '') {
@@ -232,6 +254,7 @@ final class TurnosController
             'doctores' => $doctores,
             'primeraVezOpts' => $primeraVezOpts,
             'dispOcupadas' => $disp['occupied'],
+            'dispBloqueadas' => $disp['blocked'] ?? [],
             'dispSlots' => $disp['slots'],
             'dispSource' => $disp['source'],
             'dispSinFranjaDia' => $disp['sin_franja_dia'],
@@ -254,7 +277,7 @@ final class TurnosController
             header('Location: /agenda.php');
             exit;
         }
-        $repo = new TurnosRepository($this->pdo);
+        $repo = new TurnosRepository($this->pdo, user_clinica_id($this->user));
         $repo->deleteById($id);
         flash_set('Turno eliminado.');
         header('Location: /agenda.php');

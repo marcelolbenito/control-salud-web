@@ -26,8 +26,8 @@ final class AgendaController
         }
         $doctorFiltro = (int) ($_GET['doctor'] ?? 0);
 
-        $agendaRepo = new AgendaRepository($this->pdo);
-        $docRepo = new DoctoresRepository($this->pdo);
+        $agendaRepo = new AgendaRepository($this->pdo, user_clinica_id($this->user));
+        $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
         $extAgenda = $agendaRepo->hasExtendedColumns();
         $doctores = $docRepo->listActivos();
         $rows = $agendaRepo->listByFechaYDoctor($fecha, $doctorFiltro, $extAgenda);
@@ -68,7 +68,7 @@ final class AgendaController
             exit;
         }
 
-        $repo = new AgendaRepository($this->pdo);
+        $repo = new AgendaRepository($this->pdo, user_clinica_id($this->user));
         $ok = $repo->updateQuickStatus($id, $accion, $repo->hasExtendedColumns());
         if ($ok) {
             flash_set('Estado actualizado.');

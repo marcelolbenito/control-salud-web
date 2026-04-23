@@ -14,7 +14,7 @@ if ($q === '') {
     exit;
 }
 
-$repo = new TurnosRepository(db());
+$repo = new TurnosRepository(db(), user_clinica_id(auth_user()));
 $items = $repo->buscarPacientesTurno($q, 12);
 
 echo json_encode(['ok' => true, 'items' => $items], JSON_UNESCAPED_UNICODE);

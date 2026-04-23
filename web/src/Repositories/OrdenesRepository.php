@@ -27,10 +27,18 @@ final class OrdenesRepository
 
     /** @var PDO */
     private $pdo;
+    /** @var int */
+    private $idClinica;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, int $idClinica = 1)
     {
         $this->pdo = $pdo;
+        $this->idClinica = max(1, $idClinica);
+    }
+
+    private function ordenesTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, self::tableSqlName(), 'id_clinica');
     }
 
     public static function tableSqlName(): string
@@ -44,8 +52,15 @@ final class OrdenesRepository
             return false;
         }
         try {
-            $st = $this->pdo->prepare('SELECT id FROM ' . self::TABLE . ' WHERE id = ? AND NroPaci = ? LIMIT 1');
-            $st->execute([$idOrden, $nroHC]);
+            $sql = 'SELECT id FROM ' . self::TABLE . ' WHERE id = ? AND NroPaci = ?';
+            $par = [$idOrden, $nroHC];
+            if ($this->ordenesTieneClinica()) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
+            $sql .= ' LIMIT 1';
+            $st = $this->pdo->prepare($sql);
+            $st->execute($par);
 
             return (bool) $st->fetch();
         } catch (Throwable $e) {
@@ -65,10 +80,16 @@ final class OrdenesRepository
         }
         $limite = max(1, min(100, $limite));
         $sql = 'SELECT id, DATE(fecha) AS fecha_orden FROM ' . self::TABLE
-            . ' WHERE NroPaci = ? ORDER BY fecha IS NULL, fecha DESC, id DESC LIMIT ' . $limite;
+            . ' WHERE NroPaci = ?';
+        $par = [$nroHC];
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' ORDER BY fecha IS NULL, fecha DESC, id DESC LIMIT ' . $limite;
         try {
             $st = $this->pdo->prepare($sql);
-            $st->execute([$nroHC]);
+            $st->execute($par);
 
             return $st->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
@@ -106,6 +127,9 @@ final class OrdenesRepository
         if ($values === []) {
             throw new InvalidArgumentException('Sin columnas para insertar en Pacientes Ordenes.');
         }
+        if ($this->ordenesTieneClinica()) {
+            $values['id_clinica'] = $this->idClinica;
+        }
         $cols = array_keys($values);
         $colSql = implode(', ', array_map(static function (string $c): string {
             return '`' . str_replace('`', '', $c) . '`';
@@ -124,6 +148,7 @@ final class OrdenesRepository
     public function updateRow(int $id, array $values): void
     {
         $values = $this->filterExistingColumns($values);
+        unset($values['id_clinica']);
         if ($values === []) {
             return;
         }
@@ -135,6 +160,10 @@ final class OrdenesRepository
         }
         $params[] = $id;
         $sql = 'UPDATE ' . self::TABLE . ' SET ' . implode(', ', $sets) . ' WHERE id = ?';
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
         $st = $this->pdo->prepare($sql);
         $st->execute($params);
     }
@@ -156,18 +185,28 @@ final class OrdenesRepository
         $joinSuc = db_table_exists($this->pdo, 'lista_sucursales');
         $selSuc = $joinSuc ? ', ls.nombre AS sucursal_nombre' : ', NULL AS sucursal_nombre';
 
+        $joinDoc = 'd.id = o.iddoctor';
+        $joinPac = 'p.NroHC = o.NroPaci';
+        if ($this->ordenesTieneClinica()) {
+            if (db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+                $joinDoc .= ' AND d.id_clinica = o.id_clinica';
+            }
+            if (db_table_has_column($this->pdo, 'pacientes', 'id_clinica')) {
+                $joinPac .= ' AND p.id_clinica = o.id_clinica';
+            }
+        }
         $sql = 'SELECT o.id, o.NroPaci, o.numero, o.iddoctor,
             DATE(o.fecha) AS fecha_orden,
             o.fecha AS fecha_hora,
             o.autorizada, o.entregada, o.observaciones,
-            o.costo, o.pago, o.costo_os, o.sesiones, o.liquidada,
+            o.costo, o.pago, o.costo_os, o.honorarioextra, o.sesiones, o.liquidada,
             o.estado, o.estado_os, o.sucursal, o.idobrasocial, o.idpractica,
             o.idderivado, o.idplan,
             d.nombre AS doctor_nombre,
             p.Nombres AS paciente_nombres, ' . $colApellido . $selCob . $selPr . $selDer . $selSuc . '
             FROM ' . self::TABLE . ' o
-            LEFT JOIN lista_doctores d ON d.id = o.iddoctor
-            LEFT JOIN pacientes p ON p.NroHC = o.NroPaci';
+            LEFT JOIN lista_doctores d ON ' . $joinDoc . '
+            LEFT JOIN pacientes p ON ' . $joinPac;
         if ($joinCob) {
             $sql .= ' LEFT JOIN lista_coberturas lc ON lc.id = o.idobrasocial';
         }
@@ -182,6 +221,10 @@ final class OrdenesRepository
         }
         $sql .= ' WHERE 1=1';
         $params = [];
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND o.id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
 
         $nro = (int) ($f['nrohc'] ?? 0);
         if ($nro > 0) {
@@ -213,6 +256,18 @@ final class OrdenesRepository
             $sql .= ' AND o.fecha <= ?';
             $params[] = $fh . ' 23:59:59';
         }
+        if (db_table_has_column($this->pdo, self::tableSqlName(), 'honorariofecha')) {
+            $hfd = trim((string) ($f['honorariofecha_desde'] ?? ''));
+            if ($hfd !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hfd)) {
+                $sql .= ' AND o.honorariofecha >= ?';
+                $params[] = $hfd . ' 00:00:00';
+            }
+            $hfh = trim((string) ($f['honorariofecha_hasta'] ?? ''));
+            if ($hfh !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hfh)) {
+                $sql .= ' AND o.honorariofecha <= ?';
+                $params[] = $hfh . ' 23:59:59';
+            }
+        }
         foreach (
             [
                 'sucursal' => 'sucursal',
@@ -228,19 +283,67 @@ final class OrdenesRepository
                 $params[] = $v;
             }
         }
-        $est = trim((string) ($f['estado'] ?? ''));
-        if ($est !== '') {
-            $sql .= ' AND o.estado <=> ?';
-            $params[] = substr($est, 0, 1);
+        $estMulti = $this->sanitizeEstadoMulti($f['estado_multi'] ?? []);
+        if ($estMulti !== []) {
+            $sql .= ' AND o.estado IN (' . implode(', ', array_fill(0, count($estMulti), '?')) . ')';
+            array_push($params, ...$estMulti);
+        } else {
+            $est = trim((string) ($f['estado'] ?? ''));
+            if ($est !== '') {
+                $sql .= ' AND o.estado <=> ?';
+                $params[] = strtoupper(substr($est, 0, 1));
+            }
         }
-        $estOs = trim((string) ($f['estado_os'] ?? ''));
-        if ($estOs !== '') {
-            $sql .= ' AND o.estado_os <=> ?';
-            $params[] = substr($estOs, 0, 1);
+        $estOsMulti = $this->sanitizeEstadoMulti($f['estado_os_multi'] ?? []);
+        if ($estOsMulti !== []) {
+            $sql .= ' AND o.estado_os IN (' . implode(', ', array_fill(0, count($estOsMulti), '?')) . ')';
+            array_push($params, ...$estOsMulti);
+        } else {
+            $estOs = trim((string) ($f['estado_os'] ?? ''));
+            if ($estOs !== '') {
+                $sql .= ' AND o.estado_os <=> ?';
+                $params[] = strtoupper(substr($estOs, 0, 1));
+            }
+        }
+        $sesionDoc = (int) ($f['sesion_doctor'] ?? 0);
+        if ($sesionDoc > 0 && db_table_exists($this->pdo, 'pacientes_sesiones')) {
+            $sesJoin = 's.idorden = o.id AND s.iddoctor = ?';
+            if ($this->ordenesTieneClinica() && db_table_has_column($this->pdo, 'pacientes_sesiones', 'id_clinica')) {
+                $sesJoin .= ' AND s.id_clinica = o.id_clinica';
+            }
+            $sql .= ' AND EXISTS (SELECT 1 FROM pacientes_sesiones s WHERE ' . $sesJoin . ')';
+            $params[] = $sesionDoc;
+        }
+        $sesionEstado = trim((string) ($f['sesion_estado'] ?? ''));
+        if ($sesionEstado !== '' && db_table_exists($this->pdo, 'pacientes_sesiones')) {
+            $sesEx = 's.idorden = o.id';
+            if ($this->ordenesTieneClinica() && db_table_has_column($this->pdo, 'pacientes_sesiones', 'id_clinica')) {
+                $sesEx .= ' AND s.id_clinica = o.id_clinica';
+            }
+            if ($sesionEstado === 'con') {
+                $sql .= ' AND EXISTS (SELECT 1 FROM pacientes_sesiones s WHERE ' . $sesEx . ')';
+            } elseif ($sesionEstado === 'sin') {
+                $sql .= ' AND NOT EXISTS (SELECT 1 FROM pacientes_sesiones s WHERE ' . $sesEx . ')';
+            } elseif ($sesionEstado === 'pendientes') {
+                $sql .= ' AND COALESCE(o.sesiones, 0) > COALESCE(o.sesionesreali, 0)';
+            } elseif ($sesionEstado === 'completas') {
+                $sql .= ' AND COALESCE(o.sesiones, 0) > 0 AND COALESCE(o.sesionesreali, 0) >= COALESCE(o.sesiones, 0)';
+            }
         }
         self::appendTriState($sql, $params, 'o.autorizada', (string) ($f['autorizada'] ?? ''));
         self::appendTriState($sql, $params, 'o.entregada', (string) ($f['entregada'] ?? ''));
         self::appendTriState($sql, $params, 'o.liquidada', (string) ($f['liquidada'] ?? ''));
+        if (db_table_has_column($this->pdo, self::tableSqlName(), 'pagaiva')) {
+            self::appendTriState($sql, $params, 'o.pagaiva', (string) ($f['pagaiva'] ?? ''));
+        }
+        if (db_table_has_column($this->pdo, self::tableSqlName(), 'numeautorizacion')) {
+            $na = trim((string) ($f['numeautorizacion'] ?? ''));
+            if ($na === 'con') {
+                $sql .= ' AND o.numeautorizacion IS NOT NULL AND o.numeautorizacion <> 0';
+            } elseif ($na === 'sin') {
+                $sql .= ' AND (o.numeautorizacion IS NULL OR o.numeautorizacion = 0)';
+            }
+        }
 
         $sql .= ' ORDER BY o.fecha IS NULL, o.fecha DESC, o.id DESC LIMIT 500';
 
@@ -264,10 +367,40 @@ final class OrdenesRepository
         }
     }
 
+    /**
+     * @param mixed $values
+     * @return list<string>
+     */
+    private function sanitizeEstadoMulti($values): array
+    {
+        if (!is_array($values)) {
+            return [];
+        }
+        $out = [];
+        foreach ($values as $v) {
+            $s = strtoupper(substr(trim((string) $v), 0, 1));
+            if (!in_array($s, ['A', 'F', 'P'], true)) {
+                continue;
+            }
+            if (!in_array($s, $out, true)) {
+                $out[] = $s;
+            }
+        }
+
+        return $out;
+    }
+
     public function findById(int $id): ?array
     {
-        $st = $this->pdo->prepare('SELECT * FROM ' . self::TABLE . ' WHERE id = ? LIMIT 1');
-        $st->execute([$id]);
+        $sql = 'SELECT * FROM ' . self::TABLE . ' WHERE id = ?';
+        $par = [$id];
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         $r = $st->fetch();
 
         return $r ?: null;
@@ -275,15 +408,29 @@ final class OrdenesRepository
 
     public function nroHcExists(int $nroHC): bool
     {
-        $st = $this->pdo->prepare('SELECT id FROM pacientes WHERE NroHC = ? LIMIT 1');
-        $st->execute([$nroHC]);
+        $sql = 'SELECT id FROM pacientes WHERE NroHC = ?';
+        $par = [$nroHC];
+        if (db_table_has_column($this->pdo, 'pacientes', 'id_clinica')) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         return (bool) $st->fetch();
     }
 
     public function doctorExists(int $id): bool
     {
-        $st = $this->pdo->prepare('SELECT id FROM lista_doctores WHERE id = ? LIMIT 1');
-        $st->execute([$id]);
+        $sql = 'SELECT id FROM lista_doctores WHERE id = ?';
+        $par = [$id];
+        if (db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         return (bool) $st->fetch();
     }
 
@@ -292,8 +439,14 @@ final class OrdenesRepository
         if (!db_table_exists($this->pdo, 'pacientes_sesiones')) {
             return 0;
         }
-        $st = $this->pdo->prepare('SELECT COUNT(*) c FROM pacientes_sesiones WHERE idorden = ?');
-        $st->execute([$idOrden]);
+        $sql = 'SELECT COUNT(*) c FROM pacientes_sesiones WHERE idorden = ?';
+        $par = [$idOrden];
+        if (db_table_has_column($this->pdo, 'pacientes_sesiones', 'id_clinica')) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
 
         return (int) $st->fetch()['c'];
     }
@@ -371,8 +524,14 @@ final class OrdenesRepository
 
     public function deleteById(int $id): void
     {
-        $st = $this->pdo->prepare('DELETE FROM ' . self::TABLE . ' WHERE id = ?');
-        $st->execute([$id]);
+        $sql = 'DELETE FROM ' . self::TABLE . ' WHERE id = ?';
+        $par = [$id];
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     public static function normalizarFecha(?string $fechaYmd): ?string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/includes/catalogos.php';
 require_once dirname(__DIR__) . '/Repositories/OrdenesRepository.php';
 require_once dirname(__DIR__) . '/Repositories/DoctoresRepository.php';
+require_once dirname(__DIR__) . '/Repositories/SesionesRepository.php';
 
 final class OrdenesController
 {
@@ -28,17 +29,19 @@ final class OrdenesController
             return;
         }
 
-        $repo = new OrdenesRepository($this->pdo);
-        $docRepo = new DoctoresRepository($this->pdo);
+        $repo = new OrdenesRepository($this->pdo, user_clinica_id($this->user));
+        $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
 
         $f = self::collectFiltrosOrdenes();
         $rows = $repo->listForIndex($f);
         $doctores = $docRepo->listAllOrdered();
+        $cobOpts = catalogo_lista($this->pdo, 'lista_coberturas', 'prioridad_id');
         $ordenesQueryString = self::buildOrdenesQueryString($f);
 
         $body = $this->renderView('ordenes/index', [
             'rows' => $rows,
             'doctores' => $doctores,
+            'cobOpts' => $cobOpts,
             'f' => $f,
             'ordenesQueryString' => $ordenesQueryString,
             'ordenesFiltrosActivos' => self::ordenesHayFiltrosActivos($f),
@@ -54,8 +57,8 @@ final class OrdenesController
             exit;
         }
 
-        $repo = new OrdenesRepository($this->pdo);
-        $docRepo = new DoctoresRepository($this->pdo);
+        $repo = new OrdenesRepository($this->pdo, user_clinica_id($this->user));
+        $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
 
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         $prefillNro = isset($_GET['nropaci']) ? (int) $_GET['nropaci'] : 0;
@@ -136,6 +139,18 @@ final class OrdenesController
 
         $volver = '/ordenes.php' . ($ordenesReturnQs !== '' ? '?' . $ordenesReturnQs : '');
         $titulo = $row['id'] ? 'Editar orden' : 'Nueva orden';
+
+        $sesionesResumen = '';
+        $idOrdenRow = (int) ($row['id'] ?? 0);
+        if ($idOrdenRow > 0 && db_table_exists($this->pdo, SesionesRepository::tableName())) {
+            $sRepo = new SesionesRepository($this->pdo, user_clinica_id($this->user));
+            $nSes = $sRepo->countByOrden($idOrdenRow);
+            $sumSes = $sRepo->sumCantidadByOrden($idOrdenRow);
+            if ($nSes > 0 || $sumSes > 0) {
+                $sesionesResumen = $nSes . ' registro(s), ' . $sumSes . ' sesión(es) contabilizadas.';
+            }
+        }
+
         $body = $this->renderView('ordenes/form', [
             'row' => $row,
             'doctores' => $doctores,
@@ -148,6 +163,7 @@ final class OrdenesController
             'titulo' => $titulo,
             'volver' => $volver,
             'ordenesReturnQs' => $ordenesReturnQs,
+            'sesionesResumen' => $sesionesResumen,
         ]);
         layout_render($titulo, $body, $this->user);
     }
@@ -164,7 +180,7 @@ final class OrdenesController
             header('Location: /ordenes.php');
             exit;
         }
-        $repo = new OrdenesRepository($this->pdo);
+        $repo = new OrdenesRepository($this->pdo, user_clinica_id($this->user));
         if ($repo->countSesionesByOrden($id) > 0) {
             flash_set('No se puede eliminar: esta orden tiene sesiones registradas (módulo sesiones pendiente).');
             header('Location: /ordenes.php');
@@ -424,7 +440,7 @@ final class OrdenesController
     }
 
     /**
-     * @return array<string, string|int>
+     * @return array<string, mixed>
      */
     private static function collectFiltrosOrdenes(): array
     {
@@ -442,21 +458,29 @@ final class OrdenesController
             'id_hasta' => $gi('id_hasta'),
             'fecha_desde' => $g('fecha_desde'),
             'fecha_hasta' => $g('fecha_hasta'),
+            'honorariofecha_desde' => $g('honorariofecha_desde'),
+            'honorariofecha_hasta' => $g('honorariofecha_hasta'),
             'sucursal' => $gi('sucursal'),
             'idobrasocial' => $gi('idobrasocial'),
             'idpractica' => $gi('idpractica'),
             'idderivado' => $gi('idderivado'),
             'idplan' => $gi('idplan'),
+            'sesion_doctor' => $gi('sesion_doctor'),
+            'sesion_estado' => $g('sesion_estado'),
             'estado' => $g('estado'),
             'estado_os' => $g('estado_os'),
+            'estado_multi' => self::collectEstadoMulti('estado'),
+            'estado_os_multi' => self::collectEstadoMulti('estado_os'),
             'autorizada' => $g('autorizada'),
             'entregada' => $g('entregada'),
             'liquidada' => $g('liquidada'),
+            'pagaiva' => $g('pagaiva'),
+            'numeautorizacion' => $g('numeautorizacion'),
         ];
     }
 
     /**
-     * @param array<string, string|int> $f
+     * @param array<string, mixed> $f
      */
     private static function buildOrdenesQueryString(array $f): string
     {
@@ -479,10 +503,19 @@ final class OrdenesController
         if (($f['fecha_hasta'] ?? '') !== '') {
             $q['fecha_hasta'] = (string) $f['fecha_hasta'];
         }
-        foreach (['sucursal', 'idobrasocial', 'idpractica', 'idderivado', 'idplan'] as $k) {
+        if (($f['honorariofecha_desde'] ?? '') !== '') {
+            $q['honorariofecha_desde'] = (string) $f['honorariofecha_desde'];
+        }
+        if (($f['honorariofecha_hasta'] ?? '') !== '') {
+            $q['honorariofecha_hasta'] = (string) $f['honorariofecha_hasta'];
+        }
+        foreach (['sucursal', 'idobrasocial', 'idpractica', 'idderivado', 'idplan', 'sesion_doctor'] as $k) {
             if (($f[$k] ?? 0) > 0) {
                 $q[$k] = (int) $f[$k];
             }
+        }
+        if (($f['sesion_estado'] ?? '') !== '') {
+            $q['sesion_estado'] = (string) $f['sesion_estado'];
         }
         if (($f['estado'] ?? '') !== '') {
             $q['estado'] = (string) $f['estado'];
@@ -490,7 +523,13 @@ final class OrdenesController
         if (($f['estado_os'] ?? '') !== '') {
             $q['estado_os'] = (string) $f['estado_os'];
         }
-        foreach (['autorizada', 'entregada', 'liquidada'] as $k) {
+        foreach (['estado_multi', 'estado_os_multi'] as $k) {
+            $vals = isset($f[$k]) && is_array($f[$k]) ? $f[$k] : [];
+            if ($vals !== []) {
+                $q[$k] = $vals;
+            }
+        }
+        foreach (['autorizada', 'entregada', 'liquidada', 'pagaiva', 'numeautorizacion'] as $k) {
             if (($f[$k] ?? '') !== '') {
                 $q[$k] = (string) $f[$k];
             }
@@ -500,17 +539,46 @@ final class OrdenesController
     }
 
     /**
-     * @param array<string, string|int> $f
+     * @param array<string, mixed> $f
      */
     private static function ordenesHayFiltrosActivos(array $f): bool
     {
         foreach ($f as $v) {
+            if (is_array($v)) {
+                if ($v === []) {
+                    continue;
+                }
+                return true;
+            }
             if ($v === '' || $v === 0) {
                 continue;
             }
             return true;
         }
         return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function collectEstadoMulti(string $key): array
+    {
+        $raw = $_GET[$key . '_multi'] ?? [];
+        if (!is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $v) {
+            $s = strtoupper(substr(trim((string) $v), 0, 1));
+            if (!in_array($s, ['A', 'F', 'P'], true)) {
+                continue;
+            }
+            if (!in_array($s, $out, true)) {
+                $out[] = $s;
+            }
+        }
+
+        return $out;
     }
 
     private function renderView(string $view, array $data): string

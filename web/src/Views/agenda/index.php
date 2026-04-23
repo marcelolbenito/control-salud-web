@@ -18,8 +18,8 @@ declare(strict_types=1);
                 <input type="date" name="fecha" value="<?= h($fecha) ?>">
             </label>
             <div class="agenda-day-nav">
-                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaPrev) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-chevron-left"></i> Día anterior</a>
-                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaNext) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>">Día siguiente <i class="bi bi-chevron-right"></i></a>
+                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaPrev) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-chevron-left" aria-hidden="true"></i> Día anterior</a>
+                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaNext) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-chevron-right" aria-hidden="true"></i> Día siguiente</a>
             </div>
             <label>
                 Profesional
@@ -49,6 +49,7 @@ declare(strict_types=1);
 
     <div class="page-actions">
         <a class="btn btn-primary" href="/turno_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Nuevo turno</a>
+        <a class="btn btn-ghost" href="/agenda_bloqueos.php?fd=<?= rawurlencode($fecha) ?>&fh=<?= rawurlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-calendar-x" aria-hidden="true"></i> Bloqueos</a>
         <a class="btn btn-ghost" href="/ordenes.php"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Órdenes</a>
         <a class="btn btn-primary" href="/orden_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . (int) $doctorFiltro : '' ?>"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nueva orden</a>
     </div>
@@ -90,6 +91,9 @@ declare(strict_types=1);
                             . ($doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '')
                             . '&turno=' . (int) $r['id'];
                         $trClass = 'agenda-row estado-' . $estadoSlug;
+                        if ($extAgenda && !empty($r['llegado'])) {
+                            $trClass .= ' agenda-row-llegado';
+                        }
                         if ($turnoSel && (int) $turnoSel['id'] === (int) $r['id']) {
                             $trClass .= ' is-selected';
                         }
@@ -102,7 +106,7 @@ declare(strict_types=1);
                             aria-label="Ver detalle del turno de <?= h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
                         >
                             <td><?= $r['hora'] ? h(substr((string) $r['hora'], 0, 5)) : '—' ?></td>
-                            <td><a class="agenda-paciente-link" href="<?= h($turnoLink) ?>"><?= h($r['paciente_nombre'] ?? '') ?></a></td>
+                            <td><a class="agenda-paciente-link" href="<?= h($turnoLink) ?>"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a></td>
                             <td><?= (int) $r['NroHC'] ?></td>
                             <td><?= h($r['doctor_nombre'] ?? '—') ?></td>
                             <td><span class="badge-estado estado-<?= h($estadoSlug) ?>"><?= h((string) $r['estado']) ?></span></td>
@@ -190,7 +194,7 @@ declare(strict_types=1);
                 <?php endif; ?>
                 <p><strong>Obs.:</strong><br><?= h((string) ($turnoSel['observaciones'] ?? '—')) ?></p>
                 <p class="agenda-side-actions">
-                    <a class="btn btn-sm btn-primary" href="/turno_form.php?id=<?= (int) $turnoSel['id'] ?>">Editar turno</a>
+                    <a class="btn btn-sm btn-primary" href="/turno_form.php?id=<?= (int) $turnoSel['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar turno</a>
                 </p>
             <?php else: ?>
                 <p class="muted">Seleccioná un turno con click en la fila (o Enter desde teclado) para ver el detalle rápido, como en la pantalla del exe.</p>

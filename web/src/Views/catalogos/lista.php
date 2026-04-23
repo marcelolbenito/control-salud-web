@@ -3,8 +3,8 @@ declare(strict_types=1);
 ?>
 <div class="container">
     <p class="toolbar">
-        <a class="btn btn-primary" href="<?= h('/catalogos.php?a=form&tabla=' . rawurlencode($tabla) . '&id=0') ?>">Nuevo ítem</a>
-        <a class="btn btn-ghost" href="/catalogos.php">Catálogos</a>
+        <a class="btn btn-primary" href="<?= h('/catalogos.php?a=form&tabla=' . rawurlencode($tabla) . '&id=0') ?>"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo ítem</a>
+        <a class="btn btn-ghost" href="/catalogos.php"><i class="bi bi-journals" aria-hidden="true"></i> Catálogos</a>
     </p>
     <h1><?= h($titulo) ?></h1>
     <div class="table-wrap">
@@ -26,7 +26,7 @@ declare(strict_types=1);
                         <td><?= h(isset($r[$col]) && $r[$col] !== null && $r[$col] !== '' ? (string) $r[$col] : '—') ?></td>
                     <?php endforeach; ?>
                     <td class="actions">
-                        <a class="btn btn-sm btn-ghost" href="<?= h('/catalogos.php?a=form&tabla=' . rawurlencode($tabla) . '&id=' . (int) $r['id']) ?>">Editar</a>
+                        <a class="btn btn-sm btn-ghost" href="<?= h('/catalogos.php?a=form&tabla=' . rawurlencode($tabla) . '&id=' . (int) $r['id']) ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar</a>
                         <form method="post" action="/catalogos.php?a=delete" class="inline-form" onsubmit="return confirm('¿Eliminar este ítem?');">
                             <?= csrf_field() ?>
                             <input type="hidden" name="tabla" value="<?= h($tabla) ?>">

@@ -77,8 +77,8 @@ declare(strict_types=1);
     <section class="card-like">
         <h2>Parámetros web (<code>config</code>)</h2>
         <p class="toolbar">
-            <a class="btn btn-primary" href="/sistema.php?a=config_form&amp;id=0">Nuevo parámetro</a>
-            <a class="btn btn-ghost" href="/catalogos.php">Catálogos (listas)</a>
+            <a class="btn btn-primary" href="/sistema.php?a=config_form&amp;id=0"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo parámetro</a>
+            <a class="btn btn-ghost" href="/catalogos.php"><i class="bi bi-journals" aria-hidden="true"></i> Catálogos (listas)</a>
         </p>
         <?php if ($configRows === []): ?>
             <p class="muted">No hay claves cargadas. Podés crear las que necesites (ej. <code>app.nombre_sucursal</code>).</p>
@@ -94,7 +94,7 @@ declare(strict_types=1);
                             <td><code><?= h((string) $cr['clave']) ?></code></td>
                             <td><?= h((string) ($cr['valor'] ?? '')) ?></td>
                             <td class="actions">
-                                <a class="btn btn-sm btn-ghost" href="/sistema.php?a=config_form&amp;id=<?= (int) $cr['id'] ?>">Editar</a>
+                                <a class="btn btn-sm btn-ghost" href="/sistema.php?a=config_form&amp;id=<?= (int) $cr['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar</a>
                                 <form method="post" action="/sistema.php?a=config_delete" class="inline-form" onsubmit="return confirm('¿Eliminar este parámetro?');">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $cr['id'] ?>">

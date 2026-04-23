@@ -51,20 +51,20 @@ $idOrdVal = (string) $fo('id_orden', '');
             · Notación <strong>FDI</strong> (ISO 3950)
         </p>
         <p class="muted">
-            <a href="/pacientes.php">← Pacientes</a>
-            · <a href="/historia_clinica.php?id=<?= (int) $idPac ?>">Historia clínica</a>
-            · <a href="/paciente_form.php?id=<?= (int) $idPac ?>">Ficha del paciente</a>
-            · <a href="/ordenes.php?nrohc=<?= (int) $nroHC ?>">Órdenes de este paciente</a>
+            <a href="/pacientes.php"><i class="bi bi-people" aria-hidden="true"></i> Pacientes</a>
+            · <a href="/historia_clinica.php?id=<?= (int) $idPac ?>"><i class="bi bi-journal-medical" aria-hidden="true"></i> Historia clínica</a>
+            · <a href="/paciente_form.php?id=<?= (int) $idPac ?>"><i class="bi bi-person-lines-fill" aria-hidden="true"></i> Ficha del paciente</a>
+            · <a href="/ordenes.php?nrohc=<?= (int) $nroHC ?>"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Órdenes de este paciente</a>
             · <a href="/odontograma_imprimir.php?id=<?= (int) $idPac ?>" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i> Imprimir / PDF</a>
-            · <a href="#odontograma-historial">Historial</a>
+            · <a href="#odontograma-historial"><i class="bi bi-clock-history" aria-hidden="true"></i> Historial</a>
         </p>
     </div>
 
     <p class="muted small odontograma-aviso">
-        <strong>Historial</strong> (tabla cronológica) está <a href="#odontograma-historial">más abajo</a>: cada registro queda con fecha, usuario y (opcional) anulación con motivo.
+        <strong>Historial</strong> (tabla cronológica) está <a href="#odontograma-historial"><i class="bi bi-arrow-down-circle" aria-hidden="true"></i> más abajo</a>: cada registro queda con fecha, usuario y (opcional) anulación con motivo.
         El <strong>mapa de colores</strong> es el estado visual actual por cara/pieza (se guarda aparte con «Guardar mapa»).
         Los mismos códigos aparecen en el <strong>pincel del mapa</strong> y en el desplegable <strong>Código clínico</strong> del registro; se administran en
-        <a href="/catalogos.php?a=list&amp;tabla=lista_odontograma_codigos">Tablas auxiliares → Códigos odontograma</a>.
+        <a href="/catalogos.php?a=list&amp;tabla=lista_odontograma_codigos"><i class="bi bi-journals" aria-hidden="true"></i> Tablas auxiliares — Códigos odontograma</a>.
         <?php if (!$odontogramaExt): ?>
             Para <strong>vincular órdenes</strong> y <strong>anular con motivo</strong> (sin borrar el historial), ejecutá
             <code>sql/migration_015_odontograma_orden_anulacion.sql</code>.
@@ -177,7 +177,7 @@ $idOrdVal = (string) $fo('id_orden', '');
                         </select>
                     </label>
                     <?php if ($ordenesMini === []): ?>
-                        <p class="muted small span-2" style="margin:0;">No hay órdenes cargadas para este paciente. Podés crearlas en <a href="/ordenes.php?nrohc=<?= (int) $nroHC ?>">Órdenes</a>.</p>
+                        <p class="muted small span-2" style="margin:0;">No hay órdenes cargadas para este paciente. Podés crearlas en <a href="/ordenes.php?nrohc=<?= (int) $nroHC ?>"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Órdenes</a>.</p>
                     <?php endif; ?>
                 <?php endif; ?>
                 <div class="span-2">
@@ -246,7 +246,7 @@ $idOrdVal = (string) $fo('id_orden', '');
                                 <td class="cell-clip<?= $anul ? ' odontograma-celda-tachada' : '' ?>"><?= h((string) ($r['notas'] ?? '')) ?></td>
                                 <td>
                                     <?php if ($idOr > 0): ?>
-                                        <a href="/orden_form.php?id=<?= $idOr ?>">#<?= $idOr ?></a>
+                                        <a href="/orden_form.php?id=<?= $idOr ?>"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> #<?= $idOr ?></a>
                                         <?php
                                         $of = trim((string) ($r['orden_fecha'] ?? ''));
                                         if ($of !== ''):

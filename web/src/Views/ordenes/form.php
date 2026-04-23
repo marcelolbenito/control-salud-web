@@ -13,6 +13,7 @@ declare(strict_types=1);
 /** @var string $titulo */
 /** @var string $volver */
 /** @var string $ordenesReturnQs */
+/** @var string $sesionesResumen Resumen de sesiones vinculadas (vacío si no hay tabla o datos) */
 
 $triSel = static function ($cur, $v): string {
     $c = (string) $cur;
@@ -24,12 +25,23 @@ $triSel = static function ($cur, $v): string {
     <div class="page-head">
         <h1><?= h($titulo) ?></h1>
         <p class="muted">
-            <a href="<?= h($volver) ?>">← Volver al listado de órdenes</a>
+            <a class="muted" href="<?= h($volver) ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al listado de órdenes</a>
             <?php
             $nroOrd = (int) ($row['NroPaci'] ?? 0);
             if ($nroOrd > 0):
                 ?>
                 · <a href="/odontograma.php?nrohc=<?= $nroOrd ?>"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> Odontograma del paciente</a>
+                <?php if ((int) ($row['id'] ?? 0) > 0): ?>
+                    · <a href="/pagos_form.php?idorden=<?= (int) $row['id'] ?>&nrohc=<?= $nroOrd ?>"><i class="bi bi-receipt-cutoff" aria-hidden="true"></i> Registrar pago</a>
+                    · <a href="/sesiones.php?idorden=<?= (int) $row['id'] ?>"><i class="bi bi-calendar2-check" aria-hidden="true"></i> Sesiones de esta orden</a>
+                    · <a href="/sesion_form.php?idorden=<?= (int) $row['id'] ?>&nrohc=<?= $nroOrd ?>"><i class="bi bi-calendar2-plus" aria-hidden="true"></i> Nueva sesión</a>
+                <?php endif; ?>
+                <?php
+                $sr = trim((string) ($sesionesResumen ?? ''));
+                if ($sr !== ''):
+                    ?>
+                    <span class="muted"> · <?= h($sr) ?></span>
+                <?php endif; ?>
             <?php endif; ?>
         </p>
     </div>
@@ -72,7 +84,6 @@ $triSel = static function ($cur, $v): string {
 
         <section class="form-section">
             <h2 class="form-section-title">Cobertura, práctica y sucursal</h2>
-            <p class="muted small" style="margin-top:-0.5rem;">Los catálogos se cargan desde <a href="/catalogos.php">Tablas auxiliares</a> (tras ejecutar <code>sql/migration_013_lista_practicas_derivaciones_sucursales.sql</code> si aún no existen).</p>
             <div class="form-grid-ext">
                 <?php if ($cobOpts !== []): ?>
                     <label>Cobertura / obra social
@@ -241,7 +252,7 @@ $triSel = static function ($cur, $v): string {
 
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Guardar</button>
-            <a class="btn btn-ghost" href="<?= h($volver) ?>">Cancelar</a>
+            <a class="btn btn-ghost" href="<?= h($volver) ?>"><i class="bi bi-x-lg" aria-hidden="true"></i> Cancelar</a>
         </div>
     </form>
 </div>

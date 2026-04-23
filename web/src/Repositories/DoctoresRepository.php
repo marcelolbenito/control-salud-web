@@ -9,10 +9,18 @@ final class DoctoresRepository
 
     /** @var PDO */
     private $pdo;
+    /** @var int */
+    private $idClinica;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, int $idClinica = 1)
     {
         $this->pdo = $pdo;
+        $this->idClinica = max(1, $idClinica);
+    }
+
+    private function doctoresTieneClinica(): bool
+    {
+        return db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica');
     }
 
     public function hasExtendedColumns(): bool
@@ -23,14 +31,33 @@ final class DoctoresRepository
     public function listForIndex(bool $extDoc): array
     {
         $sel = $extDoc
-            ? 'SELECT id, nombre, especialidad, matricula, telefono, medicoconvenio, activo FROM lista_doctores ORDER BY nombre ASC LIMIT 500'
-            : 'SELECT id, nombre, medicoconvenio, activo FROM lista_doctores ORDER BY nombre ASC LIMIT 500';
+            ? 'SELECT id, nombre, especialidad, matricula, telefono, medicoconvenio, activo FROM lista_doctores'
+            : 'SELECT id, nombre, medicoconvenio, activo FROM lista_doctores';
+        if ($this->doctoresTieneClinica()) {
+            $sel .= ' WHERE id_clinica = ?';
+        }
+        $sel .= ' ORDER BY nombre ASC LIMIT 500';
+        if ($this->doctoresTieneClinica()) {
+            $st = $this->pdo->prepare($sel);
+            $st->execute([$this->idClinica]);
+
+            return $st->fetchAll();
+        }
 
         return $this->pdo->query($sel)->fetchAll();
     }
 
     public function listActivos(): array
     {
+        if ($this->doctoresTieneClinica()) {
+            $st = $this->pdo->prepare(
+                'SELECT id, nombre FROM lista_doctores WHERE activo = 1 AND id_clinica = ? ORDER BY nombre ASC'
+            );
+            $st->execute([$this->idClinica]);
+
+            return $st->fetchAll();
+        }
+
         return $this->pdo->query(
             'SELECT id, nombre FROM lista_doctores WHERE activo = 1 ORDER BY nombre ASC'
         )->fetchAll();
@@ -38,13 +65,27 @@ final class DoctoresRepository
 
     public function listAllOrdered(): array
     {
+        if ($this->doctoresTieneClinica()) {
+            $st = $this->pdo->prepare('SELECT id, nombre FROM lista_doctores WHERE id_clinica = ? ORDER BY nombre ASC');
+            $st->execute([$this->idClinica]);
+
+            return $st->fetchAll();
+        }
+
         return $this->pdo->query('SELECT id, nombre FROM lista_doctores ORDER BY nombre ASC')->fetchAll();
     }
 
     public function findById(int $id): ?array
     {
-        $st = $this->pdo->prepare('SELECT * FROM lista_doctores WHERE id = ? LIMIT 1');
-        $st->execute([$id]);
+        $sql = 'SELECT * FROM lista_doctores WHERE id = ?';
+        $par = [$id];
+        if ($this->doctoresTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
         $r = $st->fetch();
         return $r ?: null;
     }
@@ -90,14 +131,26 @@ final class DoctoresRepository
 
     public function deleteById(int $id): void
     {
-        $st = $this->pdo->prepare('DELETE FROM lista_doctores WHERE id = ?');
-        $st->execute([$id]);
+        $sql = 'DELETE FROM lista_doctores WHERE id = ?';
+        $par = [$id];
+        if ($this->doctoresTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     public function deactivateById(int $id): void
     {
-        $st = $this->pdo->prepare('UPDATE lista_doctores SET activo = 0 WHERE id = ?');
-        $st->execute([$id]);
+        $sql = 'UPDATE lista_doctores SET activo = 0 WHERE id = ?';
+        $par = [$id];
+        if ($this->doctoresTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     /**
@@ -123,8 +176,13 @@ final class DoctoresRepository
                 continue;
             }
             $sql = 'SELECT COUNT(*) AS c FROM `' . str_replace('`', '', $tbl) . '` WHERE `' . str_replace('`', '', $col) . '` = ?';
+            $par = [$doctorId];
+            if (db_table_has_column($this->pdo, $tbl, 'id_clinica')) {
+                $sql .= ' AND id_clinica = ?';
+                $par[] = $this->idClinica;
+            }
             $st = $this->pdo->prepare($sql);
-            $st->execute([$doctorId]);
+            $st->execute($par);
             $cnt = (int) (($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0));
             $detalle[$key] = $cnt;
             $total += $cnt;
@@ -146,6 +204,19 @@ final class DoctoresRepository
         string $localidad,
         string $consultorio
     ): void {
+        if ($this->doctoresTieneClinica()) {
+            $st = $this->pdo->prepare(
+                'INSERT INTO lista_doctores (id_clinica, nombre, medicoconvenio, bloquearmisconsultas, activo, notas,
+                especialidad, matricula, telefono, domicilio, localidad, consultorio)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+            );
+            $st->execute([
+                $this->idClinica, $nombre, $medicoconvenio, $bloquearmisconsultas, $activo, $notas,
+                $especialidad, $matricula, $telefono, $domicilio, $localidad, $consultorio,
+            ]);
+
+            return;
+        }
         $st = $this->pdo->prepare(
             'INSERT INTO lista_doctores (nombre, medicoconvenio, bloquearmisconsultas, activo, notas,
             especialidad, matricula, telefono, domicilio, localidad, consultorio)
@@ -171,16 +242,20 @@ final class DoctoresRepository
         string $localidad,
         string $consultorio
     ): void {
-        $st = $this->pdo->prepare(
-            'UPDATE lista_doctores SET nombre=?, medicoconvenio=?, bloquearmisconsultas=?, activo=?, notas=?,
+        $sql = 'UPDATE lista_doctores SET nombre=?, medicoconvenio=?, bloquearmisconsultas=?, activo=?, notas=?,
             especialidad=?, matricula=?, telefono=?, domicilio=?, localidad=?, consultorio=?
-            WHERE id=?'
-        );
-        $st->execute([
+            WHERE id=?';
+        $par = [
             $nombre, $medicoconvenio, $bloquearmisconsultas, $activo, $notas,
             $especialidad, $matricula, $telefono, $domicilio, $localidad, $consultorio,
             $id,
-        ]);
+        ];
+        if ($this->doctoresTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     public function insertBase(
@@ -190,6 +265,14 @@ final class DoctoresRepository
         int $activo,
         string $notas
     ): void {
+        if ($this->doctoresTieneClinica()) {
+            $st = $this->pdo->prepare(
+                'INSERT INTO lista_doctores (id_clinica, nombre, medicoconvenio, bloquearmisconsultas, activo, notas) VALUES (?,?,?,?,?,?)'
+            );
+            $st->execute([$this->idClinica, $nombre, $medicoconvenio, $bloquearmisconsultas, $activo, $notas]);
+
+            return;
+        }
         $st = $this->pdo->prepare(
             'INSERT INTO lista_doctores (nombre, medicoconvenio, bloquearmisconsultas, activo, notas) VALUES (?,?,?,?,?)'
         );
@@ -204,10 +287,14 @@ final class DoctoresRepository
         int $activo,
         string $notas
     ): void {
-        $st = $this->pdo->prepare(
-            'UPDATE lista_doctores SET nombre=?, medicoconvenio=?, bloquearmisconsultas=?, activo=?, notas=? WHERE id=?'
-        );
-        $st->execute([$nombre, $medicoconvenio, $bloquearmisconsultas, $activo, $notas, $id]);
+        $sql = 'UPDATE lista_doctores SET nombre=?, medicoconvenio=?, bloquearmisconsultas=?, activo=?, notas=? WHERE id=?';
+        $par = [$nombre, $medicoconvenio, $bloquearmisconsultas, $activo, $notas, $id];
+        if ($this->doctoresTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
     }
 
     public function hasLegacyHorarioTable(): bool
