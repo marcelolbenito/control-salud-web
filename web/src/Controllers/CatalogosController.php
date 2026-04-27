@@ -25,9 +25,12 @@ final class CatalogosController
         $items = [];
         foreach (CatalogRegistry::definitions() as $tabla => $def) {
             $ok = $repo->tablaExiste($tabla);
+            $ux = self::catalogoUxMeta($tabla);
             $items[] = [
                 'tabla' => $tabla,
                 'titulo' => $def['titulo'],
+                'categoria' => $ux['categoria'],
+                'descripcion' => $ux['descripcion'],
                 'ok' => $ok,
                 'orden' => $def['orden'],
                 'campos_count' => count($def['campos']),
@@ -263,5 +266,39 @@ final class CatalogosController
         require dirname(__DIR__) . '/Views/' . $view . '.php';
 
         return (string) ob_get_clean();
+    }
+
+    /**
+     * @return array{categoria:string,descripcion:string}
+     */
+    private static function catalogoUxMeta(string $tabla): array
+    {
+        $map = [
+            'lista_coberturas' => ['categoria' => 'Ordenes', 'descripcion' => 'Obras sociales usadas en ordenes y pacientes.'],
+            'lista_planes' => ['categoria' => 'Ordenes', 'descripcion' => 'Planes vinculados a cada cobertura.'],
+            'lista_practicas' => ['categoria' => 'Ordenes', 'descripcion' => 'Practicas/estudios del formulario de ordenes.'],
+            'lista_derivaciones' => ['categoria' => 'Ordenes', 'descripcion' => 'Derivadores o centros de derivacion.'],
+            'lista_sucursales' => ['categoria' => 'Ordenes', 'descripcion' => 'Sucursales para ordenes y reportes.'],
+            'lista_motivos_consulta' => ['categoria' => 'Agenda', 'descripcion' => 'Motivos de consulta para turnos.'],
+            'lista_primera_vez' => ['categoria' => 'Agenda', 'descripcion' => 'Tipo de atencion inicial en agenda.'],
+            'lista_especialidades_doctores' => ['categoria' => 'Doctores', 'descripcion' => 'Especialidades de profesionales.'],
+            'lista_pais' => ['categoria' => 'Pacientes', 'descripcion' => 'Pais de residencia/origen del paciente.'],
+            'lista_provincia' => ['categoria' => 'Pacientes', 'descripcion' => 'Provincias para direccion y datos personales.'],
+            'lista_ciudad' => ['categoria' => 'Pacientes', 'descripcion' => 'Ciudades/localidades del paciente.'],
+            'lista_tipo_documento' => ['categoria' => 'Pacientes', 'descripcion' => 'Tipos de documento disponibles.'],
+            'lista_ocupacion' => ['categoria' => 'Pacientes', 'descripcion' => 'Ocupaciones del paciente y familiares.'],
+            'lista_estado_civil' => ['categoria' => 'Pacientes', 'descripcion' => 'Estado civil.'],
+            'lista_etnia' => ['categoria' => 'Pacientes', 'descripcion' => 'Clasificacion etnica (si aplica).'],
+            'lista_relacion_paciente' => ['categoria' => 'Pacientes', 'descripcion' => 'Relacion de contacto con el paciente.'],
+            'lista_estatus_pais' => ['categoria' => 'Pacientes', 'descripcion' => 'Estatus migratorio en el pais.'],
+            'lista_sexo' => ['categoria' => 'Pacientes', 'descripcion' => 'Sexo registral.'],
+            'lista_grupo_sanguineo' => ['categoria' => 'Pacientes', 'descripcion' => 'Grupo sanguineo.'],
+            'lista_factor_sanguineo' => ['categoria' => 'Pacientes', 'descripcion' => 'Factor RH.'],
+            'lista_identidad_genero' => ['categoria' => 'Pacientes', 'descripcion' => 'Identidad de genero.'],
+            'lista_orientacion_sex' => ['categoria' => 'Pacientes', 'descripcion' => 'Orientacion sexual.'],
+            'lista_odontograma_codigos' => ['categoria' => 'Odontograma', 'descripcion' => 'Leyenda de codigos y colores clinicos.'],
+        ];
+
+        return $map[$tabla] ?? ['categoria' => 'General', 'descripcion' => 'Tabla auxiliar del sistema.'];
     }
 }

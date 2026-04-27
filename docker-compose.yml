@@ -1,3 +1,12 @@
+# Control Salud — Docker Compose
+# Finales de línea: LF (Unix). En Windows, Git debe respetar .gitattributes para no subir CRLF.
+#
+# Puertos publicados (host → contenedor) se pueden sobreescribir con .env en la raíz:
+#   CONTROL_SALUD_WEB_PUBLISH=127.0.0.1:8082:80     # servidor detrás de Nginx (evita choque con 8080)
+#   CONTROL_SALUD_MYSQL_PUBLISH=127.0.0.1:3307:3306
+#   CONTROL_SALUD_PMA_PUBLISH=127.0.0.1:8083:80     # si 8081 está ocupado
+# Valores por defecto pensados para desarrollo local.
+
 services:
   mysql:
     image: mysql:8.0
@@ -6,20 +15,15 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-salud_root_dev}
       MYSQL_DATABASE: control_salud
-    # Host 3307 → MySQL dentro del contenedor sigue en 3306 (normal; el de la derecha es interno).
-    # Si Docker Desktop muestra "3307:3306", está bien: usás 3307 desde Windows.
     ports:
-      - "3307:3306"
+      - "${CONTROL_SALUD_MYSQL_PUBLISH:-3307:3306}"
     volumes:
       - control_salud_mysql_data:/var/lib/mysql
-      # Solo se ejecuta la primera vez que arranca la base vacía
       - ./sql/schema_mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
 
-  # App PHP (Apache). En Docker Desktop aparece como este servicio.
-  # Nginx no hace falta: Apache sirve los .php igual que en muchos hostings.
   webapp:
     build:
       context: ./docker/web
@@ -34,7 +38,7 @@ services:
     volumes:
       - ./web:/var/www
     ports:
-      - "8080:80"
+      - "${CONTROL_SALUD_WEB_PUBLISH:-8080:80}"
 
   phpmyadmin:
     image: phpmyadmin:5
@@ -48,7 +52,7 @@ services:
       PMA_USER: root
       PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-salud_root_dev}
     ports:
-      - "8081:80"
+      - "${CONTROL_SALUD_PMA_PUBLISH:-8081:80}"
 
 volumes:
   control_salud_mysql_data:

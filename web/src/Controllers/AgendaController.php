@@ -25,13 +25,26 @@ final class AgendaController
             $fecha = date('Y-m-d');
         }
         $doctorFiltro = (int) ($_GET['doctor'] ?? 0);
+        $doctorRole = auth_user_role($this->user) === 'doctor';
+        $doctorUser = $doctorRole ? auth_user_doctor_id($this->user) : 0;
+        if (auth_user_role($this->user) === 'doctor') {
+            if ($doctorUser > 0) {
+                $doctorFiltro = $doctorUser;
+            }
+        }
 
         $agendaRepo = new AgendaRepository($this->pdo, user_clinica_id($this->user));
         $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
         $extAgenda = $agendaRepo->hasExtendedColumns();
         $doctores = $docRepo->listActivos();
-        $rows = $agendaRepo->listByFechaYDoctor($fecha, $doctorFiltro, $extAgenda);
-        $resumen = $agendaRepo->resumenDia($fecha, $doctorFiltro, $extAgenda);
+        if ($doctorRole && $doctorUser < 1) {
+            $doctores = [];
+            $rows = [];
+            $resumen = ['total' => 0, 'pendientes' => 0, 'atendidos' => 0, 'no_asistio' => 0, 'llegados' => 0, 'confirmados' => 0];
+        } else {
+            $rows = $agendaRepo->listByFechaYDoctor($fecha, $doctorFiltro, $extAgenda);
+            $resumen = $agendaRepo->resumenDia($fecha, $doctorFiltro, $extAgenda);
+        }
         $turnoSelId = (int) ($_GET['turno'] ?? 0);
         $turnoSel = $turnoSelId > 0 ? $agendaRepo->findById($turnoSelId, $extAgenda) : null;
 

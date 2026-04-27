@@ -160,6 +160,187 @@ final class PacientesRepository
         $u->execute(array_merge([$hcText, $id], $wcPar));
     }
 
+    public function historiaNotasTableExists(): bool
+    {
+        return db_table_exists($this->pdo, 'pacientes_hc_notas');
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listHistoriaClinicaNotas(int $idPaciente): array
+    {
+        if ($idPaciente < 1 || !$this->historiaNotasTableExists()) {
+            return [];
+        }
+        $joinUsuarios = db_table_exists($this->pdo, 'usuarios');
+        $sql = 'SELECT n.id, n.id_paciente, n.id_usuario, n.fecha_hora, n.texto, n.creado_en';
+        if ($joinUsuarios) {
+            $sql .= ', COALESCE(u.nombre, u.usuario, CONCAT(\'Usuario #\', n.id_usuario)) AS usuario_nombre';
+        } else {
+            $sql .= ', CONCAT(\'Usuario #\', n.id_usuario) AS usuario_nombre';
+        }
+        $sql .= ' FROM pacientes_hc_notas n';
+        if ($joinUsuarios) {
+            $sql .= ' LEFT JOIN usuarios u ON u.id = n.id_usuario';
+        }
+        $sql .= ' WHERE n.id_paciente = ?';
+        $params = [$idPaciente];
+        if (db_table_has_column($this->pdo, 'pacientes_hc_notas', 'id_clinica')) {
+            $sql .= ' AND n.id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+        $sql .= ' ORDER BY n.fecha_hora DESC, n.id DESC';
+
+        try {
+            $st = $this->pdo->prepare($sql);
+            $st->execute($params);
+
+            return $st->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    public function addHistoriaClinicaNota(int $idPaciente, string $texto, ?int $idUsuario): int
+    {
+        if ($idPaciente < 1 || !$this->historiaNotasTableExists()) {
+            return 0;
+        }
+        $texto = trim($texto);
+        if ($texto === '') {
+            return 0;
+        }
+        $cols = ['id_paciente', 'texto'];
+        $vals = [$idPaciente, $texto];
+        if (db_table_has_column($this->pdo, 'pacientes_hc_notas', 'id_usuario')) {
+            $cols[] = 'id_usuario';
+            $vals[] = ($idUsuario !== null && $idUsuario > 0) ? $idUsuario : null;
+        }
+        if (db_table_has_column($this->pdo, 'pacientes_hc_notas', 'id_clinica')) {
+            $cols[] = 'id_clinica';
+            $vals[] = $this->idClinica;
+        }
+        $quoted = array_map(static function (string $c): string {
+            return '`' . str_replace('`', '', $c) . '`';
+        }, $cols);
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        $sql = 'INSERT INTO pacientes_hc_notas (' . implode(', ', $quoted) . ') VALUES (' . $ph . ')';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($vals);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    public function historiaAdjuntosTableExists(): bool
+    {
+        return db_table_exists($this->pdo, 'pacientes_hc_adjuntos');
+    }
+
+    /**
+     * @param list<int> $idsNota
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public function listHistoriaClinicaAdjuntosPorNotas(array $idsNota): array
+    {
+        $out = [];
+        if ($idsNota === [] || !$this->historiaAdjuntosTableExists()) {
+            return $out;
+        }
+        $ids = array_values(array_unique(array_map('intval', $idsNota)));
+        $ids = array_values(array_filter($ids, static function (int $v): bool {
+            return $v > 0;
+        }));
+        if ($ids === []) {
+            return $out;
+        }
+
+        $ph = implode(', ', array_fill(0, count($ids), '?'));
+        $sql = 'SELECT id, id_nota_hc, tipo, nombre, url, ruta_archivo, mime, tamano_bytes, creado_en
+            FROM pacientes_hc_adjuntos
+            WHERE id_nota_hc IN (' . $ph . ')';
+        $params = $ids;
+        if (db_table_has_column($this->pdo, 'pacientes_hc_adjuntos', 'id_clinica')) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+        $sql .= ' ORDER BY creado_en ASC, id ASC';
+
+        try {
+            $st = $this->pdo->prepare($sql);
+            $st->execute($params);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $r) {
+                $nid = (int) ($r['id_nota_hc'] ?? 0);
+                if ($nid < 1) {
+                    continue;
+                }
+                if (!isset($out[$nid])) {
+                    $out[$nid] = [];
+                }
+                $out[$nid][] = $r;
+            }
+        } catch (Throwable $e) {
+            return [];
+        }
+
+        return $out;
+    }
+
+    public function addHistoriaClinicaAdjuntoArchivo(
+        int $idNota,
+        string $nombre,
+        string $rutaArchivo,
+        string $mime,
+        int $tamanoBytes,
+        ?int $idUsuario
+    ): void {
+        if ($idNota < 1 || !$this->historiaAdjuntosTableExists()) {
+            return;
+        }
+        $cols = ['id_nota_hc', 'tipo', 'nombre', 'ruta_archivo', 'mime', 'tamano_bytes'];
+        $vals = [$idNota, 'archivo', $nombre, $rutaArchivo, $mime, $tamanoBytes];
+        if (db_table_has_column($this->pdo, 'pacientes_hc_adjuntos', 'id_usuario')) {
+            $cols[] = 'id_usuario';
+            $vals[] = ($idUsuario !== null && $idUsuario > 0) ? $idUsuario : null;
+        }
+        if (db_table_has_column($this->pdo, 'pacientes_hc_adjuntos', 'id_clinica')) {
+            $cols[] = 'id_clinica';
+            $vals[] = $this->idClinica;
+        }
+        $quoted = array_map(static function (string $c): string {
+            return '`' . str_replace('`', '', $c) . '`';
+        }, $cols);
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        $sql = 'INSERT INTO pacientes_hc_adjuntos (' . implode(', ', $quoted) . ') VALUES (' . $ph . ')';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($vals);
+    }
+
+    public function addHistoriaClinicaAdjuntoLink(int $idNota, string $nombre, string $url, ?int $idUsuario): void
+    {
+        if ($idNota < 1 || !$this->historiaAdjuntosTableExists()) {
+            return;
+        }
+        $cols = ['id_nota_hc', 'tipo', 'nombre', 'url'];
+        $vals = [$idNota, 'link', $nombre, $url];
+        if (db_table_has_column($this->pdo, 'pacientes_hc_adjuntos', 'id_usuario')) {
+            $cols[] = 'id_usuario';
+            $vals[] = ($idUsuario !== null && $idUsuario > 0) ? $idUsuario : null;
+        }
+        if (db_table_has_column($this->pdo, 'pacientes_hc_adjuntos', 'id_clinica')) {
+            $cols[] = 'id_clinica';
+            $vals[] = $this->idClinica;
+        }
+        $quoted = array_map(static function (string $c): string {
+            return '`' . str_replace('`', '', $c) . '`';
+        }, $cols);
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        $sql = 'INSERT INTO pacientes_hc_adjuntos (' . implode(', ', $quoted) . ') VALUES (' . $ph . ')';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($vals);
+    }
+
     public function deleteById(int $id): void
     {
         $sql = 'DELETE FROM pacientes WHERE id = ?';

@@ -312,4 +312,22 @@ DROP PROCEDURE IF EXISTS `_cs_sync_planes_with_fallback`;
 DROP PROCEDURE IF EXISTS `_cs_sync_practicas_lista_o_nomenclador`;
 DROP PROCEDURE IF EXISTS `_cs_sync_lista_3_if_exists`;
 
+-- Completa `lista_planes.id_cobertura` cuando el origen no lo trae:
+-- se deduce por uso en `Pacientes Ordenes` si cada plan aparece con una unica cobertura.
+UPDATE lista_planes lp
+JOIN (
+  SELECT
+    o.idplan AS id_plan,
+    MIN(o.idobrasocial) AS id_cobertura_unica
+  FROM `Pacientes Ordenes` o
+  WHERE o.idplan IS NOT NULL
+    AND o.idplan > 0
+    AND o.idobrasocial IS NOT NULL
+    AND o.idobrasocial > 0
+  GROUP BY o.idplan
+  HAVING COUNT(DISTINCT o.idobrasocial) = 1
+) m ON m.id_plan = lp.id
+SET lp.id_cobertura = m.id_cobertura_unica
+WHERE lp.id_cobertura IS NULL OR lp.id_cobertura <= 0;
+
 SET FOREIGN_KEY_CHECKS = 1;

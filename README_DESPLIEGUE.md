@@ -1,5 +1,8 @@
 # Control Salud Web — Guía de despliegue y operación
 
+> Documento maestro de seguimiento técnico/funcional del proyecto.
+> Desde ahora centralizamos aquí el estado y pendientes; reemplaza a `PENDIENTES.md` y `PENDIENTES_PARIDAD_EXE.md`.
+
 Aplicación **PHP + MySQL**. Esta guía concentra instalación, migraciones SQL en orden útil, verificaciones y seguimiento de **paridad** con `Control Salud.exe` (referencia: `REQUISITOS_Sistema_ControlSalud.md` y `Datos.mdb` cuando haya dudas de campos).
 
 ---
@@ -51,6 +54,33 @@ Objetivo: que **`/orden_form.php`** muestre desplegables (cobertura, plan, prác
 
 ---
 
+## 5.1. Historia clínica — evolución inmutable (v1)
+
+- Script: **`sql/migration_026_hc_notas_inmutables.sql`** (tabla `pacientes_hc_notas`).
+- Web: **`/historia_clinica.php?id=...`** permite agregar nuevas anotaciones con fecha/hora y conservar historial sin edición/borrado.
+- `hc_texto` queda como resumen histórico de solo lectura; nuevas evoluciones van en notas.
+
+---
+
+## 5.2. Historia clínica — adjuntos (v2)
+
+- Script: **`sql/migration_027_hc_adjuntos.sql`** (tabla `pacientes_hc_adjuntos`).
+- En la misma alta de anotación permite adjuntar **archivo** (PDF/JPG/PNG/WebP) y/o **link** de estudio.
+- Los adjuntos quedan listados junto a cada anotación en `/historia_clinica.php`.
+
+---
+
+## 5.3. Usuarios y roles (ACL inicial)
+
+- Script: **`sql/migration_028_usuarios_roles.sql`** (columna `usuarios.rol`).
+- Script: **`sql/migration_029_usuarios_id_doctor.sql`** (columna `usuarios.id_doctor`).
+- Roles activos: `superadmin`, `admin_clinica`, `doctor`.
+- Administración de usuarios: módulo **Sistema** (`/sistema.php`) con alta/edición/baja.
+- Restricción inicial para `doctor`: acceso a agenda y pacientes/historia clínica (sin módulos administrativos).
+- Para rol `doctor` se recomienda vincular `id_doctor` para filtrar agenda por su profesional asociado.
+
+---
+
 ## 6. Caja / pagos (recordatorio operativo)
 
 - **Pagos:** `/pagos.php`, alta `/pagos_form.php`, recibo `/pagos_recibo.php?id=…`. Desde **Editar orden** → *Registrar pago* si la orden tiene `id`.
@@ -88,6 +118,8 @@ Objetivo: que **`/orden_form.php`** muestre desplegables (cobertura, plan, prác
 
 - [x] Buscador, filtros (`pagaiva`, `honorariofecha`, `numeautorizacion`), grilla con columnas clave, totales.
 - [ ] Filtros del bloque Sesiones; multi-selección estados A/F/P; liquidar/anular honorarios; `Pagó Cob` / `Debe Cob` con reglas claras; “no sumar honorarios con cero sesiones” si sigue vigente.
+- [ ] Relación **Obra social -> Plan** validada extremo a extremo (catálogos + formulario): al elegir cobertura deben verse solo planes compatibles.
+- [ ] Revisar calidad de datos en `lista_planes.id_cobertura` (si queda `NULL`, el formulario muestra planes no acotados).
 
 **Sesiones**
 
@@ -102,6 +134,23 @@ Objetivo: que **`/orden_form.php`** muestre desplegables (cobertura, plan, prác
 **Listados / informes**
 
 - [ ] Separar vistas Órdenes vs Sesiones; listados mínimos (por doctor, cobertura/plan, honorarios, caja); unificar exportación/impresión.
+
+**Historia clínica**
+
+- [ ] Evolución con entradas inmutables: cada anotación con fecha/hora; sin edición ni borrado del texto histórico.
+- [ ] Adjuntos por HC: permitir cargar y visualizar archivos (PDF/JPG) y registrar links de estudios.
+- [ ] Definir alcance de permisos: quién puede agregar notas/adjuntos y cómo se audita en paridad con el exe.
+
+### Política inicial de roles y permisos (acordada)
+
+- Roles base: **superadmin**, **admin de clínica**, **doctor**.
+- Historia clínica (notas y adjuntos): **inmutable** para operación normal (sin editar/borrar).
+- Excepción de última instancia: solo **superadmin** puede realizar anulación administrativa (idealmente desde BD o herramienta administrativa restringida).
+- Alcance operativo inicial:
+  - **Doctor:** acceso a su agenda y a historia clínica.
+  - **Admin de clínica:** gestión operativa de la clínica (agenda/pacientes/HC según alcance de clínica).
+  - **Superadmin:** control total multi-clínica + soporte excepcional.
+- Próximo paso técnico: implementar control por rol con permisos ampliables/reducibles (matriz configurable).
 
 ### Criterio de “cerrado” por ítem
 

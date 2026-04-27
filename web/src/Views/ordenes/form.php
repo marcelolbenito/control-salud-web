@@ -271,7 +271,8 @@ $triSel = static function ($cur, $v): string {
                 return;
             }
             var oc = o.getAttribute('data-id-cobertura') || '';
-            o.hidden = cid !== '' && oc !== '' && oc !== cid;
+            // Si hay cobertura elegida, solo se muestran planes vinculados a esa cobertura.
+            o.hidden = cid !== '' && oc !== cid;
         });
         var sel = plan.options[plan.selectedIndex];
         if (sel && sel.hidden) {

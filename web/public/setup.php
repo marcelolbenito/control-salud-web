@@ -43,12 +43,16 @@ if ($error === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'La contraseña debe tener al menos 8 caracteres.';
     } else {
         $hash = password_hash($clave, PASSWORD_DEFAULT);
-        if (db_table_has_column($pdo, 'usuarios', 'id_clinica')) {
+        if (db_table_has_column($pdo, 'usuarios', 'id_clinica') && db_table_has_column($pdo, 'usuarios', 'rol')) {
+            $st = $pdo->prepare('INSERT INTO usuarios (usuario, password_hash, nombre, activo, id_clinica, rol) VALUES (?, ?, ?, 1, 1, ?)');
+            $st->execute([$usuario, $hash, $nombre ?: $usuario, 'superadmin']);
+        } elseif (db_table_has_column($pdo, 'usuarios', 'id_clinica')) {
             $st = $pdo->prepare('INSERT INTO usuarios (usuario, password_hash, nombre, activo, id_clinica) VALUES (?, ?, ?, 1, 1)');
+            $st->execute([$usuario, $hash, $nombre ?: $usuario]);
         } else {
             $st = $pdo->prepare('INSERT INTO usuarios (usuario, password_hash, nombre, activo) VALUES (?, ?, ?, 1)');
+            $st->execute([$usuario, $hash, $nombre ?: $usuario]);
         }
-        $st->execute([$usuario, $hash, $nombre ?: $usuario]);
         header('Location: /login.php');
         exit;
     }
@@ -58,7 +62,7 @@ ob_start();
 ?>
 <div class="container container-narrow">
     <h1>Configuración inicial</h1>
-    <p>Creá el primer usuario administrador. Esta pantalla solo funciona mientras la tabla <code>usuarios</code> esté vacía.</p>
+    <p>Creá el primer usuario administrador (superadmin). Esta pantalla solo funciona mientras la tabla <code>usuarios</code> esté vacía.</p>
     <?php if ($error !== ''): ?>
         <p class="alert alert-error"><?= h($error) ?></p>
     <?php endif; ?>

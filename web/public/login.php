@@ -26,7 +26,9 @@ if ($pdo !== null && $error === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($usuario === '' || $clave === '') {
         $error = 'Completá usuario y contraseña.';
     } else {
-        $st = $pdo->prepare('SELECT id, usuario, nombre, password_hash, activo, id_clinica FROM usuarios WHERE usuario = ? LIMIT 1');
+        $selRol = db_table_has_column($pdo, 'usuarios', 'rol') ? ', rol' : '';
+        $selDoctor = db_table_has_column($pdo, 'usuarios', 'id_doctor') ? ', id_doctor' : '';
+        $st = $pdo->prepare('SELECT id, usuario, nombre, password_hash, activo, id_clinica' . $selRol . $selDoctor . ' FROM usuarios WHERE usuario = ? LIMIT 1');
         $st->execute([$usuario]);
         $row = $st->fetch();
 
@@ -36,7 +38,9 @@ if ($pdo !== null && $error === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Usuario o contraseña incorrectos.';
         } else {
             $idClinica = isset($row['id_clinica']) ? (int) $row['id_clinica'] : 1;
-            auth_login((int) $row['id'], $row['usuario'], (string) $row['nombre'], $idClinica > 0 ? $idClinica : 1);
+            $rol = isset($row['rol']) ? (string) $row['rol'] : 'admin_clinica';
+            $idDoctor = isset($row['id_doctor']) ? (int) $row['id_doctor'] : null;
+            auth_login_with_role((int) $row['id'], $row['usuario'], (string) $row['nombre'], $idClinica > 0 ? $idClinica : 1, $rol, $idDoctor);
             header('Location: /index.php');
             exit;
         }

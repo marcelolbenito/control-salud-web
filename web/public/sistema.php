@@ -20,8 +20,17 @@ if ($a === 'seed_exe_config' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $ctrl->seedExeConfigPost();
 }
 
+if ($a === 'user_delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ctrl->userDeletePost();
+}
+
 if ($a === 'config_form') {
     $ctrl->configForm();
+    exit;
+}
+
+if ($a === 'user_form') {
+    $ctrl->userForm();
     exit;
 }
 

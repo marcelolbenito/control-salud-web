@@ -26,16 +26,86 @@ function user_clinica_id(?array $user): int
 
 function auth_login(int $id, string $usuario, string $nombre, int $idClinica = 1): void
 {
+    auth_login_with_role($id, $usuario, $nombre, $idClinica, 'admin_clinica');
+}
+
+function auth_login_with_role(
+    int $id,
+    string $usuario,
+    string $nombre,
+    int $idClinica = 1,
+    string $rol = 'admin_clinica',
+    ?int $idDoctor = null
+): void
+{
     session_regenerate_id(true);
     unset($_SESSION['_csrf']); // regenerar token CSRF tras login
     $cid = $idClinica > 0 ? $idClinica : 1;
+    $rol = trim(strtolower($rol));
+    if (!in_array($rol, ['superadmin', 'admin_clinica', 'doctor'], true)) {
+        $rol = 'admin_clinica';
+    }
     $_SESSION['user'] = [
-        'id'         => $id,
-        'usuario'    => $usuario,
-        'nombre'     => $nombre,
+        'id' => $id,
+        'usuario' => $usuario,
+        'nombre' => $nombre,
         'id_clinica' => $cid,
+        'rol' => $rol,
+        'id_doctor' => ($idDoctor !== null && $idDoctor > 0) ? $idDoctor : null,
     ];
     $_SESSION['_last_activity'] = time();
+}
+
+function auth_user_doctor_id(?array $user): int
+{
+    if ($user === null) {
+        return 0;
+    }
+    $n = (int) ($user['id_doctor'] ?? 0);
+
+    return $n > 0 ? $n : 0;
+}
+
+function auth_user_role(?array $user): string
+{
+    if ($user === null) {
+        return '';
+    }
+    $rol = strtolower(trim((string) ($user['rol'] ?? 'admin_clinica')));
+    if (!in_array($rol, ['superadmin', 'admin_clinica', 'doctor'], true)) {
+        return 'admin_clinica';
+    }
+
+    return $rol;
+}
+
+function auth_is_superadmin(?array $user): bool
+{
+    return auth_user_role($user) === 'superadmin';
+}
+
+/**
+ * @param list<string> $roles
+ */
+function require_roles(array $roles): void
+{
+    $user = auth_user();
+    if ($user === null) {
+        header('Location: /login.php');
+        exit;
+    }
+    $actual = auth_user_role($user);
+    $norm = [];
+    foreach ($roles as $r) {
+        $s = strtolower(trim($r));
+        if ($s !== '') {
+            $norm[] = $s;
+        }
+    }
+    if (!in_array($actual, $norm, true)) {
+        http_response_code(403);
+        exit('No tenés permisos para esta acción.');
+    }
 }
 
 function auth_logout(): void

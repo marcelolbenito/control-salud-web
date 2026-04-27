@@ -1,0 +1,4 @@
+# Evitar CRLF en YAML (Docker en Linux falla con "did not find expected key" en línea 1).
+* text=auto
+*.yml text eol=lf
+*.yaml text eol=lf

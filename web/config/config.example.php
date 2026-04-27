@@ -20,5 +20,7 @@ return [
     ],
     'app' => [
         'name' => 'Control Salud Web',
+        // Dejar vacío para raíz (local). Para subcarpeta usar, por ejemplo: '/controlsalud'
+        'base_path' => '',
     ],
 ];

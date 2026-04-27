@@ -58,6 +58,8 @@ final class PacientesController
         $hasHcTexto = db_table_has_column($this->pdo, 'pacientes', 'hc_texto');
         $hasAnteced = db_table_has_column($this->pdo, 'pacientes', 'antecedentes_hc');
         $hasHcLegacy = db_table_has_column($this->pdo, 'pacientes', 'HC');
+        $hasNotasHc = $repo->historiaNotasTableExists();
+        $hasAdjuntosHc = $repo->historiaAdjuntosTableExists();
 
         $hcBase = '';
         if ($hasHcTexto) {
@@ -66,23 +68,54 @@ final class PacientesController
             $hcBase = (string) ($p['HC'] ?? '');
         }
         $antecedentes = $hasAnteced ? (string) ($p['antecedentes_hc'] ?? '') : '';
+        $notasHc = $hasNotasHc ? $repo->listHistoriaClinicaNotas($id) : [];
+        $idsNota = [];
+        foreach ($notasHc as $n) {
+            $nid = (int) ($n['id'] ?? 0);
+            if ($nid > 0) {
+                $idsNota[] = $nid;
+            }
+        }
+        $adjuntosPorNota = ($hasNotasHc && $hasAdjuntosHc) ? $repo->listHistoriaClinicaAdjuntosPorNotas($idsNota) : [];
         $error = '';
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             csrf_verify();
-            $hcTextoIn = trim((string) ($_POST['hc_texto'] ?? ''));
+            $nuevaNota = trim((string) ($_POST['hc_nueva_nota'] ?? ''));
             $antecedIn = trim((string) ($_POST['antecedentes_hc'] ?? ''));
+            $linkUrl = trim((string) ($_POST['hc_link_url'] ?? ''));
+            $linkTitulo = trim((string) ($_POST['hc_link_titulo'] ?? ''));
+            $idUsuario = isset($this->user['id']) ? (int) $this->user['id'] : null;
 
-            if (!$hasHcTexto && !$hasHcLegacy) {
-                $error = 'Tu tabla pacientes no tiene campo de historia clínica (hc_texto/HC).';
+            if (!$hasNotasHc) {
+                $error = 'Falta la tabla pacientes_hc_notas. Ejecutá sql/migration_026_hc_notas_inmutables.sql.';
+            } elseif (!$hasAdjuntosHc) {
+                $error = 'Falta la tabla pacientes_hc_adjuntos. Ejecutá sql/migration_027_hc_adjuntos.sql.';
+            } elseif ($nuevaNota === '') {
+                $error = 'Escribí una anotación para agregar a la historia clínica.';
+            } elseif (!$hasHcTexto && !$hasHcLegacy) {
+                $error = 'Tu tabla pacientes no tiene campo base de historia clínica (hc_texto/HC).';
             } else {
-                $repo->updateHistoriaClinica($id, $hcTextoIn, $antecedIn, $hasHcTexto, $hasAnteced);
-                flash_set('Historia clínica actualizada.');
+                $error = $this->validateHistoriaAdjuntosInput();
+            }
+            if ($error === '') {
+                $idNota = $repo->addHistoriaClinicaNota($id, $nuevaNota, $idUsuario);
+                if ($idNota < 1) {
+                    $error = 'No se pudo registrar la anotación.';
+                }
+            }
+            if ($error === '') {
+                $error = $this->persistHistoriaAdjuntos($repo, $idNota, $idUsuario, $linkUrl, $linkTitulo);
+            }
+            if ($error === '') {
+                // El texto histórico base se conserva; solo se permite actualizar antecedentes.
+                $repo->updateHistoriaClinica($id, $hcBase, $antecedIn, $hasHcTexto, $hasAnteced);
+                flash_set('Anotación agregada en la historia clínica.');
                 header('Location: /historia_clinica.php?id=' . $id);
                 exit;
+            } else {
+                $antecedentes = $antecedIn;
             }
-            $hcBase = $hcTextoIn;
-            $antecedentes = $antecedIn;
         }
 
         $nombre = trim((string) (($p['apellido'] ?? '') . ', ' . ($p['Nombres'] ?? '')));
@@ -95,7 +128,12 @@ final class PacientesController
             'p' => $p,
             'nombre' => $nombre,
             'hcBase' => $hcBase,
+            'hcBaseDisplay' => self::legacyHcToDisplayText($hcBase),
             'antecedentes' => $antecedentes,
+            'hasNotasHc' => $hasNotasHc,
+            'hasAdjuntosHc' => $hasAdjuntosHc,
+            'notasHc' => $notasHc,
+            'adjuntosPorNota' => $adjuntosPorNota,
             'error' => $error,
         ]);
         layout_render('Historia clínica', $body, $this->user);
@@ -536,6 +574,149 @@ final class PacientesController
         ob_start();
         require dirname(__DIR__) . '/Views/' . $view . '.php';
         return (string) ob_get_clean();
+    }
+
+    private function validateHistoriaAdjuntosInput(): string
+    {
+        $linkUrl = trim((string) ($_POST['hc_link_url'] ?? ''));
+        if ($linkUrl !== '') {
+            $url = $this->normalizeHistoriaLinkUrl($linkUrl);
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                return 'El link de estudio no tiene un formato válido.';
+            }
+        }
+        if (!isset($_FILES['hc_adjunto_archivo']) || !is_array($_FILES['hc_adjunto_archivo'])) {
+            return '';
+        }
+        $fi = $_FILES['hc_adjunto_archivo'];
+        $err = (int) ($fi['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($err === UPLOAD_ERR_NO_FILE) {
+            return '';
+        }
+        if ($err !== UPLOAD_ERR_OK) {
+            return 'No se pudo subir el adjunto (error de carga).';
+        }
+        $tmp = (string) ($fi['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            return 'Archivo adjunto inválido.';
+        }
+        $max = 8 * 1024 * 1024;
+        if ((int) ($fi['size'] ?? 0) > $max) {
+            return 'El adjunto supera el tamaño máximo (8 MB).';
+        }
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = (string) $finfo->file($tmp);
+        $permitidos = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+        if (!in_array($mime, $permitidos, true)) {
+            return 'Formato de adjunto no permitido (PDF, JPG, PNG, WebP).';
+        }
+
+        return '';
+    }
+
+    private function persistHistoriaAdjuntos(
+        PacientesRepository $repo,
+        int $idNota,
+        ?int $idUsuario,
+        string $linkUrlRaw,
+        string $linkTituloRaw
+    ): string {
+        if ($idNota < 1) {
+            return 'No se pudo asociar adjuntos a la anotación.';
+        }
+
+        $linkUrlRaw = trim($linkUrlRaw);
+        if ($linkUrlRaw !== '') {
+            $url = $this->normalizeHistoriaLinkUrl($linkUrlRaw);
+            $titulo = trim($linkTituloRaw) !== '' ? trim($linkTituloRaw) : $url;
+            $repo->addHistoriaClinicaAdjuntoLink($idNota, $titulo, $url, $idUsuario);
+        }
+
+        if (!isset($_FILES['hc_adjunto_archivo']) || !is_array($_FILES['hc_adjunto_archivo'])) {
+            return '';
+        }
+        $fi = $_FILES['hc_adjunto_archivo'];
+        if ((int) ($fi['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return '';
+        }
+
+        $tmp = (string) ($fi['tmp_name'] ?? '');
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = (string) $finfo->file($tmp);
+        $map = ['application/pdf' => 'pdf', 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        if (!isset($map[$mime])) {
+            return 'Formato de adjunto no permitido.';
+        }
+        $ext = $map[$mime];
+        $publicDir = dirname(__DIR__, 2) . '/public';
+        $upDir = $publicDir . '/uploads/hc';
+        if (!is_dir($upDir) && !mkdir($upDir, 0755, true) && !is_dir($upDir)) {
+            return 'No se pudo crear la carpeta de adjuntos.';
+        }
+
+        $baseName = 'hc_nota_' . $idNota . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4));
+        $dest = $upDir . '/' . $baseName . '.' . $ext;
+        if (!move_uploaded_file($tmp, $dest)) {
+            return 'No se pudo guardar el archivo adjunto.';
+        }
+        $rel = '/uploads/hc/' . $baseName . '.' . $ext;
+        $nombre = trim((string) ($fi['name'] ?? 'Adjunto'));
+        if ($nombre === '') {
+            $nombre = 'Adjunto';
+        }
+        $repo->addHistoriaClinicaAdjuntoArchivo($idNota, $nombre, $rel, $mime, (int) ($fi['size'] ?? 0), $idUsuario);
+
+        return '';
+    }
+
+    private function normalizeHistoriaLinkUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (!preg_match('/^[a-z][a-z0-9+\-.]*:\/\//i', $url)) {
+            $url = 'https://' . $url;
+        }
+
+        return $url;
+    }
+
+    private static function legacyHcToDisplayText(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return '';
+        }
+
+        // Si no parece RTF, se muestra tal cual.
+        if (stripos($raw, '{\\rtf') !== 0) {
+            return $raw;
+        }
+
+        $txt = str_replace(["\r\n", "\r"], "\n", $raw);
+        $txt = preg_replace('/\\\\par[d]?\\b ?/', "\n", $txt) ?? $txt;
+        $txt = str_replace(['\\{', '\\}'], ['{', '}'], $txt);
+
+        // Decodifica secuencias RTF hex: \'f3, \'e1, etc. (cp1252 -> utf8).
+        $txt = preg_replace_callback(
+            "/\\\\'([0-9a-fA-F]{2})/",
+            static function (array $m): string {
+                $ch = chr((int) hexdec($m[1]));
+                $u = @mb_convert_encoding($ch, 'UTF-8', 'Windows-1252');
+                return is_string($u) ? $u : $ch;
+            },
+            $txt
+        ) ?? $txt;
+
+        // Elimina grupos/códigos RTF restantes.
+        $txt = preg_replace('/\\{\\\\[^{}]*\\}/', ' ', $txt) ?? $txt;
+        $txt = preg_replace('/\\\\[a-zA-Z]+-?\\d* ?/', ' ', $txt) ?? $txt;
+        $txt = str_replace(['{', '}'], ' ', $txt);
+        $txt = preg_replace("/\n{3,}/", "\n\n", $txt) ?? $txt;
+        $txt = preg_replace('/[ \t]{2,}/', ' ', $txt) ?? $txt;
+
+        return trim($txt);
     }
 }
 

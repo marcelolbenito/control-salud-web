@@ -6,6 +6,9 @@ declare(strict_types=1);
     <div class="page-head">
         <h1>Agenda diaria</h1>
         <p class="muted">Vista operativa por fecha y profesional, con acciones rápidas tipo escritorio.</p>
+        <?php if (auth_user_role(auth_user()) === 'doctor' && $doctores === []): ?>
+            <p class="alert alert-error">Tu usuario doctor no tiene profesional vinculado. Pedí al administrador que asocie un doctor en Sistema > Usuarios.</p>
+        <?php endif; ?>
         <?php if (!$extAgenda): ?>
             <p class="muted" style="font-size:0.9rem;">Columnas Atendido/Llegó/Confirmado/Ausente aparecen tras <code>sql/migration_003_doctores_agenda_exe.sql</code>.</p>
         <?php endif; ?>
@@ -24,7 +27,9 @@ declare(strict_types=1);
             <label>
                 Profesional
                 <select name="doctor">
+                    <?php if (auth_user_role(auth_user()) !== 'doctor'): ?>
                     <option value="0">Todos</option>
+                    <?php endif; ?>
                     <?php foreach ($doctores as $d): ?>
                         <option value="<?= (int) $d['id'] ?>"<?= $doctorFiltro === (int) $d['id'] ? ' selected' : '' ?>>
                             <?= h($d['nombre']) ?>

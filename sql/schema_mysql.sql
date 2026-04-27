@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   email VARCHAR(100),
   activo TINYINT(1) DEFAULT 1,
   id_clinica INT NOT NULL DEFAULT 1,
+  id_doctor INT NULL,
+  rol VARCHAR(30) NOT NULL DEFAULT 'admin_clinica',
   creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
   actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_usuarios_clinica (id_clinica)

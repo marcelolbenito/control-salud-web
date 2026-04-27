@@ -501,7 +501,9 @@ final class OrdenesRepository
         }
         $idc = $row['id_cobertura'];
         if ($idc === null || $idc === '') {
-            return true;
+            // Si el plan no tiene cobertura asociada, no es compatible
+            // cuando el usuario ya selecciono una cobertura concreta.
+            return false;
         }
 
         return (int) $idc === $idCobertura;
