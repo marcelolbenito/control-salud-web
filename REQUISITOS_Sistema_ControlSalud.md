@@ -2,6 +2,16 @@
 
 Documento vivo: consolida lo inferible del sistema original para que el desarrollo web tenga **criterio claro**. No reemplaza validación con usuarios ni pruebas sobre el ejecutable.
 
+**Fuente unica de seguimiento:** este archivo es la hoja de ruta maestra del proyecto (paridad con el exe + orden tecnico de implementacion). Los checklists de otros documentos se consideran referencia historica.
+
+## Como usar este documento semanalmente
+
+1. Revisar `6.1 Checklist maestro unificado` y actualizar cada item como `[x]`, `[~]` o `[ ]`.
+2. Priorizar primero pendientes de seguridad/estabilidad (seccion B), luego paridad funcional (seccion A).
+3. Ejecutar una validacion corta del flujo minimo: login -> paciente -> turno -> orden -> pago -> caja.
+4. Registrar cambios de alcance o decisiones de negocio en el RF correspondiente (seccion 4 y anexos).
+5. Cerrar la semana actualizando `Control de versiones del documento` con fecha y resumen breve.
+
 ---
 
 ## 1. Alcance y fuentes de verdad
@@ -38,6 +48,128 @@ Documento vivo: consolida lo inferible del sistema original para que el desarrol
 | Sistema (módulos) | Anunciador, recordatorios, posible AgendaWeb (alcance a definir en web). |
 
 *Nota:* perfiles y permisos granulares del .exe deben **inferirse con uso del programa** o pedirse al cliente; no suelen estar completos en strings del exe.
+
+---
+
+## 3.1 Procesos operativos reales del centro (levantamiento usuario)
+
+Esta seccion traduce el circuito operativo informado por el usuario a procesos del sistema. Sirve para ordenar lo ya implementado y detectar brechas.
+
+### P-REC-01 — Recepcion de paciente particular
+
+**Flujo esperado:**
+
+1. El paciente llega y se anuncia en secretaria.
+2. Si es particular, se cobra la consulta/practica.
+3. Se registra el pago en el sistema con medio de pago.
+4. Se marca el turno como `llego`.
+5. El profesional ve al paciente en sala desde su agenda.
+6. El profesional llama al paciente por pantalla/anunciador.
+7. Luego se marca como `atendido`.
+
+**Estado actual web:** **Parcial / alto**.
+
+- Implementado: agenda diaria, marca `llego`, anunciador, cierre `atendido`, pagos, recibo y caja.
+- Falta ordenar mejor el flujo "cobrar -> llego" desde una pantalla unica de recepcion.
+- Falta validar si toda consulta particular siempre genera orden/practica o solo pago directo.
+
+### P-REC-02 — Recepcion de paciente con obra social
+
+**Flujo esperado:**
+
+1. El paciente llega y se anuncia en secretaria.
+2. Secretaria gestiona autorizacion.
+3. Se carga la orden/practica en el sistema.
+4. La orden queda disponible para facturacion posterior.
+5. Se marca el turno como `llego`.
+6. El profesional ve al paciente y lo llama por pantalla/anunciador.
+
+**Estado actual web:** **Parcial / alto**.
+
+- Implementado: ordenes, estados, cobertura/plan/practica, autorizada, entregada, filtros avanzados, agenda y anunciador.
+- Falta una accion guiada desde recepcion/agenda: "cargar orden/autorizacion y marcar llego".
+- Falta definir obligatoriedad de campos de autorizacion segun obra social.
+
+### P-TUR-01 — Solicitud y confirmacion de turno
+
+**Flujo esperado:**
+
+1. El paciente solicita turno por WhatsApp, presencialmente o portal web.
+2. Secretaria o el portal agenda el turno.
+3. Al confirmarse el turno, el paciente recibe confirmacion con fecha, hora y profesional.
+
+**Estado actual web:** **Parcial**.
+
+- Implementado: agenda interna y alta/edicion de turnos.
+- Documentado: recordatorios WhatsApp (RF-SAT-02) y Agenda web (RF-SAT-03).
+- Falta implementar envio automatico de confirmacion al crear turno.
+- Falta portal web/autogestion de turnos.
+
+### P-REC-03 — Recordatorio de turno
+
+**Flujo esperado:**
+
+1. El dia anterior al turno se envia recordatorio.
+2. El paciente puede confirmar o cancelar.
+3. La respuesta actualiza el estado operativo del turno.
+
+**Estado actual web:** **Documentado / pendiente implementacion**.
+
+- Documentado: checklist Twilio, diccionario `agenda_recordatorios` y borrador SQL.
+- Falta implementar proveedor, scheduler, webhook, bandeja y reflejo en agenda.
+
+### P-FAC-01 — Facturacion a obra social
+
+**Flujo esperado:**
+
+1. Dia a dia se cargan consultas/ordenes al recepcionar.
+2. Al momento de facturar, se emite reporte por obra social y rango de fechas.
+3. El reporte se imprime y se anexa a ordenes/autorizaciones.
+4. Las ordenes incluidas se marcan como `FACTURADAS` para no mezclarlas en futuras facturaciones.
+
+**Reporte requerido:**
+
+- Afiliado.
+- Nombre del paciente.
+- Codigo de practica.
+- Nombre de practica.
+- Fecha.
+- Cantidad.
+- Costo de practica.
+
+**Estado actual web:** **Parcial**.
+
+- Implementado: ordenes, filtros por cobertura/plan/practica/fecha/doctor, estados `A/F/P` en orden y cobertura, totales.
+- Falta pantalla/proceso especifico de "facturar lote" por obra social.
+- Falta reporte con columnas exactas del usuario y accion masiva "marcar facturadas".
+- Falta definir si `estado_os = F` sera el campo oficial para `FACTURADA` por obra social.
+
+### P-CAJ-01 — Caja diaria
+
+**Flujo esperado:**
+
+1. La caja toma todos los pagos del dia.
+2. Se pueden cargar ingresos y egresos manuales.
+3. El sistema suma/resta automaticamente.
+4. Al final del dia se controla y se cierra la caja.
+5. Al registrar pago se indica medio: efectivo, debito, transferencia o electronico.
+6. Se diferencia turno manana / turno tarde.
+
+**Estado actual web:** **Parcial / alto**.
+
+- Implementado: pagos con `forma_pago`, caja con ingresos/egresos manuales, importes y fechas.
+- Implementado parcialmente: `turnocaja` existe como texto operativo.
+- Falta cierre diario formal de caja.
+- Falta normalizar "turno manana/tarde" como campo controlado para pagos/caja.
+- Falta reporte diario de cierre con totales por medio de pago y turno.
+
+### Priorizacion sugerida desde estos procesos
+
+1. **Recepcion guiada desde Agenda:** particular/obra social, cobrar o cargar orden, luego `llego`.
+2. **Facturacion obra social:** reporte por obra social + marcar ordenes facturadas.
+3. **Caja diaria:** cierre, totales por medio de pago y turno manana/tarde.
+4. **Confirmacion/recordatorio WhatsApp:** confirmacion al crear turno + recordatorio dia anterior.
+5. **Portal web de turnos:** despues de estabilizar agenda interna + WhatsApp.
 
 ---
 
@@ -111,9 +243,384 @@ Códigos: `RF-xxx` para trazabilidad. Estado: **C** confirmado por BD/exe, **I**
 
 | ID | Descripción | Estado |
 |----|-------------|--------|
-| RF-SAT-01 | **Anunciador**: cola visual/sonido de turnos. | P |
+| RF-SAT-01 | **Anunciador**: cola visual/sonido de turnos. | C (v1 web) |
 | RF-SAT-02 | **Recordatorios** de citas o seguimiento. | P |
 | RF-SAT-03 | **AgendaWeb.exe**: alcance de integración o sustitución. | P |
+
+---
+
+### 4.10 Analisis funcional inicial de modulos satelite (documentacion)
+
+Objetivo de esta seccion: capturar comportamiento esperado para luego incorporarlo como modulos internos de `web/` (sin depender de ejecutables separados).
+
+#### RF-SAT-01 — Anunciador (sala de espera)
+
+**Hipotesis funcional inicial:**
+
+- Mostrar cola de turnos del dia por profesional/sucursal.
+- Permitir cambiar estado operativo de turno (ej. en espera -> llamando -> atendido/anulado, nombres a validar).
+- Emitir aviso visual y opcional de sonido al llamar.
+- Exponer una pantalla de alto contraste para TV/monitor de sala.
+
+**Datos y entidades candidatas:**
+
+- `agenda_turnos` (fecha, doctor, estado, paciente/HC).
+- `lista_doctores`, `lista_sucursales` (si aplica filtro por sede).
+- Configuracion visual/sonora en `config` (claves nuevas a definir).
+
+**Brechas a validar con uso real/exe:**
+
+- Reglas exactas de orden de llamado (hora, prioridad, sobreturno).
+- Estados exactos y transiciones permitidas.
+- Si requiere distinguir "llamado actual" vs "historial de llamados".
+
+**Definicion operativa acordada (v1):**
+
+- El profesional, desde su usuario, opera sobre sus turnos del dia.
+- La accion de llamado se habilita para turnos marcados como `llego`.
+- Cada llamado genera/actualiza un item visible en una URL de sala (anunciador).
+- La pantalla de sala muestra paciente + consultorio destino + profesional (formato final a definir por privacidad).
+
+**Estados propuestos para v1 (anunciador):**
+
+1. `llego` (paciente presente en recepcion; listo para ser llamado).
+2. `llamando` (publicado en pantalla de sala).
+3. `en_consultorio` (retirado de cola principal, opcionalmente visible en historial corto).
+4. `finalizado` (atendido/cerrado, fuera de anunciador).
+
+**Transiciones minimas:**
+
+- `llego` -> `llamando` (accion del profesional o recepcion habilitada).
+- `llamando` -> `en_consultorio` (cuando ingresa al consultorio).
+- `en_consultorio` -> `finalizado` (cierre de atencion).
+- `llamando` -> `finalizado` (atajo permitido para resolver casos sin paso intermedio).
+
+**Acciones por rol (v1):**
+
+- `doctor`: llamar paciente propio (`llego` -> `llamando`) y avanzar estado de sus llamados.
+- `admin_clinica` / recepcion: marcar llegada (`llego`) y asistir gestion de cola.
+- `superadmin`: mismas acciones + soporte/auditoria.
+
+**Vistas/URLs previstas (v1):**
+
+- Vista operativa (profesional): integrada en agenda del dia.
+- Vista publica de sala: URL dedicada de solo lectura (pantalla fullscreen).
+- Actualizacion de la vista de sala: polling corto (3-5 segundos) en v1; websocket como mejora posterior.
+
+**Privacidad sugerida para pantalla de sala (v1):**
+
+- Evitar exponer DNI, telefono u otros datos sensibles.
+- Preferir nombre acotado (ej. "Juan P.") o identificador interno acordado por la clinica.
+
+**Decision de infraestructura (monitor):**
+
+- No requiere ejecutable separado.
+- Requiere un dispositivo que mantenga abierta la URL de sala: PC secundaria, smart TV/box o segundo monitor.
+- Puede ser la misma PC con doble pantalla, si operativamente es viable.
+
+**Datos minimos a persistir (si no alcanzan campos actuales):**
+
+- Tabla sugerida: `agenda_llamados` (id_turno, id_doctor, consultorio, estado_llamado, llamado_en, actualizado_en, id_usuario_accion).
+- Alternativa: extender `agenda_turnos` con campos de llamado si se prioriza simplicidad inicial.
+
+**Diccionario propuesto — tabla `agenda_llamados` (v1):**
+
+| Campo | Tipo sugerido | Requerido | Descripcion |
+|------|----------------|-----------|-------------|
+| `id` | BIGINT PK AI | Si | Identificador tecnico del evento de llamado. |
+| `id_clinica` | INT | Si | Scope multi-clinica (alineado al resto del sistema). |
+| `id_turno` | BIGINT | Si | Referencia al turno en `agenda_turnos`. |
+| `id_doctor` | INT | Si | Profesional asociado al llamado. |
+| `nro_hc` | INT | Si | HC del paciente para lookup rapido y trazabilidad. |
+| `paciente_display` | VARCHAR(120) | Si | Texto mostrado en sala (ej. "Juan P."). |
+| `consultorio` | VARCHAR(40) | Si | Destino visible en monitor (ej. "Consultorio 3"). |
+| `estado_llamado` | VARCHAR(24) | Si | `llego`, `llamando`, `en_consultorio`, `finalizado`. |
+| `prioridad` | TINYINT | No | Prioridad para cola (default 0). |
+| `origen_accion` | VARCHAR(24) | Si | `doctor`, `recepcion`, `sistema`. |
+| `id_usuario_accion` | INT | No | Usuario web que ejecuta la ultima accion. |
+| `llamado_en` | DATETIME | No | Fecha/hora del paso a `llamando`. |
+| `en_consultorio_en` | DATETIME | No | Fecha/hora del paso a `en_consultorio`. |
+| `finalizado_en` | DATETIME | No | Fecha/hora del cierre de llamado. |
+| `observaciones` | VARCHAR(255) | No | Nota corta operativa (opcional). |
+| `creado_en` | DATETIME | Si | Alta del registro. |
+| `actualizado_en` | DATETIME | Si | Ultima actualizacion del registro. |
+
+**Indices minimos sugeridos (v1):**
+
+- `(id_clinica, estado_llamado, actualizado_en DESC)` para pantalla de sala.
+- `(id_turno)` para buscar por turno.
+- `(id_doctor, estado_llamado, creado_en DESC)` para cola del profesional.
+- `(nro_hc, creado_en DESC)` para auditoria por paciente.
+
+**Reglas de integridad y operacion (v1):**
+
+1. Un turno activo no debe tener mas de un llamado abierto en estado `llamando` o `en_consultorio`.
+2. `llamado_en` se completa al pasar a `llamando`; `en_consultorio_en` y `finalizado_en` en sus transiciones respectivas.
+3. Si se re-llama un paciente, se permite nuevo registro o reuso controlado del mismo (decision final de implementacion).
+4. `paciente_display` se guarda materializado para preservar historial aun si cambia el nombre en ficha.
+5. Toda accion de cambio de estado debe registrar `id_usuario_accion` cuando exista usuario autenticado.
+
+**Consulta base esperada para monitor de sala (v1):**
+
+- Mostrar llamados de la clinica en estado `llamando`, ordenados por `prioridad` DESC y `llamado_en` DESC.
+- Opcional: segundo bloque "En consultorio" con ultimos N ingresos.
+
+**Borrador de migracion SQL (revision funcional, no ejecutado):**
+
+```sql
+-- Propuesta: sql/migration_030_agenda_llamados.sql
+CREATE TABLE IF NOT EXISTS agenda_llamados (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_clinica INT NOT NULL,
+    id_turno BIGINT UNSIGNED NOT NULL,
+    id_doctor INT NOT NULL,
+    nro_hc INT NOT NULL,
+    paciente_display VARCHAR(120) NOT NULL,
+    consultorio VARCHAR(40) NOT NULL,
+    estado_llamado VARCHAR(24) NOT NULL DEFAULT 'llego',
+    prioridad TINYINT NOT NULL DEFAULT 0,
+    origen_accion VARCHAR(24) NOT NULL DEFAULT 'doctor',
+    id_usuario_accion INT NULL,
+    llamado_en DATETIME NULL,
+    en_consultorio_en DATETIME NULL,
+    finalizado_en DATETIME NULL,
+    observaciones VARCHAR(255) NULL,
+    creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_llamados_clinica_estado_actualizado (id_clinica, estado_llamado, actualizado_en),
+    KEY idx_llamados_turno (id_turno),
+    KEY idx_llamados_doctor_estado_creado (id_doctor, estado_llamado, creado_en),
+    KEY idx_llamados_hc_creado (nro_hc, creado_en),
+    CONSTRAINT chk_estado_llamado
+        CHECK (estado_llamado IN ('llego', 'llamando', 'en_consultorio', 'finalizado'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Notas de revision del borrador SQL:**
+
+- Ajustar tipos (`INT`/`BIGINT`) segun PK real de `agenda_turnos` en el esquema vigente.
+- Si el motor MySQL objetivo no aplica `CHECK` de forma estricta, reforzar validacion en aplicacion.
+- Definir luego FKs segun estado real del esquema (`agenda_turnos`, `lista_doctores`, `usuarios`), priorizando compatibilidad con datos legacy.
+
+**Criterio de cerrado (MVP anunciador):**
+
+1. Profesional puede llamar desde agenda a paciente en estado `llego`.
+2. La pantalla de sala refleja el llamado en <= 5 segundos.
+3. Se visualiza consultorio destino.
+4. Se puede avanzar a `en_consultorio` y `finalizado`.
+5. Se registra quien realizo la accion y cuando (trazabilidad minima).
+
+**Estado actual implementado (2026-04-30):**
+
+- `agenda_llamados` creado por migracion `sql/migration_030_agenda_llamados.sql`.
+- Integracion en agenda: `llamar` solo para turnos en `llego`; `atendido` disponible tras llamado.
+- Sincronizacion operativa: al marcar `atendido` en agenda se finaliza llamado activo en anunciador.
+- Vista monitor pura disponible en `/anunciador.php` (sin menu ni botones; solo paciente/consultorio/profesional).
+- Vista operador en `/anunciador.php?modo=operador` para gestionar estados de llamado.
+- Flujo validado en servidor web con carga por SSH de archivos y migracion aplicada.
+
+**Pendientes para v2 (no bloqueantes de v1):**
+
+- Notificacion sonora configurable por clinica/consultorio.
+- Actualizacion en tiempo real por websocket (hoy polling con refresh).
+- Reglas avanzadas de prioridad/cola por especialidad o sobreturno.
+- Auditoria ampliada de eventos de llamado (reportes operativos).
+
+#### RF-SAT-02 — Recordatorios
+
+**Hipotesis funcional inicial:**
+
+- Generar recordatorios para turnos futuros segun ventana configurable (ej. 24/48 hs).
+- Mantener bandeja de recordatorios con estados (pendiente, enviado, confirmado, cancelado).
+- Permitir confirmacion/anulacion desde gestion interna (canal externo pendiente).
+
+**Datos y entidades candidatas:**
+
+- `agenda_turnos` + datos de contacto del paciente.
+- Tabla nueva sugerida: `agenda_recordatorios` (id_turno, fecha_programada, canal, estado, intentos, observaciones, timestamps).
+- Parametros globales en `config` (anticipacion, horario de envio, politicas de reintento).
+
+**Brechas a validar con uso real/exe:**
+
+- Si en el exe habia canales concretos (SMS/WhatsApp/email/llamada) o solo listado interno.
+- Reglas de "no recordar" (paciente bloqueado, turno ya atendido/anulado, etc.).
+- Necesidad de auditoria legal de contacto.
+
+**Checklist de implementacion futura — Recordatorios por WhatsApp (Twilio)**
+
+Objetivo: dejar una guia ejecutable para implementar mas adelante sin perder decisiones tomadas.
+
+### A) Definicion funcional y legal
+
+- [ ] Confirmar canal inicial unico: WhatsApp.
+- [ ] Confirmar ventana de envio v1 (ej. 24h antes; opcional 2h antes en v1.1).
+- [ ] Definir politica de opt-in/consentimiento del paciente para mensajeria.
+- [ ] Definir comportamiento ante respuesta del paciente (`SI`, `NO`, `REPROGRAMAR`).
+- [ ] Definir texto final del recordatorio (tono clinica, datos minimos, privacidad).
+
+### B) Alta en proveedor (Twilio + WhatsApp)
+
+- [ ] Crear cuenta Twilio productiva con billing habilitado.
+- [ ] Registrar sender WhatsApp (numero Twilio o numero propio compatible).
+- [ ] Configurar perfil de negocio y display name.
+- [ ] Crear y aprobar template de recordatorio (categoria Utility recomendada).
+- [ ] Verificar costos por pais objetivo (Twilio fee + Meta fee) y estimacion mensual inicial.
+
+### C) Modelo de datos en Control Salud Web
+
+- [ ] Crear tabla `agenda_recordatorios` (id_turno, nro_hc, telefono_e164, estado, intentos, ids externos, timestamps).
+- [ ] Definir indice por `estado + programado_en` para cola de envio.
+- [ ] Definir indice por `id_turno` para trazabilidad por turno.
+- [ ] Agregar flags/config en `config` (enabled, ventana_24h, proveedor, template, reintentos maximos).
+- [ ] Definir politica de retencion de historico de recordatorios.
+
+### D) Integracion tecnica (backend)
+
+- [ ] Implementar servicio proveedor-agnostico (`WhatsAppProvider`) para no acoplarse fuerte a Twilio.
+- [ ] Implementar adaptador Twilio (`TwilioWhatsAppProvider`) con envio de template.
+- [ ] Implementar scheduler/cron que genere cola de recordatorios pendientes.
+- [ ] Implementar proceso de envio con control de reintentos y backoff.
+- [ ] Persistir `message_id` externo y respuesta de API por cada intento.
+
+### E) Webhook y estados
+
+- [ ] Exponer endpoint webhook seguro para estados de Twilio (sent/delivered/read/failed).
+- [ ] Validar firma del webhook (seguridad).
+- [ ] Actualizar estado en `agenda_recordatorios` por evento recibido.
+- [ ] Procesar mensajes entrantes del paciente y mapear a accion (`confirmado`, `cancelado`, `reprogramar`).
+- [ ] Reflejar confirmacion en agenda (ej. `confirmado=1` en turno).
+
+### F) UI minima operativa
+
+- [ ] Vista de bandeja de recordatorios (pendientes, enviados, fallidos, respondidos).
+- [ ] Accion manual: reenviar recordatorio desde agenda/turno.
+- [ ] Filtro por profesional/fecha/estado para seguimiento diario.
+- [ ] Indicador visual en agenda de turno confirmado por WhatsApp.
+- [ ] Registro de auditoria basico (quien reenvio/manual y cuando).
+
+### G) Pruebas y salida a produccion
+
+- [ ] Probar sandbox/staging con numeros de prueba.
+- [ ] Ejecutar piloto controlado (ej. 1 profesional o 1 sucursal por 1 semana).
+- [ ] Medir tasa de entrega/lectura/respuesta y ajustar texto/template.
+- [ ] Verificar manejo de errores reales (numero invalido, bloqueo, timeout API).
+- [ ] Activar progresivamente al resto de profesionales/sucursales.
+
+### H) Criterio de cerrado v1 Recordatorios
+
+- [ ] Se generan recordatorios automaticamente en ventana definida.
+- [ ] Se envian por WhatsApp y quedan trazados con estado final.
+- [ ] Las respuestas del paciente actualizan estado operativo del turno.
+- [ ] Existe bandeja operativa para seguimiento y reintento manual.
+- [ ] Costos y metricas iniciales quedan documentados por mes.
+
+**Diccionario propuesto — tabla `agenda_recordatorios` (v1, documentacion):**
+
+| Campo | Tipo sugerido | Requerido | Descripcion |
+|------|----------------|-----------|-------------|
+| `id` | BIGINT PK AI | Si | Identificador tecnico del recordatorio. |
+| `id_clinica` | INT | Si | Scope multi-clinica. |
+| `id_turno` | INT | Si | Turno asociado en `agenda_turnos`. |
+| `id_doctor` | INT | No | Profesional asociado al turno (denormalizado para reportes). |
+| `nro_hc` | INT | Si | HC del paciente. |
+| `telefono_e164` | VARCHAR(25) | Si | Telefono normalizado (ej. `+549...`). |
+| `canal` | VARCHAR(20) | Si | Canal de envio (`whatsapp` en v1). |
+| `proveedor` | VARCHAR(30) | Si | Proveedor de envio (`twilio` en v1). |
+| `template_codigo` | VARCHAR(80) | No | Nombre/codigo de template aprobado. |
+| `mensaje_render` | TEXT | No | Copia del mensaje final enviado (auditoria). |
+| `estado` | VARCHAR(24) | Si | `pendiente`, `enviado`, `entregado`, `leido`, `confirmado`, `cancelado`, `reprogramar`, `error`. |
+| `programado_en` | DATETIME | Si | Fecha/hora objetivo de envio. |
+| `enviado_en` | DATETIME | No | Fecha/hora efectiva de envio. |
+| `id_mensaje_externo` | VARCHAR(120) | No | ID de mensaje devuelto por proveedor. |
+| `intentos` | SMALLINT | Si | Cantidad de intentos realizados (default 0). |
+| `ultimo_error` | VARCHAR(255) | No | Ultimo error tecnico/funcional de envio. |
+| `respuesta_texto` | TEXT | No | Mensaje entrante del paciente (si responde). |
+| `respuesta_codigo` | VARCHAR(24) | No | Mapeo normalizado (`SI`, `NO`, `REPROGRAMAR`, etc.). |
+| `respuesta_en` | DATETIME | No | Fecha/hora de respuesta del paciente. |
+| `payload_webhook` | MEDIUMTEXT | No | JSON crudo de webhook (auditoria tecnica). |
+| `creado_en` | DATETIME | Si | Alta de registro. |
+| `actualizado_en` | DATETIME | Si | Ultima actualizacion. |
+
+**Indices minimos sugeridos (v1):**
+
+- `(id_clinica, estado, programado_en)` para cola de envios.
+- `(id_turno)` para trazabilidad por turno.
+- `(id_mensaje_externo)` para correlacion webhook -> registro.
+- `(telefono_e164, creado_en DESC)` para historial por paciente/telefono.
+
+**Borrador de migracion SQL (referencia, no ejecutar aun):**
+
+```sql
+-- Propuesta: sql/migration_031_agenda_recordatorios.sql
+CREATE TABLE IF NOT EXISTS agenda_recordatorios (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_clinica INT NOT NULL DEFAULT 1,
+    id_turno INT NOT NULL,
+    id_doctor INT NULL,
+    nro_hc INT NOT NULL,
+    telefono_e164 VARCHAR(25) NOT NULL,
+    canal VARCHAR(20) NOT NULL DEFAULT 'whatsapp',
+    proveedor VARCHAR(30) NOT NULL DEFAULT 'twilio',
+    template_codigo VARCHAR(80) NULL,
+    mensaje_render TEXT NULL,
+    estado VARCHAR(24) NOT NULL DEFAULT 'pendiente',
+    programado_en DATETIME NOT NULL,
+    enviado_en DATETIME NULL,
+    id_mensaje_externo VARCHAR(120) NULL,
+    intentos SMALLINT NOT NULL DEFAULT 0,
+    ultimo_error VARCHAR(255) NULL,
+    respuesta_texto TEXT NULL,
+    respuesta_codigo VARCHAR(24) NULL,
+    respuesta_en DATETIME NULL,
+    payload_webhook MEDIUMTEXT NULL,
+    creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_recordatorios_clinica_estado_prog (id_clinica, estado, programado_en),
+    KEY idx_recordatorios_turno (id_turno),
+    KEY idx_recordatorios_msg_ext (id_mensaje_externo),
+    KEY idx_recordatorios_tel_creado (telefono_e164, creado_en),
+    CONSTRAINT chk_recordatorios_estado CHECK (
+        estado IN ('pendiente', 'enviado', 'entregado', 'leido', 'confirmado', 'cancelado', 'reprogramar', 'error')
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Nota:** este script es solo guia de analisis. Antes de implementarlo, validar tipos/FKs exactos contra el esquema vigente y definir politica de retencion de `payload_webhook`.
+
+#### RF-SAT-03 — Agenda web (autogestion/control externo)
+
+**Hipotesis funcional inicial:**
+
+- Publicar disponibilidad acotada para solicitud de turnos.
+- Integrarse con reglas de `agenda_turnos` y `agenda_bloqueos`.
+- Requerir validaciones anti-duplicado (por paciente/documento/telefono y ventana de tiempo).
+
+**Datos y entidades candidatas:**
+
+- `agenda_turnos`, `agenda_bloqueos`, `lista_doctores`.
+- Tabla nueva sugerida: `agenda_solicitudes_web` para trazabilidad de origen externo.
+- Configuracion de cupos/ventanas por profesional o especialidad.
+
+**Brechas a validar con uso real/exe:**
+
+- Si `AgendaWeb.exe` era publicacion externa, sincronizacion o modulo interno separado.
+- Criterios de aprobacion manual vs confirmacion automatica.
+- Politica de seguridad para exponer agenda a internet.
+
+#### Criterio de arquitectura acordado para satelites
+
+- No replicar ejecutables independientes.
+- Integrar en la app `web/` con mismas capas (entrypoint + controller + repository + view).
+- Mantener trazabilidad contra RF-SAT-01/02/03 y contra tablas de referencia.
+
+#### Entregables de analisis pendientes (antes de implementar)
+
+1. Capturas/recorrido guiado de cada ejecutable satelite con casos reales.
+2. Matriz de eventos y estados por modulo (anunciador, recordatorios, agenda web).
+3. Definicion de MVP por satelite (alcance minimo para primera version web).
+4. Confirmacion de datos obligatorios y tablas nuevas a crear.
 
 ---
 
@@ -246,6 +753,51 @@ Ventana central del exe con **barra de acciones**: Nuevo, Guardar, Imprimir, Ord
 
 ---
 
+## 6.1 Checklist maestro unificado (hoja de ruta)
+
+Estados sugeridos para gestion diaria: **[x] listo**, **[~] parcial**, **[ ] pendiente**.
+
+### A) Paridad funcional con Control Salud.exe
+
+- [x] **Pacientes (nucleo):** listado con filtros (`q`, `nrohc`, `id`, `activo`) + ABM.
+- [~] **Ficha de paciente extendida:** existe base web, falta cerrar todos los campos/pestanas del exe (Anexo B).
+- [x] **Doctores:** ABM + uso transversal en agenda/ordenes/sesiones.
+- [x] **Agenda y turnos:** agenda diaria, alta/edicion de turnos, bloqueos.
+- [~] **Ordenes:** ABM y filtros base; falta cerrar filtros/acciones avanzadas del exe (RF-ORD-02, Anexo A).
+- [~] **Sesiones:** ABM y vinculacion con ordenes; falta cierre de reportes y filtros avanzados por sesiones.
+- [~] **Pagos y Caja:** flujo operativo inicial activo; falta paridad de informes y reglas finas del exe.
+- [ ] **Consultas medicas:** tablas/modelo presentes, falta modulo web completo.
+- [ ] **Internacion/camas:** modelo presente, falta modulo web completo.
+- [~] **Satelites (Anunciador/Recordatorios/AgendaWeb):** Anunciador v1 web operativo; pendientes Recordatorios y AgendaWeb.
+
+### B) Calidad tecnica minima (para avanzar sin deuda peligrosa)
+
+- [ ] Cerrar P0 de seguridad: proteger setup, csrf en endpoint JSON, estrategia segura de adjuntos HC.
+- [ ] Cerrar P1 de seguridad/performance: rate limit login, mejoras de cache de esquema, `session_write_close()` en endpoints AJAX.
+- [ ] Definir y aplicar politica de permisos por rol para modulos clinicos/administrativos.
+- [ ] Establecer set minimo de pruebas de humo (login, paciente, turno, orden, pago, HC).
+- [ ] Mantener SQL en repositorios/controladores (evitar crecimiento de SQL directo en `public/`).
+
+### C) Operacion y despliegue (checklist rapido por entorno)
+
+- [ ] Base creada e importada (`sql/schema_mysql.sql` + migraciones pendientes por numero).
+- [ ] Catalogos de ordenes validados con datos reales (cobertura/plan/practica/derivacion/sucursal).
+- [ ] Multi-clinica validada (`id_clinica` coherente en usuarios y datos operativos).
+- [ ] Flujo funcional minimo verificado: login -> paciente -> turno -> orden -> pago -> caja.
+- [ ] Configuracion de `base_path` validada segun URL real de despliegue.
+
+### D) Definicion de "cerrado" por item
+
+Un item se considera cerrado cuando cumple todo lo siguiente:
+
+1. Pantalla/flujo visible en web y utilizable.
+2. Persistencia correcta en tablas esperadas.
+3. Filtros operativos minimos (si aplica listado).
+4. Validacion funcional con al menos un caso real o dataset de referencia.
+5. Trazabilidad actualizada en este mismo documento (RF asociado + estado).
+
+---
+
 ## 7. Supuestos y riesgos
 
 | Tipo | Texto |
@@ -274,6 +826,8 @@ Ventana central del exe con **barra de acciones**: Nuevo, Guardar, Imprimir, Ord
 - `sql/schema_mysql.sql` — modelo implementado para la web.
 - `web/` — implementación actual (no todo el RF de este documento está cubierto aún).
 - `.cursor/rules/control-salud-referencia-exe.mdc` — reglas de trabajo para el asistente.
+- `web/ARQUITECTURA_PROPUESTA.md` — referencia historica (su checklist queda absorbido por este documento).
+- `README_DESPLIEGUE.md` — guia operativa de despliegue (sus checks clave quedan reflejados en 6.1.C).
 
 ---
 
@@ -284,3 +838,12 @@ Ventana central del exe con **barra de acciones**: Nuevo, Guardar, Imprimir, Ord
 | 0.1 | 2026-04-08 | Creación inicial: estructura ERS + RFs por dominio + fuentes y vacíos. |
 | 0.2 | 2026-04-08 | Anexo A: pantalla «Órdenes de los Pacientes» (captura); RF-ORD-02; mapeo columnas/filtros. |
 | 0.3 | 2026-04-08 | Anexo B: ficha «Información del Paciente»; RF-PAC-05 búsqueda listado web. |
+| 0.4 | 2026-04-30 | Se incorpora checklist maestro unificado (paridad + calidad tecnica + operacion) y se declara este archivo como hoja de ruta unica. |
+| 0.5 | 2026-04-30 | Se agrega analisis funcional inicial de modulos satelite (Anunciador, Recordatorios, Agenda web) para documentar comportamiento previo a implementacion. |
+| 0.6 | 2026-04-30 | Se define RF-SAT-01 Anunciador v1: estados, transiciones, acciones por rol, vista de sala y criterio de cerrado MVP. |
+| 0.7 | 2026-04-30 | Se agrega diccionario de datos propuesto para `agenda_llamados`, indices minimos y reglas de integridad/operacion para el Anunciador v1. |
+| 0.8 | 2026-04-30 | Se incorpora borrador de migracion SQL para `agenda_llamados` (revision funcional previa a implementacion). |
+| 0.9 | 2026-04-30 | Se actualiza estado real: RF-SAT-01 marcado como C (v1 web), checklist satelites en parcial y pendientes v2 documentados. |
+| 1.0 | 2026-04-30 | Se agrega checklist de implementacion futura para RF-SAT-02 Recordatorios por WhatsApp (Twilio): funcional, tecnico, datos, webhook, UI, pruebas y criterio de cierre. |
+| 1.1 | 2026-04-30 | Se agrega para RF-SAT-02 el diccionario propuesto de `agenda_recordatorios`, indices minimos y borrador documental de `migration_031_agenda_recordatorios.sql` (sin implementacion aun). |
+| 1.2 | 2026-05-13 | Se incorporan procesos operativos reales del centro: recepcion particular/obra social, turnos, recordatorios, facturacion por obra social y caja diaria, con estado actual y priorizacion. |

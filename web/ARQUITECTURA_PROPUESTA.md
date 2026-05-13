@@ -1,5 +1,7 @@
 # Arquitectura web (estado actual y guía)
 
+> Seguimiento oficial del proyecto: `REQUISITOS_Sistema_ControlSalud.md` (checklist maestro unificado). Este archivo queda como guía técnica de arquitectura.
+
 Objetivo: mantener una base ordenada, consistente con Control Salud original (exe + BD), y fácil de extender sin mezclar SQL, lógica y vista.
 
 ## Estructura actual (real)

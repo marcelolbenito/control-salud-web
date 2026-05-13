@@ -1,7 +1,7 @@
 # Control Salud Web — Guía de despliegue y operación
 
-> Documento maestro de seguimiento técnico/funcional del proyecto.
-> Desde ahora centralizamos aquí el estado y pendientes; reemplaza a `PENDIENTES.md` y `PENDIENTES_PARIDAD_EXE.md`.
+> Seguimiento oficial del proyecto: `REQUISITOS_Sistema_ControlSalud.md` (checklist maestro unificado).
+> Este archivo queda como guía operativa de despliegue y operación.
 
 Aplicación **PHP + MySQL**. Esta guía concentra instalación, migraciones SQL en orden útil, verificaciones y seguimiento de **paridad** con `Control Salud.exe` (referencia: `REQUISITOS_Sistema_ControlSalud.md` y `Datos.mdb` cuando haya dudas de campos).
 
@@ -170,4 +170,4 @@ Separar por tema en git: `sql/`, agenda/bloqueos, órdenes/catálogos, caja/pago
 
 ---
 
-*Última unificación de notas: reemplaza `PENDIENTES.md` y `PENDIENTES_PARIDAD_EXE.md`.*
+*Nota: el estado funcional y la hoja de ruta se mantienen centralizados en `REQUISITOS_Sistema_ControlSalud.md`.*
