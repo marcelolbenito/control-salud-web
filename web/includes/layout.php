@@ -52,11 +52,17 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                 <a class="side-link<?= $isPath('/index.php') || $isPath('/') ? ' is-active' : '' ?>" href="/index.php"><i class="bi bi-house-door" aria-hidden="true"></i><span class="side-label">Inicio</span></a>
                 <a class="side-link<?= $isPath('/pacientes.php') ? ' is-active' : '' ?>" href="/pacientes.php"><i class="bi bi-people" aria-hidden="true"></i><span class="side-label">Pacientes</span></a>
                 <?php if ($rol === 'doctor'): ?>
-                    <a class="side-link<?= $isPath('/agenda.php') ? ' is-active' : '' ?>" href="/agenda.php"><i class="bi bi-calendar3-event" aria-hidden="true"></i><span class="side-label">Agenda</span></a>
-                <?php else: ?>
-                    <details class="side-group"<?= $isPath('/agenda.php') || $isPath('/agenda_bloqueos.php') ? ' open' : '' ?>>
+                    <details class="side-group"<?= $isPath('/agenda.php') || $isPath('/anunciador.php') ? ' open' : '' ?>>
                         <summary><i class="bi bi-calendar3-event" aria-hidden="true"></i><span class="side-label">Agenda</span></summary>
                         <a class="side-sublink<?= $isPath('/agenda.php') ? ' is-active' : '' ?>" href="/agenda.php">Agenda diaria</a>
+                        <a class="side-sublink<?= $isPath('/anunciador.php') ? ' is-active' : '' ?>" href="/anunciador.php">Anunciador</a>
+                    </details>
+                <?php else: ?>
+                    <details class="side-group"<?= $isPath('/agenda.php') || $isPath('/agenda_bloqueos.php') || $isPath('/anunciador.php') || $isPath('/control_administrativo.php') ? ' open' : '' ?>>
+                        <summary><i class="bi bi-calendar3-event" aria-hidden="true"></i><span class="side-label">Agenda</span></summary>
+                        <a class="side-sublink<?= $isPath('/agenda.php') ? ' is-active' : '' ?>" href="/agenda.php">Agenda diaria</a>
+                        <a class="side-sublink<?= $isPath('/control_administrativo.php') ? ' is-active' : '' ?>" href="/control_administrativo.php">Control diario</a>
+                        <a class="side-sublink<?= $isPath('/anunciador.php') ? ' is-active' : '' ?>" href="/anunciador.php">Anunciador</a>
                         <a class="side-sublink<?= $isPath('/agenda_bloqueos.php') ? ' is-active' : '' ?>" href="/agenda_bloqueos.php">Bloqueos</a>
                     </details>
                 <?php endif; ?>
@@ -67,9 +73,10 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                         <a class="side-sublink<?= $isPath('/ordenes.php') || $isPath('/orden_form.php') ? ' is-active' : '' ?>" href="/ordenes.php">Órdenes</a>
                         <a class="side-sublink<?= $isPath('/sesiones.php') || $isPath('/sesion_form.php') ? ' is-active' : '' ?>" href="/sesiones.php">Sesiones</a>
                     </details>
-                    <details class="side-group"<?= $isPath('/caja.php') || $isPath('/caja_form.php') || $isPath('/pagos.php') || $isPath('/pagos_form.php') ? ' open' : '' ?>>
+                    <details class="side-group"<?= $isPath('/caja.php') || $isPath('/caja_form.php') || $isPath('/caja_cierre.php') || $isPath('/pagos.php') || $isPath('/pagos_form.php') ? ' open' : '' ?>>
                         <summary><i class="bi bi-cash-coin" aria-hidden="true"></i><span class="side-label">Finanzas</span></summary>
                         <a class="side-sublink<?= $isPath('/caja.php') || $isPath('/caja_form.php') ? ' is-active' : '' ?>" href="/caja.php">Caja</a>
+                        <a class="side-sublink<?= $isPath('/caja_cierre.php') ? ' is-active' : '' ?>" href="/caja_cierre.php">Cierre de caja</a>
                         <a class="side-sublink<?= $isPath('/pagos.php') || $isPath('/pagos_form.php') ? ' is-active' : '' ?>" href="/pagos.php">Pagos</a>
                     </details>
                     <details class="side-group"<?= $isPath('/catalogos.php') || $isPath('/sistema.php') ? ' open' : '' ?>>
@@ -78,6 +85,7 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                         <a class="side-sublink<?= $isPath('/sistema.php') ? ' is-active' : '' ?>" href="/sistema.php">Configuración</a>
                     </details>
                 <?php endif; ?>
+                <a class="side-link<?= $isPath('/ayuda.php') ? ' is-active' : '' ?>" href="/ayuda.php"><i class="bi bi-question-circle" aria-hidden="true"></i><span class="side-label">Ayuda</span></a>
             </nav>
         </aside>
         <?php endif; ?>

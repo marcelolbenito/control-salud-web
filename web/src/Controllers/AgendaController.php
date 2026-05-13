@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/Repositories/AgendaRepository.php';
+require_once dirname(__DIR__) . '/Repositories/AnunciadorRepository.php';
 require_once dirname(__DIR__) . '/Repositories/DoctoresRepository.php';
 
 final class AgendaController
@@ -25,6 +26,10 @@ final class AgendaController
             $fecha = date('Y-m-d');
         }
         $doctorFiltro = (int) ($_GET['doctor'] ?? 0);
+        $consultorio = trim((string) ($_GET['consultorio'] ?? ''));
+        if ($consultorio === '') {
+            $consultorio = 'Consultorio';
+        }
         $doctorRole = auth_user_role($this->user) === 'doctor';
         $doctorUser = $doctorRole ? auth_user_doctor_id($this->user) : 0;
         if (auth_user_role($this->user) === 'doctor') {
@@ -61,6 +66,7 @@ final class AgendaController
             'rows' => $rows,
             'resumen' => $resumen,
             'turnoSel' => $turnoSel,
+            'consultorio' => $consultorio,
         ]);
         layout_render('Agenda', $body, $this->user);
     }
@@ -72,23 +78,45 @@ final class AgendaController
         $accion = trim((string) ($_POST['accion'] ?? ''));
         $fecha = trim((string) ($_POST['fecha'] ?? ''));
         $doctor = (int) ($_POST['doctor'] ?? 0);
+        $consultorio = trim((string) ($_POST['consultorio'] ?? ''));
 
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
             $fecha = date('Y-m-d');
         }
         if ($id < 1) {
-            header('Location: /agenda.php?fecha=' . rawurlencode($fecha) . ($doctor > 0 ? '&doctor=' . $doctor : ''));
+            header('Location: /agenda.php?fecha=' . rawurlencode($fecha) . ($doctor > 0 ? '&doctor=' . $doctor : '') . ($consultorio !== '' ? '&consultorio=' . rawurlencode($consultorio) : ''));
             exit;
         }
 
         $repo = new AgendaRepository($this->pdo, user_clinica_id($this->user));
-        $ok = $repo->updateQuickStatus($id, $accion, $repo->hasExtendedColumns());
-        if ($ok) {
-            flash_set('Estado actualizado.');
+        if ($accion === 'llamar') {
+            $anunciadorRepo = new AnunciadorRepository($this->pdo, user_clinica_id($this->user));
+            [$ok, $msg] = $anunciadorRepo->llamarDesdeTurno(
+                $id,
+                $consultorio,
+                (int) ($this->user['id'] ?? 0),
+                auth_user_role($this->user)
+            );
+            flash_set($msg);
         } else {
-            flash_set('No se pudo actualizar estado (requiere columnas extendidas de agenda).');
+            $ok = $repo->updateQuickStatus($id, $accion, $repo->hasExtendedColumns());
+            if ($ok && $accion === 'atendido') {
+                // Si se atendió el turno, cerramos también cualquier llamado activo en sala.
+                $anunciadorRepo = new AnunciadorRepository($this->pdo, user_clinica_id($this->user));
+                $anunciadorRepo->finalizarPorTurno($id, (int) ($this->user['id'] ?? 0));
+            }
+            if ($ok) {
+                flash_set('Estado actualizado.');
+            } else {
+                flash_set('No se pudo actualizar estado (requiere columnas extendidas de agenda).');
+            }
         }
-        header('Location: /agenda.php?fecha=' . rawurlencode($fecha) . ($doctor > 0 ? '&doctor=' . $doctor : '') . '&turno=' . $id);
+        header(
+            'Location: /agenda.php?fecha=' . rawurlencode($fecha)
+            . ($doctor > 0 ? '&doctor=' . $doctor : '')
+            . ($consultorio !== '' ? '&consultorio=' . rawurlencode($consultorio) : '')
+            . '&turno=' . $id
+        );
         exit;
     }
 

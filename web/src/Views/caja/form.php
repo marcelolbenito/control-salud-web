@@ -15,6 +15,7 @@ declare(strict_types=1);
         <h1><?= h($titulo) ?></h1>
         <p class="muted"><a href="<?= h($volver) ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a Caja</a></p>
     </div>
+    <p class="alert alert-info">Los movimientos de caja son inmutables: no se editan ni se borran. Si hubo un error, registrá un contra movimiento.</p>
     <?php if ($error !== ''): ?>
         <p class="alert alert-error"><?= h($error) ?></p>
     <?php endif; ?>

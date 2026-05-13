@@ -15,6 +15,10 @@ declare(strict_types=1);
 
 $qsSuffix = $queryString !== '' ? '&' . $queryString : '';
 $nuevoQs = $queryString !== '' ? '?' . $queryString : '';
+$fechaCierre = trim((string) ($f['fecha_desde'] ?? ''));
+if ($fechaCierre === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCierre)) {
+    $fechaCierre = date('Y-m-d');
+}
 
 $fmtMoney = static function ($v): string {
     if ($v === null || $v === '' || !is_numeric($v)) {
@@ -90,6 +94,7 @@ $fmtMoney = static function ($v): string {
 
     <div class="page-actions">
         <a class="btn btn-primary" href="/caja_form.php<?= h($nuevoQs) ?>"><i class="bi bi-cash-coin" aria-hidden="true"></i> Nuevo movimiento</a>
+        <a class="btn btn-ghost" href="/caja_cierre.php?fecha=<?= rawurlencode($fechaCierre) ?>"><i class="bi bi-lock" aria-hidden="true"></i> Cierre de caja</a>
     </div>
 
     <?php if ($rows === []): ?>
@@ -108,7 +113,7 @@ $fmtMoney = static function ($v): string {
                         <th>Turno</th>
                         <th>Observaciones</th>
                         <th>Importe</th>
-                        <th>Acciones</th>
+                        <th>Corrección</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -132,12 +137,7 @@ $fmtMoney = static function ($v): string {
                             <td class="cell-clip" title="<?= h($obs) ?>"><?= h($obs !== '' ? $obs : '—') ?></td>
                             <td><strong><?= h($fmtMoney($imp)) ?></strong></td>
                             <td class="table-actions">
-                                <a class="btn btn-sm btn-ghost btn-icon" title="Editar" href="/caja_form.php?id=<?= (int) ($r['id'] ?? 0) ?><?= h($qsSuffix) ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
-                                <form action="/caja_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este movimiento de caja?');">
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="id" value="<?= (int) ($r['id'] ?? 0) ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
-                                </form>
+                                <a class="btn btn-sm btn-ghost" title="Crear un movimiento opuesto para corregir" href="/caja_form.php?contra=<?= (int) ($r['id'] ?? 0) ?><?= h($qsSuffix) ?>"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> Contra movimiento</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

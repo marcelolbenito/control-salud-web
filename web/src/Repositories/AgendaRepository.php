@@ -25,6 +25,11 @@ final class AgendaRepository
         return db_table_has_column($this->pdo, 'pacientes', 'id_clinica');
     }
 
+    private function agendaLlamadosDisponible(): bool
+    {
+        return db_table_exists($this->pdo, 'agenda_llamados');
+    }
+
     private function joinPacienteTurno(): string
     {
         $on = 'p.NroHC = t.NroHC';
@@ -43,11 +48,29 @@ final class AgendaRepository
     public function listByFechaYDoctor(string $fecha, int $doctorFiltro, bool $extAgenda): array
     {
         $pacienteExpr = $extAgenda
-            ? "COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), p.Nombres) AS paciente_nombre"
-            : 'p.Nombres AS paciente_nombre';
+            ? "COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre"
+            : "COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre";
         $extraSel = $extAgenda
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno'
             : '';
+        if ($this->agendaLlamadosDisponible()) {
+            $extraSel .= ", EXISTS(
+                SELECT 1
+                FROM agenda_llamados l
+                WHERE l.id_turno = t.id
+                  AND l.estado_llamado IN ('llamando', 'en_consultorio')
+                  " . ($this->agendaTieneClinica() ? 'AND (t.id_clinica IS NULL OR l.id_clinica = t.id_clinica)' : '') . "
+            ) AS llamado_activo";
+            $extraSel .= ", EXISTS(
+                SELECT 1
+                FROM agenda_llamados l2
+                WHERE l2.id_turno = t.id
+                  AND l2.estado_llamado IN ('llamando', 'en_consultorio', 'finalizado')
+                  " . ($this->agendaTieneClinica() ? 'AND (t.id_clinica IS NULL OR l2.id_clinica = t.id_clinica)' : '') . "
+            ) AS fue_llamado";
+        } else {
+            $extraSel .= ', 0 AS llamado_activo, 0 AS fue_llamado';
+        }
 
         $joinDoc = 'd.id = t.Doctor';
         if ($this->agendaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
@@ -80,11 +103,29 @@ final class AgendaRepository
     public function findById(int $id, bool $extAgenda): ?array
     {
         $pacienteExpr = $extAgenda
-            ? "COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), p.Nombres) AS paciente_nombre"
-            : 'p.Nombres AS paciente_nombre';
+            ? "COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre"
+            : "COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre";
         $extraSel = $extAgenda
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno, t.pagado, t.motivo'
             : '';
+        if ($this->agendaLlamadosDisponible()) {
+            $extraSel .= ", EXISTS(
+                SELECT 1
+                FROM agenda_llamados l
+                WHERE l.id_turno = t.id
+                  AND l.estado_llamado IN ('llamando', 'en_consultorio')
+                  " . ($this->agendaTieneClinica() ? 'AND (t.id_clinica IS NULL OR l.id_clinica = t.id_clinica)' : '') . "
+            ) AS llamado_activo";
+            $extraSel .= ", EXISTS(
+                SELECT 1
+                FROM agenda_llamados l2
+                WHERE l2.id_turno = t.id
+                  AND l2.estado_llamado IN ('llamando', 'en_consultorio', 'finalizado')
+                  " . ($this->agendaTieneClinica() ? 'AND (t.id_clinica IS NULL OR l2.id_clinica = t.id_clinica)' : '') . "
+            ) AS fue_llamado";
+        } else {
+            $extraSel .= ', 0 AS llamado_activo, 0 AS fue_llamado';
+        }
         $joinDoc = 'd.id = t.Doctor';
         if ($this->agendaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
             $joinDoc .= ' AND d.id_clinica = t.id_clinica';
@@ -210,6 +251,23 @@ final class AgendaRepository
         }
 
         return false;
+    }
+
+    public function vincularOrden(int $idTurno, int $idOrden): bool
+    {
+        if ($idTurno < 1 || $idOrden < 1) {
+            return false;
+        }
+
+        $sql = 'UPDATE agenda_turnos SET idorden = ? WHERE id = ?';
+        $par = [$idOrden, $idTurno];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+
+        return $st->execute($par);
     }
 }
 

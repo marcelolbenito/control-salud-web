@@ -21,8 +21,8 @@ declare(strict_types=1);
                 <input type="date" name="fecha" value="<?= h($fecha) ?>">
             </label>
             <div class="agenda-day-nav">
-                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaPrev) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-chevron-left" aria-hidden="true"></i> Día anterior</a>
-                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaNext) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-chevron-right" aria-hidden="true"></i> Día siguiente</a>
+                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaPrev) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?><?= $consultorio !== '' ? '&consultorio=' . rawurlencode($consultorio) : '' ?>"><i class="bi bi-chevron-left" aria-hidden="true"></i> Día anterior</a>
+                <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode($fechaNext) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?><?= $consultorio !== '' ? '&consultorio=' . rawurlencode($consultorio) : '' ?>"><i class="bi bi-chevron-right" aria-hidden="true"></i> Día siguiente</a>
             </div>
             <label>
                 Profesional
@@ -38,6 +38,10 @@ declare(strict_types=1);
                 </select>
             </label>
             <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Ver</button>
+            <label>
+                Consultorio llamado
+                <input type="text" name="consultorio" value="<?= h($consultorio) ?>" maxlength="40" placeholder="Consultorio 1">
+            </label>
         </div>
     </form>
 
@@ -55,8 +59,12 @@ declare(strict_types=1);
     <div class="page-actions">
         <a class="btn btn-primary" href="/turno_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Nuevo turno</a>
         <a class="btn btn-ghost" href="/agenda_bloqueos.php?fd=<?= rawurlencode($fecha) ?>&fh=<?= rawurlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '' ?>"><i class="bi bi-calendar-x" aria-hidden="true"></i> Bloqueos</a>
+        <a class="btn btn-ghost" href="/anunciador.php" target="_blank" rel="noopener"><i class="bi bi-megaphone" aria-hidden="true"></i> Anunciador</a>
+        <?php if (auth_user_role(auth_user()) !== 'doctor'): ?>
+            <a class="btn btn-ghost" href="/control_administrativo.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . (int) $doctorFiltro : '' ?>"><i class="bi bi-clipboard2-check" aria-hidden="true"></i> Control diario</a>
+        <?php endif; ?>
         <a class="btn btn-ghost" href="/ordenes.php"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Órdenes</a>
-        <a class="btn btn-primary" href="/orden_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . (int) $doctorFiltro : '' ?>"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nueva orden</a>
+        <a class="btn btn-primary" title="Crear una orden fuera del circuito del turno" href="/orden_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . (int) $doctorFiltro : '' ?>"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nueva orden manual</a>
     </div>
 
     <div class="agenda-layout">
@@ -91,13 +99,27 @@ declare(strict_types=1);
                         $obsOut = function_exists('mb_strimwidth')
                             ? mb_strimwidth($obs, 0, 40, '…', 'UTF-8')
                             : (strlen($obs) > 40 ? substr($obs, 0, 37) . '...' : $obs);
-                        $estadoSlug = preg_replace('/[^a-z_]/i', '', (string) $r['estado']) ?: 'pendiente';
+                        $estadoUi = (string) ($r['estado'] ?? 'pendiente');
+                        if ($extAgenda) {
+                            if (!empty($r['atendido'])) {
+                                $estadoUi = 'atendido';
+                            } elseif (!empty($r['falta_turno'])) {
+                                $estadoUi = 'no_asistio';
+                            } elseif (!empty($r['llegado'])) {
+                                $estadoUi = 'llego';
+                            }
+                        }
+                        $estadoSlug = preg_replace('/[^a-z_]/i', '', $estadoUi) ?: 'pendiente';
                         $turnoLink = '/agenda.php?fecha=' . rawurlencode($fecha)
                             . ($doctorFiltro > 0 ? '&doctor=' . $doctorFiltro : '')
                             . '&turno=' . (int) $r['id'];
                         $trClass = 'agenda-row estado-' . $estadoSlug;
-                        if ($extAgenda && !empty($r['llegado'])) {
+                        $isAtendidoRow = !empty($r['atendido']) || (string) ($r['estado'] ?? '') === 'atendido';
+                        if ($extAgenda && !empty($r['llegado']) && !$isAtendidoRow) {
                             $trClass .= ' agenda-row-llegado';
+                        }
+                        if ($extAgenda && $isAtendidoRow) {
+                            $trClass .= ' agenda-row-atendido';
                         }
                         if ($turnoSel && (int) $turnoSel['id'] === (int) $r['id']) {
                             $trClass .= ' is-selected';
@@ -114,7 +136,7 @@ declare(strict_types=1);
                             <td><a class="agenda-paciente-link" href="<?= h($turnoLink) ?>"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a></td>
                             <td><?= (int) $r['NroHC'] ?></td>
                             <td><?= h($r['doctor_nombre'] ?? '—') ?></td>
-                            <td><span class="badge-estado estado-<?= h($estadoSlug) ?>"><?= h((string) $r['estado']) ?></span></td>
+                            <td><span class="badge-estado estado-<?= h($estadoSlug) ?>"><?= h((string) $estadoUi) ?></span></td>
                             <?php if ($extAgenda): ?>
                                 <td title="Atendido"><?= !empty($r['atendido']) ? 'Sí' : '—' ?></td>
                                 <td title="Llegó"><?= !empty($r['llegado']) ? 'Sí' : '—' ?></td>
@@ -125,54 +147,75 @@ declare(strict_types=1);
                             <td class="cell-clip" title="<?= h($obs) ?>"><?= h($obsOut) ?></td>
                             <td class="table-actions">
                                 <?php
-                                $nroHcRow = (int) $r['NroHC'];
-                                $idOrdenRow = isset($r['idorden']) && $r['idorden'] !== null && $r['idorden'] !== '' ? (int) $r['idorden'] : 0;
-                                $idDocRow = (int) ($r['Doctor'] ?? $r['doctor'] ?? 0);
-                                if ($idOrdenRow > 0) {
-                                    $hrefOrden = '/orden_form.php?id=' . $idOrdenRow;
-                                    $titleOrden = 'Ver / editar orden vinculada';
-                                } else {
-                                    $qOrden = 'nrohc=' . $nroHcRow . '&fecha=' . rawurlencode($fecha);
-                                    if ($idDocRow > 0) {
-                                        $qOrden .= '&doctor=' . $idDocRow;
-                                    }
-                                    $hrefOrden = '/orden_form.php?' . $qOrden;
-                                    $titleOrden = 'Nueva orden para este paciente y turno';
-                                }
+                                $isLlegado = $extAgenda && !empty($r['llegado']);
+                                $isAtendido = !empty($r['atendido']) || ((string) ($r['estado'] ?? '') === 'atendido');
+                                $isNoAsistio = !empty($r['falta_turno']) || ((string) ($r['estado'] ?? '') === 'no_asistio');
+                                $fueLlamado = !empty($r['fue_llamado']);
+                                $llamadoActivo = !empty($r['llamado_activo']);
                                 ?>
-                                <?php if ($extAgenda): ?>
-                                    <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-                                        <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
-                                        <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
-                                        <input type="hidden" name="accion" value="llego">
-                                        <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar llegó"><i class="bi bi-person-check"></i><span class="btn-label"> Llegó</span></button>
-                                    </form>
-                                    <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-                                        <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
-                                        <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
-                                        <input type="hidden" name="accion" value="atendido">
-                                        <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar atendido"><i class="bi bi-check2-square"></i><span class="btn-label"> Atendido</span></button>
-                                    </form>
-                                    <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-                                        <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
-                                        <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
-                                        <input type="hidden" name="accion" value="ausente">
-                                        <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar no asistió"><i class="bi bi-person-x"></i><span class="btn-label"> Ausente</span></button>
-                                    </form>
+                                <?php if (!$isNoAsistio): ?>
+                                    <a class="btn btn-sm btn-primary" title="Registrar cobro u orden del turno" href="/recepcion_turno.php?turno=<?= (int) $r['id'] ?>"><i class="bi bi-person-vcard" aria-hidden="true"></i> Cobro / Orden</a>
                                 <?php endif; ?>
-                                <a class="btn btn-sm btn-ghost btn-icon" title="<?= h($titleOrden) ?>" href="<?= h($hrefOrden) ?>"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i><span class="btn-label"> Orden</span></a>
-                                <a class="btn btn-sm btn-ghost btn-icon" title="Editar turno" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
-                                <form action="/turno_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este turno?');">
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
-                                </form>
+                                <?php if ($extAgenda): ?>
+                                    <?php if (!$isAtendido): ?>
+                                        <?php if (!$isLlegado): ?>
+                                            <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                                                <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
+                                                <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
+                                                <input type="hidden" name="consultorio" value="<?= h($consultorio) ?>">
+                                                <input type="hidden" name="accion" value="llego">
+                                                <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar llegó"><i class="bi bi-person-check"></i><span class="btn-label"> Llegó</span></button>
+                                            </form>
+                                            <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                                                <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
+                                                <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
+                                                <input type="hidden" name="consultorio" value="<?= h($consultorio) ?>">
+                                                <input type="hidden" name="accion" value="ausente">
+                                                <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar no asistió"><i class="bi bi-person-x"></i><span class="btn-label"> Ausente</span></button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <?php if ($fueLlamado): ?>
+                                            <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                                                <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
+                                                <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
+                                                <input type="hidden" name="consultorio" value="<?= h($consultorio) ?>">
+                                                <input type="hidden" name="accion" value="atendido">
+                                                <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Marcar atendido"><i class="bi bi-check2-square"></i><span class="btn-label"> Atendido</span></button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <?php if ($isLlegado && !$llamadoActivo): ?>
+                                            <form action="/agenda.php?a=quick_status" method="post" class="table-action-form">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                                                <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
+                                                <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
+                                                <input type="hidden" name="consultorio" value="<?= h($consultorio) ?>">
+                                                <input type="hidden" name="accion" value="llamar">
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-sm btn-primary btn-icon"
+                                                    title="Llamar en sala"
+                                                ><i class="bi bi-megaphone"></i><span class="btn-label"> Llamar</span></button>
+                                            </form>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                                <?php if (!$isAtendidoRow): ?>
+                                    <?php if (!$isLlegado): ?>
+                                        <a class="btn btn-sm btn-ghost btn-icon" title="Editar turno" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
+                                        <form action="/turno_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este turno?');">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Eliminar"><i class="bi bi-trash" aria-hidden="true"></i><span class="btn-label"> Eliminar</span></button>
+                                        </form>
+                                    <?php endif; ?>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>

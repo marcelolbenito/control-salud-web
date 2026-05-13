@@ -140,10 +140,173 @@
     wrap.parentNode.insertBefore(bar, wrap);
   }
 
+  function agendaSortStorageKey(table) {
+    return 'cs_agenda_sort::' + (table.id || 'tbl-agenda') + '::' + window.location.pathname.toLowerCase();
+  }
+
+  function readAgendaSortState(table) {
+    if (!window.localStorage) {
+      return null;
+    }
+    try {
+      var raw = window.localStorage.getItem(agendaSortStorageKey(table));
+      if (!raw) {
+        return null;
+      }
+      var state = JSON.parse(raw);
+      if (!state || typeof state.index !== 'number' || !state.direction) {
+        return null;
+      }
+      if (state.direction !== 'ascending' && state.direction !== 'descending') {
+        return null;
+      }
+      return state;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeAgendaSortState(table, state) {
+    if (!window.localStorage || !state) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(agendaSortStorageKey(table), JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  function sortDirectionFromHeader(th) {
+    if (!th) {
+      return null;
+    }
+    var ariaSort = (th.getAttribute('aria-sort') || '').toLowerCase();
+    if (ariaSort === 'ascending' || ariaSort === 'descending') {
+      return ariaSort;
+    }
+    if (th.classList.contains('asc')) {
+      return 'ascending';
+    }
+    if (th.classList.contains('desc')) {
+      return 'descending';
+    }
+    return null;
+  }
+
+  function currentAgendaSort(table) {
+    var headers = Array.from(table.querySelectorAll('thead th'));
+    for (var i = 0; i < headers.length; i++) {
+      var dir = sortDirectionFromHeader(headers[i]);
+      if (dir) {
+        return { index: i, direction: dir };
+      }
+    }
+    return null;
+  }
+
+  function restoreAgendaSort(table) {
+    var wanted = readAgendaSortState(table);
+    if (!wanted) {
+      return;
+    }
+    var headers = Array.from(table.querySelectorAll('thead th'));
+    if (!headers[wanted.index]) {
+      return;
+    }
+    var th = headers[wanted.index];
+    var clickTarget = th.querySelector('.datatable-sorter') || th;
+    var now = sortDirectionFromHeader(th);
+    if (now === wanted.direction) {
+      return;
+    }
+    clickTarget.click();
+    setTimeout(function () {
+      var now2 = sortDirectionFromHeader(th);
+      if (now2 !== wanted.direction) {
+        clickTarget.click();
+      }
+    }, 0);
+  }
+
+  function applySortToDataTable(dt, table, state) {
+    if (!dt || !state) {
+      return false;
+    }
+    try {
+      if (dt.columns && typeof dt.columns === 'function') {
+        var cols = dt.columns();
+        if (cols && typeof cols.sort === 'function') {
+          cols.sort(state.index, state.direction);
+          return true;
+        }
+      }
+    } catch (e) {}
+
+    var headers = Array.from(table.querySelectorAll('thead th'));
+    if (!headers[state.index]) {
+      return false;
+    }
+    var th = headers[state.index];
+    var clickTarget = th.querySelector('.datatable-sorter') || th;
+    var now = sortDirectionFromHeader(th);
+    if (now !== state.direction) {
+      clickTarget.click();
+      setTimeout(function () {
+        var now2 = sortDirectionFromHeader(th);
+        if (now2 !== state.direction) {
+          clickTarget.click();
+        }
+      }, 0);
+    }
+    return true;
+  }
+
+  function bindAgendaSortPersistence(table, dt) {
+    if (!table || table.id !== 'tbl-agenda') {
+      return;
+    }
+    setTimeout(function () {
+      var wanted = readAgendaSortState(table);
+      if (wanted) {
+        applySortToDataTable(dt, table, wanted);
+      }
+    }, 0);
+
+    table.addEventListener('datatable.sort', function (event) {
+      if (!event || !event.detail) {
+        return;
+      }
+      var idx = Number(event.detail.column);
+      var dirRaw = String(event.detail.direction || '').toLowerCase();
+      var dir = dirRaw === 'desc' || dirRaw === 'descending' ? 'descending' : 'ascending';
+      if (!Number.isNaN(idx) && idx >= 0) {
+        writeAgendaSortState(table, { index: idx, direction: dir });
+        return;
+      }
+      var stateFallback = currentAgendaSort(table);
+      if (stateFallback) {
+        writeAgendaSortState(table, stateFallback);
+      }
+    });
+
+    table.addEventListener('click', function (event) {
+      var inHeader = event.target.closest('thead th, .datatable-sorter');
+      if (!inHeader) {
+        return;
+      }
+      setTimeout(function () {
+        var state = currentAgendaSort(table);
+        if (state) {
+          writeAgendaSortState(table, state);
+        }
+      }, 0);
+    });
+  }
+
   document.querySelectorAll('.table-wrap-datatable table').forEach(function (el) {
     var snapshot = captureTableData(el);
     if (el.id) {
-      new DataTable(el, opts);
+      var dt = new DataTable(el, opts);
+      bindAgendaSortPersistence(el, dt);
     }
     addTableToolbar(el, snapshot);
   });

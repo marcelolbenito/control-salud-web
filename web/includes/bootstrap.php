@@ -45,7 +45,9 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/layout.php';
 
 // Reescribe links root-relative en HTML para despliegues en subcarpeta.
-ob_start(static fn (string $buffer): string => rewrite_html_with_base_path($buffer));
+ob_start(static function (string $buffer): string {
+    return rewrite_html_with_base_path($buffer);
+});
 
 // Reescribe cabecera Location cuando apunta a raíz del sitio.
 header_register_callback(static function (): void {
@@ -55,12 +57,12 @@ header_register_callback(static function (): void {
     }
 
     foreach (headers_list() as $headerLine) {
-        if (!str_starts_with(strtolower($headerLine), 'location:')) {
+        if (!cs_starts_with(strtolower($headerLine), 'location:')) {
             continue;
         }
 
         $location = trim(substr($headerLine, strlen('Location:')));
-        if ($location === '' || !str_starts_with($location, '/') || str_starts_with($location, '//') || str_starts_with($location, $base . '/')) {
+        if ($location === '' || !cs_starts_with($location, '/') || cs_starts_with($location, '//') || cs_starts_with($location, $base . '/')) {
             continue;
         }
 
@@ -83,12 +85,15 @@ if (auth_user() !== null) {
         'doctor' => [
             '/index.php',
             '/agenda.php',
+            '/agenda_web.php',
             '/turno_form.php',
             '/turno_eliminar.php',
             '/agenda_slots.php',
             '/agenda_turnos_hora.php',
             '/agenda_proximos_libres.php',
             '/agenda_turno_anular.php',
+            '/anunciador.php',
+            '/ayuda.php',
             '/pacientes.php',
             '/pacientes_lookup.php',
             '/paciente_por_hc.php',

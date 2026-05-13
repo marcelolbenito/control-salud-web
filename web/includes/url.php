@@ -2,6 +2,16 @@
 
 declare(strict_types=1);
 
+if (!function_exists('cs_starts_with')) {
+    /**
+     * Compat helper para entornos sin str_starts_with (PHP < 8).
+     */
+    function cs_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) === 0;
+    }
+}
+
 /**
  * Devuelve el base path de la app (ej: "/controlsalud" o "").
  */
@@ -42,7 +52,7 @@ function request_path(): string
 {
     $path = strtolower((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
     $base = strtolower(base_path());
-    if ($base !== '' && ($path === $base || str_starts_with($path, $base . '/'))) {
+    if ($base !== '' && ($path === $base || cs_starts_with($path, $base . '/'))) {
         $path = (string) substr($path, strlen($base));
         if ($path === '') {
             $path = '/';

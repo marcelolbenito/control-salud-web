@@ -599,6 +599,11 @@ body.sidebar-compact .sidebar .side-group summary {
   color: #065f46;
 }
 
+.estado-llego {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .estado-cancelado,
 .estado-no_asistio {
   background: #f3f4f6;
@@ -701,6 +706,12 @@ body.sidebar-compact .sidebar .side-group summary {
   background: #ecfdf5;
   color: #047857;
   border: 1px solid #a7f3d0;
+}
+
+.alert-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 
 .page-actions {
@@ -1480,6 +1491,16 @@ code {
   font-size: 1.1rem;
 }
 
+.agenda-kpi-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.agenda-kpi-link:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
 .agenda-layout {
   display: grid;
   gap: 1rem;
@@ -1521,10 +1542,6 @@ code {
   outline-offset: -2px;
 }
 
-.agenda-row.estado-atendido {
-  background: rgba(34, 197, 94, 0.06);
-}
-
 .agenda-row.estado-no_asistio {
   background: rgba(239, 68, 68, 0.06);
 }
@@ -1533,12 +1550,24 @@ code {
   background: rgba(59, 130, 246, 0.04);
 }
 
+.agenda-row-llegado,
 .agenda-row-llegado td {
   background: rgba(34, 197, 94, 0.22) !important;
 }
 
+.agenda-row-llegado:hover,
 .agenda-row-llegado:hover td {
   background: rgba(34, 197, 94, 0.3) !important;
+}
+
+.agenda-row-atendido,
+.agenda-row-atendido td {
+  background: rgba(59, 130, 246, 0.22) !important;
+}
+
+.agenda-row-atendido:hover,
+.agenda-row-atendido:hover td {
+  background: rgba(59, 130, 246, 0.3) !important;
 }
 
 .agenda-paciente-link {
@@ -1780,6 +1809,160 @@ code {
 .turno-proximo-item-hora:hover {
   border-color: #4ade80;
   background: #bbf7d0;
+}
+
+/* Recepción de turno */
+.recepcion-page {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.recepcion-turno-resumen {
+  margin-bottom: 1rem;
+}
+
+.recepcion-resumen-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) 90px minmax(140px, 0.8fr) minmax(180px, 1fr);
+  gap: 0.75rem;
+}
+
+.recepcion-resumen-grid p {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid var(--header-border);
+  border-radius: 10px;
+}
+
+.recepcion-resumen-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.2rem;
+}
+
+.recepcion-resumen-grid strong {
+  display: block;
+  font-size: 0.98rem;
+}
+
+.recepcion-opciones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.recepcion-opcion {
+  margin-bottom: 0;
+}
+
+.recepcion-opcion-head {
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--header-border);
+}
+
+.recepcion-opcion-head p {
+  margin: 0;
+}
+
+.recepcion-opcion .form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+
+.recepcion-opcion .form-section-title .bi {
+  color: var(--accent-dark);
+}
+
+.recepcion-form-grid label {
+  min-width: 0;
+}
+
+.recepcion-form-grid input,
+.recepcion-form-grid select,
+.recepcion-form-grid textarea {
+  width: 100%;
+}
+
+.recepcion-llegada-opcion {
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid var(--header-border);
+  border-radius: 10px;
+}
+
+/* Agenda web pública */
+.agenda-web-page {
+  max-width: 920px;
+}
+
+.agenda-web-card {
+  margin-bottom: 1rem;
+}
+
+.agenda-web-paciente-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.agenda-web-paciente-head h2 {
+  margin-bottom: 0.2rem;
+}
+
+.agenda-web-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.agenda-web-slot {
+  cursor: pointer;
+}
+
+.agenda-web-slot input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.agenda-web-slot span {
+  display: inline-flex;
+  min-width: 4.4rem;
+  justify-content: center;
+  padding: 0.48rem 0.7rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+}
+
+.agenda-web-slot input:checked + span {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+
+@media (max-width: 1200px) {
+  .recepcion-resumen-grid,
+  .recepcion-opciones {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .recepcion-page {
+    max-width: none;
+  }
 }
 
 /* Odontograma (FDI) */

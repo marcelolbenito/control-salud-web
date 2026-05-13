@@ -66,6 +66,12 @@ final class CajaController
 
         $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        if ($id > 0) {
+            flash_set('Los movimientos de caja no se editan. Registrá un contra movimiento para corregir.');
+            header('Location: /caja.php');
+            exit;
+        }
+        $contraId = isset($_GET['contra']) ? (int) $_GET['contra'] : 0;
         $queryString = self::buildQueryString(self::collectFiltros());
         $volver = '/caja.php' . ($queryString !== '' ? '?' . $queryString : '');
 
@@ -79,28 +85,38 @@ final class CajaController
             'turnocaja' => '',
             'observaciones' => '',
         ];
-        if ($id > 0) {
-            $loaded = $repo->findById($id);
+        if ($contraId > 0) {
+            $loaded = $repo->findById($contraId);
             if (!$loaded) {
                 flash_set('Registro de caja no encontrado.');
                 header('Location: /caja.php');
                 exit;
             }
-            $row = array_merge($row, $loaded);
-            $row['fechacaja'] = !empty($loaded['fechacaja']) ? substr((string) $loaded['fechacaja'], 0, 10) : '';
-            $imp = $loaded['importecaja'] ?? '';
-            if ($imp !== null && $imp !== '' && is_numeric($imp)) {
-                $v = (float) $imp;
-                $row['tipo_movimiento'] = $v < 0 ? 'egreso' : 'ingreso';
-                $abs = abs($v);
-                $row['importecaja'] = $abs == floor($abs) ? (string) (int) $abs : rtrim(rtrim(number_format($abs, 4, '.', ''), '0'), '.');
-            }
+            $importeOriginal = (float) ($loaded['importecaja'] ?? 0);
+            $row = array_merge($row, [
+                'doctor' => (int) ($loaded['doctor'] ?? 0),
+                'fechacaja' => !empty($loaded['fechacaja']) ? substr((string) $loaded['fechacaja'], 0, 10) : date('Y-m-d'),
+                'importecaja' => abs($importeOriginal) == floor(abs($importeOriginal))
+                    ? (string) (int) abs($importeOriginal)
+                    : rtrim(rtrim(number_format(abs($importeOriginal), 4, '.', ''), '0'), '.'),
+                'tipo_movimiento' => $importeOriginal >= 0 ? 'egreso' : 'ingreso',
+                'idcoberturacaja' => $loaded['idcoberturacaja'] ?? '',
+                'turnocaja' => 'Contra movimiento #' . $contraId,
+                'observaciones' => 'Corrección del movimiento de caja #' . $contraId . '. Movimiento original: '
+                    . ($importeOriginal >= 0 ? 'ingreso' : 'egreso') . ' '
+                    . number_format(abs($importeOriginal), 2, ',', '.') . '.',
+            ]);
         }
 
         $error = '';
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
+            if ($id > 0) {
+                flash_set('Los movimientos de caja no se editan. Registrá un contra movimiento para corregir.');
+                header('Location: /caja.php');
+                exit;
+            }
             $doctor = (int) ($_POST['doctor'] ?? 0);
             $fecha = trim((string) ($_POST['fechacaja'] ?? ''));
             $importeTxt = trim(str_replace(',', '.', (string) ($_POST['importecaja'] ?? '')));
@@ -136,13 +152,8 @@ final class CajaController
                     'turnocaja' => $turno !== '' ? $turno : null,
                     'observaciones' => $obs !== '' ? $obs : null,
                 ];
-                if ($id > 0) {
-                    $repo->updateRow($id, $vals);
-                    flash_set('Registro de caja actualizado.');
-                } else {
-                    $repo->insertRow($vals);
-                    flash_set('Registro de caja creado.');
-                }
+                $repo->insertRow($vals);
+                flash_set('Movimiento de caja creado.');
                 $retQs = trim((string) ($_POST['caja_return_qs'] ?? $queryString));
                 header('Location: /caja.php' . ($retQs !== '' ? '?' . $retQs : ''));
                 exit;
@@ -167,7 +178,7 @@ final class CajaController
             $doctores = $docRepo->listAllOrdered();
         }
         $cobOpts = catalogo_lista($this->pdo, 'lista_coberturas', 'prioridad_id');
-        $titulo = (int) ($row['id'] ?? 0) > 0 ? 'Editar caja' : 'Nuevo registro de caja';
+        $titulo = $contraId > 0 ? 'Contra movimiento de caja' : 'Nuevo movimiento de caja';
         $body = $this->renderView('caja/form', [
             'row' => $row,
             'doctores' => $doctores,
@@ -182,19 +193,10 @@ final class CajaController
 
     public function deletePost(): void
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /caja.php');
-            exit;
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
         }
-        csrf_verify();
-        $id = (int) ($_POST['id'] ?? 0);
-        if ($id < 1) {
-            header('Location: /caja.php');
-            exit;
-        }
-        $repo = new CajaRepository($this->pdo, user_clinica_id($this->user));
-        $repo->deleteById($id);
-        flash_set('Registro de caja eliminado.');
+        flash_set('Los movimientos de caja no se eliminan. Registrá un contra movimiento para corregir.');
         header('Location: /caja.php');
         exit;
     }

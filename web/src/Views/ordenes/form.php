@@ -14,6 +14,7 @@ declare(strict_types=1);
 /** @var string $volver */
 /** @var string $ordenesReturnQs */
 /** @var string $sesionesResumen Resumen de sesiones vinculadas (vacío si no hay tabla o datos) */
+/** @var int $turnoVinculadoId */
 
 $triSel = static function ($cur, $v): string {
     $c = (string) $cur;
@@ -25,7 +26,7 @@ $triSel = static function ($cur, $v): string {
     <div class="page-head">
         <h1><?= h($titulo) ?></h1>
         <p class="muted">
-            <a class="muted" href="<?= h($volver) ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al listado de órdenes</a>
+            <a class="muted" href="<?= h($volver) ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver</a>
             <?php
             $nroOrd = (int) ($row['NroPaci'] ?? 0);
             if ($nroOrd > 0):
@@ -52,6 +53,9 @@ $triSel = static function ($cur, $v): string {
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
         <input type="hidden" name="ordenes_return_qs" value="<?= h((string) ($ordenesReturnQs ?? '')) ?>">
+        <?php if (($turnoVinculadoId ?? 0) > 0): ?>
+            <input type="hidden" name="turno" value="<?= (int) $turnoVinculadoId ?>">
+        <?php endif; ?>
 
         <section class="form-section">
             <h2 class="form-section-title">Datos principales</h2>

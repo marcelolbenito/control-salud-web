@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/includes/catalogos.php';
+require_once dirname(__DIR__) . '/Repositories/AgendaRepository.php';
 require_once dirname(__DIR__) . '/Repositories/OrdenesRepository.php';
 require_once dirname(__DIR__) . '/Repositories/DoctoresRepository.php';
 require_once dirname(__DIR__) . '/Repositories/SesionesRepository.php';
@@ -59,11 +60,26 @@ final class OrdenesController
 
         $repo = new OrdenesRepository($this->pdo, user_clinica_id($this->user));
         $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
+        $agendaRepo = new AgendaRepository($this->pdo, user_clinica_id($this->user));
 
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        $idTurno = (int) ($_GET['turno'] ?? $_POST['turno'] ?? 0);
+        $turno = null;
+        if ($idTurno > 0) {
+            $turno = $agendaRepo->findById($idTurno, $agendaRepo->hasExtendedColumns());
+            if (!$turno) {
+                flash_set('Turno no encontrado para vincular la orden.');
+                header('Location: /agenda.php');
+                exit;
+            }
+        }
+
         $prefillNro = isset($_GET['nropaci']) ? (int) $_GET['nropaci'] : 0;
         if ($prefillNro < 1 && $id < 1) {
             $prefillNro = isset($_GET['nrohc']) ? (int) $_GET['nrohc'] : 0;
+        }
+        if ($prefillNro < 1 && $id < 1 && $turno) {
+            $prefillNro = (int) ($turno['NroHC'] ?? 0);
         }
 
         $row = self::ordenRowDefaults($prefillNro);
@@ -79,6 +95,16 @@ final class OrdenesController
             }
             if ($gd > 0) {
                 $row['iddoctor'] = $gd;
+            }
+            if ($turno) {
+                $tf = substr((string) ($turno['Fecha'] ?? ''), 0, 10);
+                if ($tf !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $tf)) {
+                    $row['fecha_orden'] = $tf;
+                }
+                $td = (int) ($turno['Doctor'] ?? 0);
+                if ($td > 0) {
+                    $row['iddoctor'] = $td;
+                }
             }
         }
 
@@ -125,8 +151,19 @@ final class OrdenesController
                     $repo->updateRow($id, $vals);
                     flash_set('Orden actualizada.');
                 } else {
-                    $repo->insertRow($vals);
-                    flash_set('Orden registrada.');
+                    $idOrdenNueva = $repo->insertRow($vals);
+                    if ($turno) {
+                        $agendaRepo->vincularOrden($idTurno, $idOrdenNueva);
+                        flash_set('Orden registrada y vinculada al turno.');
+                    } else {
+                        flash_set('Orden registrada.');
+                    }
+                }
+                if ($turno) {
+                    $fechaTurno = substr((string) ($turno['Fecha'] ?? date('Y-m-d')), 0, 10);
+                    $doctorTurno = (int) ($turno['Doctor'] ?? 0);
+                    header('Location: /agenda.php?fecha=' . rawurlencode($fechaTurno) . ($doctorTurno > 0 ? '&doctor=' . $doctorTurno : '') . '&turno=' . $idTurno);
+                    exit;
                 }
                 $retQs = trim((string) ($_POST['ordenes_return_qs'] ?? ''));
                 header('Location: /ordenes.php' . ($retQs !== '' ? '?' . $retQs : ''));
@@ -137,8 +174,14 @@ final class OrdenesController
             $row = self::ordenRowFromPost($_POST, $id);
         }
 
-        $volver = '/ordenes.php' . ($ordenesReturnQs !== '' ? '?' . $ordenesReturnQs : '');
-        $titulo = $row['id'] ? 'Editar orden' : 'Nueva orden';
+        if ($turno) {
+            $fechaTurno = substr((string) ($turno['Fecha'] ?? date('Y-m-d')), 0, 10);
+            $doctorTurno = (int) ($turno['Doctor'] ?? 0);
+            $volver = '/agenda.php?fecha=' . rawurlencode($fechaTurno) . ($doctorTurno > 0 ? '&doctor=' . $doctorTurno : '') . '&turno=' . $idTurno;
+        } else {
+            $volver = '/ordenes.php' . ($ordenesReturnQs !== '' ? '?' . $ordenesReturnQs : '');
+        }
+        $titulo = $row['id'] ? 'Editar orden' : ($turno ? 'Nueva orden del turno' : 'Nueva orden');
 
         $sesionesResumen = '';
         $idOrdenRow = (int) ($row['id'] ?? 0);
@@ -164,6 +207,7 @@ final class OrdenesController
             'volver' => $volver,
             'ordenesReturnQs' => $ordenesReturnQs,
             'sesionesResumen' => $sesionesResumen,
+            'turnoVinculadoId' => $idTurno,
         ]);
         layout_render($titulo, $body, $this->user);
     }

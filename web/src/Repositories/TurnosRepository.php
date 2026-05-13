@@ -170,6 +170,95 @@ final class TurnosRepository
     }
 
     /**
+     * @return array{nrohc:int,dni:string,nombre:string}|null
+     */
+    public function pacientePorDniExacto(string $dni): ?array
+    {
+        $dniNorm = preg_replace('/\D+/', '', $dni) ?? '';
+        if ($dniNorm === '') {
+            return null;
+        }
+        $hasApellido = db_table_has_column($this->pdo, 'pacientes', 'apellido');
+        $sqlNombre = $hasApellido
+            ? "TRIM(CONCAT(COALESCE(apellido,''), ' ', COALESCE(Nombres,'')))"
+            : "TRIM(COALESCE(Nombres,''))";
+        $sql = "SELECT NroHC AS nrohc, COALESCE(DNI,'') AS dni, {$sqlNombre} AS nombre
+                FROM pacientes
+                WHERE REPLACE(REPLACE(REPLACE(COALESCE(DNI, ''), '.', ''), '-', ''), ' ', '') = ?";
+        $par = [$dniNorm];
+        if ($this->pacientesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' ORDER BY activo DESC, NroHC DESC LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$r) {
+            return null;
+        }
+
+        return [
+            'nrohc' => (int) ($r['nrohc'] ?? 0),
+            'dni' => trim((string) ($r['dni'] ?? '')),
+            'nombre' => trim((string) ($r['nombre'] ?? '')),
+        ];
+    }
+
+    /**
+     * @return list<array{id:int,fecha:string,hora:string,doctor:string,estado:string}>
+     */
+    public function turnosFuturosPaciente(int $nroHC, int $limite = 10): array
+    {
+        if ($nroHC < 1) {
+            return [];
+        }
+        $lim = max(1, min(30, $limite));
+        $joinDoc = 'd.id = t.Doctor';
+        if ($this->agendaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $joinDoc .= ' AND d.id_clinica = t.id_clinica';
+        }
+        $sql = "SELECT t.id, DATE(t.Fecha) AS fecha, DATE_FORMAT(t.hora, '%H:%i') AS hora,
+                       COALESCE(d.nombre, CONCAT('Profesional #', t.Doctor)) AS doctor,
+                       COALESCE(t.estado, 'pendiente') AS estado
+                FROM agenda_turnos t
+                LEFT JOIN lista_doctores d ON {$joinDoc}
+                WHERE t.NroHC = ?
+                  AND t.Fecha >= CURDATE()";
+        $par = [$nroHC];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND t.id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' ORDER BY t.Fecha ASC, t.hora IS NULL, t.hora ASC LIMIT ' . $lim;
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
+
+        return $st->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function doctorDisponible(int $doctor): bool
+    {
+        if ($doctor < 1 || !db_table_exists($this->pdo, 'lista_doctores')) {
+            return false;
+        }
+        $sql = 'SELECT id FROM lista_doctores WHERE id = ?';
+        $par = [$doctor];
+        if (db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        if (db_table_has_column($this->pdo, 'lista_doctores', 'activo')) {
+            $sql .= ' AND activo = 1';
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
+
+        return (bool) $st->fetch();
+    }
+
+    /**
      * @param array<string, mixed> $ex
      */
     public function insertExtended(
