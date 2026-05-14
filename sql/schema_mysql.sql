@@ -94,6 +94,20 @@ CREATE TABLE IF NOT EXISTS lista_practicas (
   nombre VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS lista_precios (
+  id INT NOT NULL PRIMARY KEY,
+  idobrasocial INT NULL,
+  idpractica INT NULL,
+  costopaciente DECIMAL(12,2) NULL,
+  costocobertura DECIMAL(12,2) NULL,
+  usarporcentaje TINYINT(1) NULL,
+  costoporcentaje DECIMAL(8,4) NULL,
+  cobradr DECIMAL(12,2) NULL,
+  idplan INT NULL,
+  KEY idx_lista_precios_busqueda (idobrasocial, idpractica, idplan),
+  KEY idx_lista_precios_practica (idpractica)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS lista_derivaciones (
   id INT NOT NULL PRIMARY KEY,
   prioridad SMALLINT NULL,

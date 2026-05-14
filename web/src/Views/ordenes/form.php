@@ -15,12 +15,53 @@ declare(strict_types=1);
 /** @var string $ordenesReturnQs */
 /** @var string $sesionesResumen Resumen de sesiones vinculadas (vacío si no hay tabla o datos) */
 /** @var int $turnoVinculadoId */
+/** @var array<string, mixed>|null $pacienteOrden */
 
 $triSel = static function ($cur, $v): string {
     $c = (string) $cur;
 
     return $c === $v ? ' selected' : '';
 };
+$pacienteDato = static function (?array $p, string $key, string $empty = 'Sin dato'): string {
+    if ($p === null) {
+        return $empty;
+    }
+    $v = trim((string) ($p[$key] ?? ''));
+
+    return $v !== '' && $v !== '0' ? $v : $empty;
+};
+$pacienteCoberturaLabel = static function (?array $p, string $idKey, string $nameKey): string {
+    if ($p === null) {
+        return 'Sin dato';
+    }
+    $id = (int) ($p[$idKey] ?? 0);
+    $nombre = trim((string) ($p[$nameKey] ?? ''));
+    if ($id < 1 && $nombre === '') {
+        return 'Sin dato';
+    }
+    if ($nombre !== '') {
+        return $nombre . ($id > 0 ? ' (#' . $id . ')' : '');
+    }
+
+    return '#' . $id;
+};
+$practicaActualTexto = '';
+if ($practicaOpts !== [] && (int) ($row['idpractica'] ?? 0) > 0) {
+    foreach ($practicaOpts as $pr) {
+        if ((int) ($pr['id'] ?? 0) === (int) ($row['idpractica'] ?? 0)) {
+            $practicaActualTexto = (int) $pr['id'] . ' - ' . trim((string) ($pr['nombre'] ?? ''));
+            break;
+        }
+    }
+}
+$pacienteActualOrden = '—';
+if ($pacienteOrden !== null) {
+    $pacienteActualOrden = $pacienteDato($pacienteOrden, 'nombre', 'Paciente HC ' . (int) ($row['NroPaci'] ?? 0));
+    $dniActual = $pacienteDato($pacienteOrden, 'dni', '');
+    if ($dniActual !== '') {
+        $pacienteActualOrden .= ' - DNI ' . $dniActual;
+    }
+}
 ?>
 <div class="container container-wide">
     <div class="page-head">
@@ -60,8 +101,18 @@ $triSel = static function ($cur, $v): string {
         <section class="form-section">
             <h2 class="form-section-title">Datos principales</h2>
             <div class="form-grid-ext">
+                <?php if (($turnoVinculadoId ?? 0) < 1): ?>
+                    <label class="span-2 turno-paciente-busqueda">Buscar paciente (DNI y/o nombre)
+                        <input type="text" id="orden-paciente-buscar" autocomplete="off" placeholder="Ej: 30111222 o Perez Ana">
+                        <small class="muted">Elegí un resultado para completar Nro. HC automáticamente.</small>
+                        <div id="orden-paciente-resultados" class="turno-paciente-resultados" hidden></div>
+                    </label>
+                <?php endif; ?>
                 <label>Nro. HC (paciente) *
-                    <input type="number" name="NroPaci" required min="1" value="<?= $row['NroPaci'] === '' || $row['NroPaci'] === null ? '' : (int) $row['NroPaci'] ?>">
+                    <input type="number" name="NroPaci" id="orden_nropaci" required min="1" value="<?= $row['NroPaci'] === '' || $row['NroPaci'] === null ? '' : (int) $row['NroPaci'] ?>">
+                </label>
+                <label>Paciente actual
+                    <input type="text" id="orden-paciente-actual" value="<?= h($pacienteActualOrden) ?>" readonly>
                 </label>
                 <label>Fecha orden
                     <input type="date" name="fecha_orden" value="<?= h((string) ($row['fecha_orden'] ?? '')) ?>">
@@ -86,6 +137,22 @@ $triSel = static function ($cur, $v): string {
             </div>
         </section>
 
+        <section class="form-section" id="orden_paciente_box"<?= $pacienteOrden === null ? ' style="display:none;"' : '' ?>>
+            <h2 class="form-section-title">Datos cargados del paciente</h2>
+            <p class="muted small">Estos datos vienen de la ficha del paciente y ayudan a cargar la orden. Si la orden es nueva, cobertura y plan se proponen automáticamente cuando están vacíos.</p>
+            <div class="form-grid-ext">
+                <p><strong>Paciente</strong><br><span id="orden_paciente_nombre"><?= h($pacienteDato($pacienteOrden, 'nombre')) ?></span></p>
+                <p><strong>DNI</strong><br><span id="orden_paciente_dni"><?= h($pacienteDato($pacienteOrden, 'dni')) ?></span></p>
+                <p><strong>Cobertura principal</strong><br><span id="orden_paciente_cobertura"><?= h($pacienteCoberturaLabel($pacienteOrden, 'id_cobertura', 'cobertura_nombre')) ?></span></p>
+                <p><strong>Plan</strong><br><span id="orden_paciente_plan"><?= h($pacienteCoberturaLabel($pacienteOrden, 'id_plan', 'plan_nombre')) ?></span></p>
+                <p><strong>Nº afiliado / OS</strong><br><span id="orden_paciente_nro_os"><?= h($pacienteDato($pacienteOrden, 'nro_os')) ?></span></p>
+                <p><strong>Segunda cobertura</strong><br><span id="orden_paciente_cobertura2"><?= h($pacienteCoberturaLabel($pacienteOrden, 'id_cobertura2', 'cobertura2_nombre')) ?></span></p>
+                <p><strong>Nº afiliado (2)</strong><br><span id="orden_paciente_afiliado2"><?= h($pacienteDato($pacienteOrden, 'nu_afiliado2')) ?></span></p>
+                <p><strong>Paga IVA</strong><br><span id="orden_paciente_iva"><?= !empty($pacienteOrden['paga_iva'] ?? 0) ? 'Sí' : 'No' ?></span></p>
+            </div>
+        </section>
+        <p class="alert alert-info" id="orden_paciente_msg"<?= $pacienteOrden !== null ? ' style="display:none;"' : '' ?>>Ingresá un Nro. HC válido para ver cobertura, plan y afiliado del paciente.</p>
+
         <section class="form-section">
             <h2 class="form-section-title">Cobertura, práctica y sucursal</h2>
             <div class="form-grid-ext">
@@ -97,7 +164,7 @@ $triSel = static function ($cur, $v): string {
                     </label>
                 <?php else: ?>
                     <label>Id cobertura (sin catálogo en BD)
-                        <input type="number" name="idobrasocial" min="0" placeholder="Id numérico" value="<?= h((string) ($row['idobrasocial'] ?? '')) ?>">
+                        <input type="number" name="idobrasocial" id="orden_idobrasocial" min="0" placeholder="Id numérico" value="<?= h((string) ($row['idobrasocial'] ?? '')) ?>">
                     </label>
                 <?php endif; ?>
 
@@ -116,19 +183,28 @@ $triSel = static function ($cur, $v): string {
                     </label>
                 <?php else: ?>
                     <label>Id plan
-                        <input type="number" name="idplan" min="0" value="<?= h((string) ($row['idplan'] ?? '')) ?>">
+                        <input type="number" name="idplan" id="orden_idplan" min="0" value="<?= h((string) ($row['idplan'] ?? '')) ?>">
                     </label>
                 <?php endif; ?>
 
                 <?php if ($practicaOpts !== []): ?>
-                    <label>Práctica / estudio
-                        <select name="idpractica">
-                            <?php catalogo_select_options($practicaOpts, $row['idpractica'] ?? '', 'Sin especificar'); ?>
-                        </select>
+                    <label class="span-2">Práctica / estudio
+                        <input type="hidden" name="idpractica" id="orden_idpractica" value="<?= h((string) ($row['idpractica'] ?? '')) ?>">
+                        <input type="text" id="orden_practica_buscar" list="orden_practicas_lista" placeholder="Buscar por código o nombre de práctica" value="<?= h($practicaActualTexto) ?>" autocomplete="off">
+                        <datalist id="orden_practicas_lista">
+                            <?php foreach ($practicaOpts as $pr): ?>
+                                <?php
+                                $pid = (int) ($pr['id'] ?? 0);
+                                $pnombre = trim((string) ($pr['nombre'] ?? ''));
+                                ?>
+                                <option value="<?= h($pid . ' - ' . $pnombre) ?>" data-id="<?= $pid ?>"></option>
+                            <?php endforeach; ?>
+                        </datalist>
+                        <span class="hint">Ejemplo: escribí el código <strong>1674</strong> o parte del nombre.</span>
                     </label>
                 <?php else: ?>
                     <label>Id práctica
-                        <input type="number" name="idpractica" min="0" value="<?= h((string) ($row['idpractica'] ?? '')) ?>">
+                        <input type="number" name="idpractica" id="orden_idpractica" min="0" value="<?= h((string) ($row['idpractica'] ?? '')) ?>">
                     </label>
                 <?php endif; ?>
 
@@ -160,15 +236,16 @@ $triSel = static function ($cur, $v): string {
 
         <section class="form-section">
             <h2 class="form-section-title">Montos y sesiones</h2>
+            <p class="muted small" id="orden_precio_msg">Al elegir cobertura y práctica, se buscará el arancel cargado para completar los importes.</p>
             <div class="form-grid-ext">
                 <label>Costo paciente
-                    <input type="text" name="costo" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['costo'] ?? '')) ?>">
+                    <input type="text" name="costo" id="orden_costo" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['costo'] ?? '')) ?>">
                 </label>
                 <label>Pago paciente
-                    <input type="text" name="pago" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['pago'] ?? '')) ?>">
+                    <input type="text" name="pago" id="orden_pago" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['pago'] ?? '')) ?>">
                 </label>
                 <label>Costo obra social
-                    <input type="text" name="costo_os" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['costo_os'] ?? '')) ?>">
+                    <input type="text" name="costo_os" id="orden_costo_os" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['costo_os'] ?? '')) ?>">
                 </label>
                 <label>Honorario extra
                     <input type="text" name="honorarioextra" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['honorarioextra'] ?? '')) ?>">
@@ -288,3 +365,370 @@ $triSel = static function ($cur, $v): string {
 })();
 </script>
 <?php endif; ?>
+<script>
+(function () {
+    var input = document.getElementById('orden_practica_buscar');
+    var hidden = document.getElementById('orden_idpractica');
+    var list = document.getElementById('orden_practicas_lista');
+    if (!input || !hidden || !list) return;
+
+    var options = Array.from(list.querySelectorAll('option'));
+
+    function normalize(s) {
+        return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function findMatch(raw) {
+        var q = normalize(raw);
+        if (!q) {
+            return null;
+        }
+
+        for (var i = 0; i < options.length; i++) {
+            if (normalize(options[i].value) === q) {
+                return options[i];
+            }
+        }
+
+        var code = q.match(/^\#?(\d+)/);
+        if (code) {
+            for (var j = 0; j < options.length; j++) {
+                if (String(options[j].getAttribute('data-id') || '') === code[1]) {
+                    return options[j];
+                }
+            }
+        }
+
+        var partials = options.filter(function (o) {
+            return normalize(o.value).indexOf(q) !== -1;
+        });
+        return partials.length === 1 ? partials[0] : null;
+    }
+
+    function syncPractica() {
+        var match = findMatch(input.value);
+        var next = match ? String(match.getAttribute('data-id') || '') : '';
+        if (match && input.value !== match.value) {
+            input.value = match.value;
+        }
+        if (hidden.value !== next) {
+            hidden.value = next;
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
+    input.addEventListener('change', syncPractica);
+    input.addEventListener('blur', syncPractica);
+})();
+</script>
+<script>
+(function () {
+    var endpoint = '<?= h(url('/orden_paciente.php')) ?>';
+    var esNueva = <?= (int) ($row['id'] ?? 0) < 1 ? 'true' : 'false' ?>;
+    var nro = document.getElementById('orden_nropaci');
+    var box = document.getElementById('orden_paciente_box');
+    var msg = document.getElementById('orden_paciente_msg');
+    var cob = document.getElementById('orden_idobrasocial');
+    var plan = document.getElementById('orden_idplan');
+    var pacienteActual = document.getElementById('orden-paciente-actual');
+    var pacienteBuscar = document.getElementById('orden-paciente-buscar');
+    var pacienteResultados = document.getElementById('orden-paciente-resultados');
+    if (!nro || !box || !msg) return;
+
+    var fields = {
+        nombre: document.getElementById('orden_paciente_nombre'),
+        dni: document.getElementById('orden_paciente_dni'),
+        cobertura: document.getElementById('orden_paciente_cobertura'),
+        plan: document.getElementById('orden_paciente_plan'),
+        nroOs: document.getElementById('orden_paciente_nro_os'),
+        cobertura2: document.getElementById('orden_paciente_cobertura2'),
+        afiliado2: document.getElementById('orden_paciente_afiliado2'),
+        iva: document.getElementById('orden_paciente_iva')
+    };
+    var timer = null;
+    var requestSeq = 0;
+
+    function text(v) {
+        v = String(v || '').trim();
+        return v !== '' && v !== '0' ? v : 'Sin dato';
+    }
+
+    function catalogLabel(item, idKey, nameKey) {
+        var id = Number(item && item[idKey] ? item[idKey] : 0);
+        var name = String(item && item[nameKey] ? item[nameKey] : '').trim();
+        if (!id && !name) return 'Sin dato';
+        if (name) return name + (id ? ' (#' + id + ')' : '');
+        return '#' + id;
+    }
+
+    function setText(el, value) {
+        if (el) el.textContent = value;
+    }
+
+    function formatearPacienteActual(item) {
+        if (!item) return '—';
+        var nombre = String(item.nombre || '').trim();
+        var dni = String(item.dni || '').trim();
+        if (nombre && dni) {
+            return nombre + ' - DNI ' + dni;
+        }
+        return nombre || '—';
+    }
+
+    function maybeSetSelect(select, value) {
+        if (!select || !value || !esNueva || String(select.value || '') !== '') {
+            return;
+        }
+        select.value = String(value);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function applyPatient(item) {
+        if (!item) {
+            box.style.display = 'none';
+            msg.style.display = '';
+            msg.textContent = 'No se encontró un paciente con ese Nro. HC.';
+            if (pacienteActual) {
+                pacienteActual.value = '—';
+            }
+            return;
+        }
+
+        setText(fields.nombre, text(item.nombre));
+        setText(fields.dni, text(item.dni));
+        setText(fields.cobertura, catalogLabel(item, 'id_cobertura', 'cobertura_nombre'));
+        setText(fields.plan, catalogLabel(item, 'id_plan', 'plan_nombre'));
+        setText(fields.nroOs, text(item.nro_os));
+        setText(fields.cobertura2, catalogLabel(item, 'id_cobertura2', 'cobertura2_nombre'));
+        setText(fields.afiliado2, text(item.nu_afiliado2));
+        setText(fields.iva, item.paga_iva ? 'Sí' : 'No');
+        if (pacienteActual) {
+            pacienteActual.value = formatearPacienteActual(item);
+        }
+
+        box.style.display = '';
+        msg.style.display = 'none';
+        maybeSetSelect(cob, Number(item.id_cobertura || 0));
+        maybeSetSelect(plan, Number(item.id_plan || 0));
+    }
+
+    function loadPatient() {
+        var id = String(nro.value || '').trim();
+        requestSeq += 1;
+        var seq = requestSeq;
+        if (!id) {
+            box.style.display = 'none';
+            msg.style.display = '';
+            msg.textContent = 'Ingresá un Nro. HC válido para ver cobertura, plan y afiliado del paciente.';
+            return;
+        }
+
+        fetch(endpoint + '?nrohc=' + encodeURIComponent(id), { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (seq !== requestSeq) return;
+                applyPatient(data && data.ok ? data.item : null);
+            })
+            .catch(function () {
+                if (seq !== requestSeq) return;
+                box.style.display = 'none';
+                msg.style.display = '';
+                msg.textContent = 'No se pudieron consultar los datos del paciente.';
+            });
+    }
+
+    nro.addEventListener('blur', loadPatient);
+    nro.addEventListener('change', loadPatient);
+    nro.addEventListener('input', function () {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(loadPatient, 450);
+    });
+
+    function clearPacienteResultados() {
+        if (!pacienteResultados) return;
+        pacienteResultados.hidden = true;
+        pacienteResultados.innerHTML = '';
+    }
+
+    function renderPacienteResultados(items) {
+        if (!pacienteResultados) return;
+        pacienteResultados.innerHTML = '';
+        if (!items || !items.length) {
+            pacienteResultados.hidden = false;
+            pacienteResultados.innerHTML = '<div class="turno-paciente-item muted">Sin resultados.</div>';
+            return;
+        }
+        items.forEach(function (it) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'turno-paciente-item';
+            btn.innerHTML = '<strong>HC ' + String(it.nrohc || '') + '</strong> - ' + (it.nombre || '(sin nombre)') + (it.dni ? ' - DNI ' + it.dni : '');
+            btn.addEventListener('click', function () {
+                nro.value = String(it.nrohc || '');
+                if (pacienteActual) {
+                    pacienteActual.value = formatearPacienteActual(it);
+                }
+                if (pacienteBuscar) {
+                    pacienteBuscar.value = it.nombre ? (it.nombre + (it.dni ? ' - DNI ' + it.dni : '')) : ('HC ' + String(it.nrohc || ''));
+                }
+                clearPacienteResultados();
+                loadPatient();
+            });
+            pacienteResultados.appendChild(btn);
+        });
+        pacienteResultados.hidden = false;
+    }
+
+    var searchTimer = null;
+    function buscarPacienteOrden() {
+        if (!pacienteBuscar || !pacienteResultados) return;
+        var q = String(pacienteBuscar.value || '').trim();
+        if (q.length < 2) {
+            clearPacienteResultados();
+            return;
+        }
+        pacienteResultados.hidden = false;
+        pacienteResultados.innerHTML = '<div class="turno-paciente-item muted">Buscando...</div>';
+        fetch('<?= h(url('/pacientes_lookup.php')) ?>?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.ok) throw new Error('bad');
+                renderPacienteResultados(data.items || []);
+            })
+            .catch(function () {
+                pacienteResultados.hidden = false;
+                pacienteResultados.innerHTML = '<div class="turno-paciente-item muted">No se pudo buscar ahora.</div>';
+            });
+    }
+
+    if (pacienteBuscar) {
+        pacienteBuscar.addEventListener('input', function () {
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(buscarPacienteOrden, 220);
+        });
+        pacienteBuscar.addEventListener('blur', function () {
+            window.setTimeout(clearPacienteResultados, 200);
+        });
+        pacienteBuscar.addEventListener('focus', function () {
+            if (String(pacienteBuscar.value || '').trim().length >= 2) {
+                buscarPacienteOrden();
+            }
+        });
+    }
+})();
+</script>
+<script>
+(function () {
+    var endpoint = '<?= h(url('/orden_precio.php')) ?>';
+    var cob = document.getElementById('orden_idobrasocial');
+    var plan = document.getElementById('orden_idplan');
+    var practica = document.getElementById('orden_idpractica');
+    var costo = document.getElementById('orden_costo');
+    var costoOs = document.getElementById('orden_costo_os');
+    var msg = document.getElementById('orden_precio_msg');
+    if (!cob || !practica || !costo || !costoOs || !msg) return;
+
+    var requestSeq = 0;
+    var lastApplied = {
+        costo: null,
+        costoOs: null
+    };
+
+    function norm(v) {
+        return String(v || '').replace(',', '.').trim();
+    }
+
+    function fmt(v) {
+        if (v === null || typeof v === 'undefined' || v === '') {
+            return '';
+        }
+        var n = Number(String(v).replace(',', '.'));
+        if (!isFinite(n)) {
+            return String(v);
+        }
+        return String(n.toFixed(4)).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function canReplace(input, key) {
+        var current = norm(input.value);
+        return current === '' || (lastApplied[key] !== null && current === lastApplied[key]);
+    }
+
+    function setAutoValue(input, key, value) {
+        var formatted = fmt(value);
+        if (formatted === '') {
+            return false;
+        }
+        if (!canReplace(input, key)) {
+            return false;
+        }
+        input.value = formatted;
+        lastApplied[key] = norm(formatted);
+        return true;
+    }
+
+    function setMsg(text) {
+        msg.textContent = text;
+    }
+
+    function buscarPrecio() {
+        var idCob = String(cob.value || '');
+        var idPractica = String(practica.value || '');
+        var idPlan = plan ? String(plan.value || '') : '';
+        requestSeq += 1;
+        var seq = requestSeq;
+
+        if (!idCob || !idPractica) {
+            setMsg('Al elegir cobertura y práctica, se buscará el arancel cargado para completar los importes.');
+            return;
+        }
+
+        setMsg('Buscando arancel...');
+        var qs = '?idobrasocial=' + encodeURIComponent(idCob)
+            + '&idpractica=' + encodeURIComponent(idPractica)
+            + '&idplan=' + encodeURIComponent(idPlan);
+
+        fetch(endpoint + qs, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (seq !== requestSeq) return;
+                if (!data || !data.ok || !data.found || !data.precio) {
+                    setMsg(data && data.message ? data.message : 'No hay arancel cargado para esa combinación.');
+                    return;
+                }
+
+                var p = data.precio;
+                var aplicoPaciente = setAutoValue(costo, 'costo', p.costopaciente);
+                var aplicoCobertura = setAutoValue(costoOs, 'costoOs', p.costocobertura);
+                var detalle = [];
+                if (p.costopaciente !== null) {
+                    detalle.push('paciente $' + fmt(p.costopaciente));
+                }
+                if (p.costocobertura !== null) {
+                    detalle.push('obra social $' + fmt(p.costocobertura));
+                }
+                if (p.usarporcentaje && p.costoporcentaje !== null) {
+                    detalle.push('porcentaje ' + fmt(p.costoporcentaje) + '%');
+                }
+
+                if (aplicoPaciente || aplicoCobertura) {
+                    setMsg('Arancel encontrado: ' + detalle.join(' · ') + '.');
+                } else {
+                    setMsg('Arancel encontrado (' + detalle.join(' · ') + '), pero no se pisaron importes editados manualmente.');
+                }
+            })
+            .catch(function () {
+                if (seq === requestSeq) {
+                    setMsg('No se pudo consultar el arancel. Revisá conexión o permisos.');
+                }
+            });
+    }
+
+    cob.addEventListener('change', buscarPrecio);
+    practica.addEventListener('change', buscarPrecio);
+    if (plan) {
+        plan.addEventListener('change', buscarPrecio);
+    }
+    buscarPrecio();
+})();
+</script>

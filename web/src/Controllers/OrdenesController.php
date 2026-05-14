@@ -6,6 +6,7 @@ require_once dirname(__DIR__, 2) . '/includes/catalogos.php';
 require_once dirname(__DIR__) . '/Repositories/AgendaRepository.php';
 require_once dirname(__DIR__) . '/Repositories/OrdenesRepository.php';
 require_once dirname(__DIR__) . '/Repositories/DoctoresRepository.php';
+require_once dirname(__DIR__) . '/Repositories/PacientesRepository.php';
 require_once dirname(__DIR__) . '/Repositories/SesionesRepository.php';
 
 final class OrdenesController
@@ -174,6 +175,16 @@ final class OrdenesController
             $row = self::ordenRowFromPost($_POST, $id);
         }
 
+        $pacienteOrden = $this->pacienteOrdenContext((int) ($row['NroPaci'] ?? 0));
+        if ((int) ($row['id'] ?? 0) < 1 && $pacienteOrden !== null) {
+            if (($row['idobrasocial'] ?? '') === '' && (int) ($pacienteOrden['id_cobertura'] ?? 0) > 0) {
+                $row['idobrasocial'] = (string) (int) $pacienteOrden['id_cobertura'];
+            }
+            if (($row['idplan'] ?? '') === '' && (int) ($pacienteOrden['id_plan'] ?? 0) > 0) {
+                $row['idplan'] = (string) (int) $pacienteOrden['id_plan'];
+            }
+        }
+
         if ($turno) {
             $fechaTurno = substr((string) ($turno['Fecha'] ?? date('Y-m-d')), 0, 10);
             $doctorTurno = (int) ($turno['Doctor'] ?? 0);
@@ -208,8 +219,72 @@ final class OrdenesController
             'ordenesReturnQs' => $ordenesReturnQs,
             'sesionesResumen' => $sesionesResumen,
             'turnoVinculadoId' => $idTurno,
+            'pacienteOrden' => $pacienteOrden,
         ]);
         layout_render($titulo, $body, $this->user);
+    }
+
+    public function pacienteJson(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'message' => 'Método no permitido.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $nroHc = (int) ($_GET['nrohc'] ?? 0);
+        if ($nroHc < 1) {
+            echo json_encode(['ok' => true, 'item' => null], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'item' => $this->pacienteOrdenContext($nroHc),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function precioJson(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'message' => 'Método no permitido.']);
+            return;
+        }
+
+        $idCobertura = (int) ($_GET['idobrasocial'] ?? 0);
+        $idPractica = (int) ($_GET['idpractica'] ?? 0);
+        $idPlan = (int) ($_GET['idplan'] ?? 0);
+        if ($idCobertura < 1 || $idPractica < 1) {
+            echo json_encode(['ok' => true, 'found' => false, 'message' => 'Elegí cobertura y práctica.']);
+            return;
+        }
+
+        $repo = new OrdenesRepository($this->pdo, user_clinica_id($this->user));
+        $precio = $repo->findPrecioOrden($idCobertura, $idPractica, $idPlan);
+        if ($precio === null) {
+            echo json_encode(['ok' => true, 'found' => false, 'message' => 'No hay arancel cargado para esa combinación.']);
+            return;
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'found' => true,
+            'precio' => [
+                'id' => (int) ($precio['id'] ?? 0),
+                'idobrasocial' => (int) ($precio['idobrasocial'] ?? 0),
+                'idpractica' => (int) ($precio['idpractica'] ?? 0),
+                'idplan' => isset($precio['idplan']) && $precio['idplan'] !== null ? (int) $precio['idplan'] : 0,
+                'costopaciente' => self::decimalForJson($precio['costopaciente'] ?? null),
+                'costocobertura' => self::decimalForJson($precio['costocobertura'] ?? null),
+                'usarporcentaje' => !empty($precio['usarporcentaje']) ? 1 : 0,
+                'costoporcentaje' => self::decimalForJson($precio['costoporcentaje'] ?? null),
+                'cobradr' => self::decimalForJson($precio['cobradr'] ?? null),
+                'fuente' => (string) ($precio['fuente'] ?? ''),
+            ],
+        ]);
     }
 
     public function deletePost(): void
@@ -600,6 +675,76 @@ final class OrdenesController
             return true;
         }
         return false;
+    }
+
+    /**
+     * Datos propios del paciente que ayudan a cargar una orden.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function pacienteOrdenContext(int $nroHc): ?array
+    {
+        if ($nroHc < 1 || !db_table_exists($this->pdo, 'pacientes')) {
+            return null;
+        }
+
+        $repo = new PacientesRepository($this->pdo, user_clinica_id($this->user));
+        $p = $repo->findByNroHC($nroHc);
+        if (!$p) {
+            return null;
+        }
+
+        $idCobertura = isset($p['id_cobertura']) && $p['id_cobertura'] !== null && $p['id_cobertura'] !== '' ? (int) $p['id_cobertura'] : 0;
+        $idPlan = isset($p['id_plan']) && $p['id_plan'] !== null && $p['id_plan'] !== '' ? (int) $p['id_plan'] : 0;
+        $idCobertura2 = isset($p['id_cobertura2']) && $p['id_cobertura2'] !== null && $p['id_cobertura2'] !== '' ? (int) $p['id_cobertura2'] : 0;
+
+        $apellido = trim((string) ($p['apellido'] ?? ''));
+        $nombres = trim((string) ($p['Nombres'] ?? ''));
+        $nombre = trim($apellido . ' ' . $nombres);
+        if ($nombre === '') {
+            $nombre = $nombres !== '' ? $nombres : 'Paciente HC ' . $nroHc;
+        }
+
+        return [
+            'nrohc' => $nroHc,
+            'nombre' => $nombre,
+            'dni' => trim((string) ($p['DNI'] ?? '')),
+            'id_cobertura' => $idCobertura,
+            'cobertura_nombre' => $this->catalogoNombrePorId('lista_coberturas', $idCobertura),
+            'id_plan' => $idPlan,
+            'plan_nombre' => $this->catalogoNombrePorId('lista_planes', $idPlan),
+            'nro_os' => trim((string) ($p['nro_os'] ?? '')),
+            'id_cobertura2' => $idCobertura2,
+            'cobertura2_nombre' => $this->catalogoNombrePorId('lista_coberturas', $idCobertura2),
+            'nu_afiliado2' => trim((string) ($p['nu_afiliado2'] ?? '')),
+            'paga_iva' => !empty($p['paga_iva']) ? 1 : 0,
+        ];
+    }
+
+    private function catalogoNombrePorId(string $tabla, int $id): string
+    {
+        if ($id < 1 || !db_table_exists($this->pdo, $tabla) || !db_table_has_column($this->pdo, $tabla, 'nombre')) {
+            return '';
+        }
+        try {
+            $st = $this->pdo->prepare('SELECT nombre FROM `' . str_replace('`', '', $tabla) . '` WHERE id = ? LIMIT 1');
+            $st->execute([$id]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+
+            return $row ? trim((string) ($row['nombre'] ?? '')) : '';
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
+
+    private static function decimalForJson($value): ?string
+    {
+        if ($value === null || $value === '' || !is_numeric($value)) {
+            return null;
+        }
+        $n = (float) $value;
+
+        return rtrim(rtrim(number_format($n, 4, '.', ''), '0'), '.');
     }
 
     /**

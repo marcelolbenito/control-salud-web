@@ -104,6 +104,19 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
                     <?php endforeach; ?>
                 </select>
             </label>
+            <?php if ($cobOpts !== []): ?>
+                <label>
+                    Obra social
+                    <select name="idobrasocial">
+                        <?php catalogo_select_options($cobOpts, (int) ($f['idobrasocial'] ?? 0), 'Todas') ?>
+                    </select>
+                </label>
+            <?php else: ?>
+                <label>
+                    Id obra social
+                    <input type="number" name="idobrasocial" min="1" placeholder="Código" value="<?= ($f['idobrasocial'] ?? 0) > 0 ? (int) $f['idobrasocial'] : '' ?>">
+                </label>
+            <?php endif; ?>
             <label>
                 Fecha orden desde
                 <input type="date" name="fecha_desde" value="<?= h((string) ($f['fecha_desde'] ?? '')) ?>">
@@ -125,19 +138,6 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
         <details style="margin-top:0.75rem;">
             <summary><strong>Filtros avanzados</strong> (cobertura, estados, IVA, autorización, honorarios)</summary>
             <div class="filter-row" style="margin-top:0.6rem;">
-                <?php if ($cobOpts !== []): ?>
-                    <label>
-                        Cobertura / OS
-                        <select name="idobrasocial">
-                            <?php catalogo_select_options($cobOpts, (int) ($f['idobrasocial'] ?? 0), 'Todas') ?>
-                        </select>
-                    </label>
-                <?php else: ?>
-                    <label>
-                        Id cobertura / OS
-                        <input type="number" name="idobrasocial" min="1" placeholder="Código" value="<?= ($f['idobrasocial'] ?? 0) > 0 ? (int) $f['idobrasocial'] : '' ?>">
-                    </label>
-                <?php endif; ?>
                 <label>
                     Id plan
                     <input type="number" name="idplan" min="1" placeholder="Código" value="<?= ($f['idplan'] ?? 0) > 0 ? (int) $f['idplan'] : '' ?>">
@@ -265,16 +265,17 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
             <table id="tbl-ordenes" class="table">
                 <thead>
                     <tr>
-                        <th>Nro HC</th>
-                        <th>Paciente</th>
-                        <th>Nº orden</th>
-                        <th>Cobertura</th>
-                        <th>Práct.</th>
-                        <th>Profesional</th>
                         <th>Fecha</th>
-                        <th>Costo</th>
-                        <th>Pago</th>
-                        <th>Costo OS</th>
+                        <th>Práctica</th>
+                        <th>Obra Social</th>
+                        <th>Paciente</th>
+                        <th>Nº afiliado</th>
+                        <th>Profesional</th>
+                        <th>Monto OS</th>
+                        <th>Nro HC</th>
+                        <th>Nº orden</th>
+                        <th>Costo pac.</th>
+                        <th>Pago pac.</th>
                         <th>Debe Paci.</th>
                         <th>Hon. extra</th>
                         <th>Ses.</th>
@@ -320,22 +321,23 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
                         $numOrden = $r['numero'] ?? null;
                         ?>
                         <tr>
-                            <td><?= (int) $r['NroPaci'] ?></td>
-                            <td><?= h(orden_vista_paciente($r)) ?></td>
-                            <td><?= $numOrden !== null && $numOrden !== '' ? h((string) $numOrden) : '—' ?></td>
-                            <?php
-                            $cobTxt = orden_fmt_ref($r['idobrasocial'] ?? null, $r['cobertura_nombre'] ?? '');
-                            ?>
-                            <td class="cell-clip" title="<?= h($cobTxt) ?>"><?= h($cobTxt) ?></td>
+                            <td><?= !empty($r['fecha_orden']) ? h((string) $r['fecha_orden']) : '—' ?></td>
                             <?php
                             $prTxt = orden_fmt_ref($r['idpractica'] ?? null, $r['practica_nombre'] ?? '');
                             ?>
                             <td class="cell-clip" title="<?= h($prTxt) ?>"><?= h($prTxt) ?></td>
+                            <?php
+                            $cobTxt = orden_fmt_ref($r['idobrasocial'] ?? null, $r['cobertura_nombre'] ?? '');
+                            ?>
+                            <td class="cell-clip" title="<?= h($cobTxt) ?>"><?= h($cobTxt) ?></td>
+                            <td><?= h(orden_vista_paciente($r)) ?></td>
+                            <td><?= trim((string) ($r['paciente_nro_os'] ?? '')) !== '' ? h((string) $r['paciente_nro_os']) : '—' ?></td>
                             <td><?= h((string) ($r['doctor_nombre'] ?? '')) ?></td>
-                            <td><?= !empty($r['fecha_orden']) ? h((string) $r['fecha_orden']) : '—' ?></td>
+                            <td><?= h(orden_fmt_money($costoOsNum)) ?></td>
+                            <td><?= (int) $r['NroPaci'] ?></td>
+                            <td><?= $numOrden !== null && $numOrden !== '' ? h((string) $numOrden) : '—' ?></td>
                             <td><?= h(orden_fmt_money($costoNum)) ?></td>
                             <td><?= h(orden_fmt_money($pagoNum)) ?></td>
-                            <td><?= h(orden_fmt_money($costoOsNum)) ?></td>
                             <td><?= h(orden_fmt_money($debePaciNum)) ?></td>
                             <td><?= h(orden_fmt_money($honorNum)) ?></td>
                             <td><?= $sesNum > 0 ? h((string) $sesNum) : '—' ?></td>
@@ -356,10 +358,11 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
                         </tr>
                     <?php endforeach; ?>
                     <tr class="ordenes-totales-row">
-                        <td colspan="7"><strong>Totales (filtro actual)</strong></td>
+                        <td colspan="6"><strong>Totales (filtro actual)</strong></td>
+                        <td><strong><?= h(orden_fmt_money($sumCostoOs)) ?></strong></td>
+                        <td colspan="2"></td>
                         <td><strong><?= h(orden_fmt_money($sumCosto)) ?></strong></td>
                         <td><strong><?= h(orden_fmt_money($sumPago)) ?></strong></td>
-                        <td><strong><?= h(orden_fmt_money($sumCostoOs)) ?></strong></td>
                         <td><strong><?= h(orden_fmt_money($sumDebePaci)) ?></strong></td>
                         <td><strong><?= h(orden_fmt_money($sumHonorarioExtra)) ?></strong></td>
                         <td><strong><?= h((string) $sumSesiones) ?></strong></td>

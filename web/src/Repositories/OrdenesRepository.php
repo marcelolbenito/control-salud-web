@@ -176,6 +176,8 @@ final class OrdenesRepository
     {
         $hasApellido = db_table_has_column($this->pdo, 'pacientes', 'apellido');
         $colApellido = $hasApellido ? 'p.apellido AS paciente_apellido' : 'NULL AS paciente_apellido';
+        $hasNroOs = db_table_has_column($this->pdo, 'pacientes', 'nro_os');
+        $colNroOs = $hasNroOs ? 'p.nro_os AS paciente_nro_os' : 'NULL AS paciente_nro_os';
         $joinCob = db_table_exists($this->pdo, 'lista_coberturas');
         $selCob = $joinCob ? ', lc.nombre AS cobertura_nombre' : ', NULL AS cobertura_nombre';
         $joinPr = db_table_exists($this->pdo, 'lista_practicas');
@@ -203,7 +205,7 @@ final class OrdenesRepository
             o.estado, o.estado_os, o.sucursal, o.idobrasocial, o.idpractica,
             o.idderivado, o.idplan,
             d.nombre AS doctor_nombre,
-            p.Nombres AS paciente_nombres, ' . $colApellido . $selCob . $selPr . $selDer . $selSuc . '
+            p.Nombres AS paciente_nombres, ' . $colApellido . ', ' . $colNroOs . $selCob . $selPr . $selDer . $selSuc . '
             FROM ' . self::TABLE . ' o
             LEFT JOIN lista_doctores d ON ' . $joinDoc . '
             LEFT JOIN pacientes p ON ' . $joinPac;
@@ -522,6 +524,61 @@ final class OrdenesRepository
         } catch (Throwable $e) {
             return [];
         }
+    }
+
+    /**
+     * Busca el arancel vigente importado desde `Lista Precios`.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findPrecioOrden(int $idCobertura, int $idPractica, int $idPlan = 0): ?array
+    {
+        if ($idCobertura < 1 || $idPractica < 1) {
+            return null;
+        }
+
+        $candidatas = [];
+        if (db_table_exists($this->pdo, 'lista_precios')) {
+            $candidatas[] = ['sql' => '`lista_precios`', 'fuente' => 'lista_precios'];
+        }
+        if (db_table_exists($this->pdo, 'Lista Precios')) {
+            $candidatas[] = ['sql' => '`Lista Precios`', 'fuente' => 'Lista Precios'];
+        }
+        if ($candidatas === []) {
+            return null;
+        }
+
+        foreach ($candidatas as $cand) {
+            $params = [$idCobertura, $idPractica];
+            $sql = 'SELECT id, idobrasocial, idpractica, costopaciente, costocobertura, '
+                . 'usarporcentaje, costoporcentaje, cobradr, idplan '
+                . 'FROM ' . $cand['sql'] . ' WHERE idobrasocial = ? AND idpractica = ?';
+
+            if ($idPlan > 0) {
+                $sql .= ' AND (idplan = ? OR idplan IS NULL OR idplan = 0) '
+                    . 'ORDER BY CASE WHEN idplan = ? THEN 0 WHEN idplan IS NULL OR idplan = 0 THEN 1 ELSE 2 END, id LIMIT 1';
+                $params[] = $idPlan;
+                $params[] = $idPlan;
+            } else {
+                $sql .= ' AND (idplan IS NULL OR idplan = 0) ORDER BY id LIMIT 1';
+            }
+
+            try {
+                $st = $this->pdo->prepare($sql);
+                $st->execute($params);
+                $row = $st->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    continue;
+                }
+                $row['fuente'] = $cand['fuente'];
+
+                return $row;
+            } catch (Throwable $e) {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     public function deleteById(int $id): void
