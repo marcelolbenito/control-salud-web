@@ -124,6 +124,12 @@ declare(strict_types=1);
                         if ($turnoSel && (int) $turnoSel['id'] === (int) $r['id']) {
                             $trClass .= ' is-selected';
                         }
+                        $pacienteId = (int) ($r['paciente_id'] ?? 0);
+                        $nroHc = (int) ($r['NroHC'] ?? 0);
+                        $puedeEditarPaciente = auth_user_role(auth_user()) !== 'doctor';
+                        $pacienteUrl = $puedeEditarPaciente && $pacienteId > 0
+                            ? '/paciente_form.php?id=' . $pacienteId
+                            : '/pacientes.php?nrohc=' . $nroHc;
                         ?>
                         <tr
                             class="<?= h($trClass) ?> agenda-row-selectable"
@@ -133,8 +139,8 @@ declare(strict_types=1);
                             aria-label="Ver detalle del turno de <?= h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
                         >
                             <td><?= $r['hora'] ? h(substr((string) $r['hora'], 0, 5)) : '—' ?></td>
-                            <td><a class="agenda-paciente-link" href="<?= h($turnoLink) ?>"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a></td>
-                            <td><?= (int) $r['NroHC'] ?></td>
+                            <td><a class="agenda-paciente-link" href="<?= h($pacienteUrl) ?>" target="_blank" rel="noopener" title="Abrir ficha del paciente"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a></td>
+                            <td><?= $nroHc ?></td>
                             <td><?= h($r['doctor_nombre'] ?? '—') ?></td>
                             <td><span class="badge-estado estado-<?= h($estadoSlug) ?>"><?= h((string) $estadoUi) ?></span></td>
                             <?php if ($extAgenda): ?>
@@ -144,7 +150,16 @@ declare(strict_types=1);
                                 <td title="Faltó"><?= !empty($r['falta_turno']) ? 'Sí' : '—' ?></td>
                             <?php endif; ?>
                             <td><?= $r['idorden'] !== null ? (int) $r['idorden'] : '—' ?></td>
-                            <td class="cell-clip" title="<?= h($obs) ?>"><?= h($obsOut) ?></td>
+                            <td class="cell-clip" title="<?= h($obs) ?>">
+                                <button
+                                    type="button"
+                                    class="agenda-obs-btn"
+                                    data-turno-id="<?= (int) $r['id'] ?>"
+                                    data-paciente="<?= h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
+                                    data-observaciones="<?= h($obs) ?>"
+                                    title="Editar observaciones"
+                                ><?= $obsOut !== '' ? h($obsOut) : '<span class="muted">Agregar obs.</span>' ?></button>
+                            </td>
                             <td class="table-actions">
                                 <?php
                                 $isLlegado = $extAgenda && !empty($r['llegado']);
@@ -250,4 +265,76 @@ declare(strict_types=1);
         </aside>
     </div>
 </div>
+
+<div class="agenda-modal" id="agenda-obs-modal" hidden>
+    <div class="agenda-modal-backdrop" data-agenda-obs-close></div>
+    <div class="agenda-modal-card" role="dialog" aria-modal="true" aria-labelledby="agenda-obs-title">
+        <form method="post" action="/agenda.php?a=observaciones">
+            <?= csrf_field() ?>
+            <input type="hidden" name="id" id="agenda_obs_id" value="">
+            <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
+            <input type="hidden" name="doctor" value="<?= (int) $doctorFiltro ?>">
+            <input type="hidden" name="consultorio" value="<?= h($consultorio) ?>">
+            <header class="agenda-modal-head">
+                <div class="agenda-modal-title">
+                    <span class="agenda-modal-icon"><i class="bi bi-chat-left-text" aria-hidden="true"></i></span>
+                    <div>
+                    <h2 id="agenda-obs-title">Observaciones del turno</h2>
+                    <p class="muted" id="agenda_obs_paciente">Paciente</p>
+                </div>
+                </div>
+                <button type="button" class="agenda-modal-close" data-agenda-obs-close aria-label="Cerrar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </header>
+            <label class="agenda-modal-label">Notas visibles en Agenda
+                <textarea name="observaciones" id="agenda_obs_texto" rows="7" maxlength="2000" placeholder="Notas visibles desde Agenda"></textarea>
+            </label>
+            <p class="muted small agenda-modal-hint">Usalo para comentarios administrativos breves del turno. Para datos clínicos, usar Historia clínica.</p>
+            <div class="agenda-modal-actions">
+                <button type="button" class="btn btn-ghost" data-agenda-obs-close>Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar observaciones</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modal = document.getElementById('agenda-obs-modal');
+    var idInput = document.getElementById('agenda_obs_id');
+    var textInput = document.getElementById('agenda_obs_texto');
+    var paciente = document.getElementById('agenda_obs_paciente');
+    if (!modal || !idInput || !textInput || !paciente) return;
+
+    function openModal(btn) {
+        idInput.value = btn.getAttribute('data-turno-id') || '';
+        textInput.value = btn.getAttribute('data-observaciones') || '';
+        paciente.textContent = btn.getAttribute('data-paciente') || 'Paciente';
+        modal.hidden = false;
+        textInput.focus();
+    }
+
+    function closeModal() {
+        modal.hidden = true;
+    }
+
+    document.addEventListener('click', function (event) {
+        var btn = event.target.closest('.agenda-obs-btn');
+        if (btn) {
+            event.preventDefault();
+            openModal(btn);
+            return;
+        }
+        if (event.target.closest('[data-agenda-obs-close]')) {
+            event.preventDefault();
+            closeModal();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+            closeModal();
+        }
+    });
+})();
+</script>
 

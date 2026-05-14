@@ -13,5 +13,8 @@ $a = (string) ($_GET['a'] ?? 'index');
 if ($a === 'quick_status' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $controller->quickStatusPost();
 }
+if ($a === 'observaciones' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $controller->observacionesPost();
+}
 
 $controller->index();

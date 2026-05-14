@@ -616,6 +616,155 @@ body.sidebar-compact .sidebar .side-group summary {
   text-overflow: ellipsis;
 }
 
+.agenda-paciente-link {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.agenda-paciente-link:hover {
+  text-decoration: underline;
+}
+
+.agenda-obs-btn {
+  display: inline;
+  max-width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agenda-obs-btn:hover {
+  color: var(--accent-dark);
+  text-decoration: underline;
+}
+
+.agenda-modal[hidden] {
+  display: none;
+}
+
+.agenda-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.agenda-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.agenda-modal-card {
+  position: relative;
+  width: min(520px, 100%);
+  background: var(--surface);
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  box-shadow: 0 16px 45px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+.agenda-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  background: #f1f5f9;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.agenda-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.agenda-modal-title .muted {
+  margin: 0.12rem 0 0;
+}
+
+.agenda-modal-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  color: var(--accent-dark);
+  font-size: 1rem;
+}
+
+.agenda-modal-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.agenda-modal-close {
+  border: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  color: #475569;
+  cursor: pointer;
+}
+
+.agenda-modal-close:hover {
+  background: #fff;
+  color: #0f172a;
+}
+
+.agenda-modal-label {
+  display: block;
+  padding: 1rem 1rem 0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.agenda-modal-card textarea {
+  width: 100%;
+  min-height: 140px;
+  margin-top: 0.45rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.agenda-modal-card textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.14);
+}
+
+.agenda-modal-hint {
+  margin: 0.5rem 1rem 0;
+}
+
+.agenda-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  background: #f1f5f9;
+  border-top: 1px solid #cbd5e1;
+  margin-top: 1rem;
+}
+
 /* Listados y formularios: usan todo el ancho del main (no cap de 900px). */
 .container:not(.container-narrow) {
   width: 100%;

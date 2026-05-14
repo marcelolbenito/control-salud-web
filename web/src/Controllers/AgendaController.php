@@ -120,6 +120,48 @@ final class AgendaController
         exit;
     }
 
+    public function observacionesPost(): void
+    {
+        csrf_verify();
+        $id = (int) ($_POST['id'] ?? 0);
+        $fecha = trim((string) ($_POST['fecha'] ?? ''));
+        $doctor = (int) ($_POST['doctor'] ?? 0);
+        $consultorio = trim((string) ($_POST['consultorio'] ?? ''));
+        $observaciones = trim((string) ($_POST['observaciones'] ?? ''));
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            $fecha = date('Y-m-d');
+        }
+        if ($id < 1) {
+            flash_set('Turno no válido para actualizar observaciones.');
+            header('Location: /agenda.php?fecha=' . rawurlencode($fecha) . ($doctor > 0 ? '&doctor=' . $doctor : '') . ($consultorio !== '' ? '&consultorio=' . rawurlencode($consultorio) : ''));
+            exit;
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            if (mb_strlen($observaciones) > 2000) {
+                $observaciones = mb_substr($observaciones, 0, 2000);
+            }
+        } elseif (strlen($observaciones) > 2000) {
+            $observaciones = substr($observaciones, 0, 2000);
+        }
+
+        $repo = new AgendaRepository($this->pdo, user_clinica_id($this->user));
+        if ($repo->updateObservaciones($id, $observaciones)) {
+            flash_set('Observaciones actualizadas.');
+        } else {
+            flash_set('No se pudieron actualizar las observaciones.');
+        }
+
+        header(
+            'Location: /agenda.php?fecha=' . rawurlencode($fecha)
+            . ($doctor > 0 ? '&doctor=' . $doctor : '')
+            . ($consultorio !== '' ? '&consultorio=' . rawurlencode($consultorio) : '')
+            . '&turno=' . $id
+        );
+        exit;
+    }
+
     private function renderView(string $view, array $data): string
     {
         extract($data, EXTR_SKIP);

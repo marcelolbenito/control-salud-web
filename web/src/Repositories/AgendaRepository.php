@@ -77,6 +77,7 @@ final class AgendaRepository
             $joinDoc .= ' AND d.id_clinica = t.id_clinica';
         }
         $sql = "SELECT t.id, t.Fecha, t.hora, t.NroHC, t.Doctor, t.estado, t.idorden, t.observaciones,
+            p.id AS paciente_id,
             {$pacienteExpr}, d.nombre AS doctor_nombre{$extraSel}
             FROM agenda_turnos t
             LEFT JOIN pacientes p ON " . $this->joinPacienteTurno() . '
@@ -131,6 +132,7 @@ final class AgendaRepository
             $joinDoc .= ' AND d.id_clinica = t.id_clinica';
         }
         $sql = "SELECT t.id, t.Fecha, t.hora, t.NroHC, t.Doctor, t.estado, t.idorden, t.observaciones,
+            p.id AS paciente_id,
             {$pacienteExpr}, d.nombre AS doctor_nombre{$extraSel}
             FROM agenda_turnos t
             LEFT JOIN pacientes p ON " . $this->joinPacienteTurno() . '
@@ -261,6 +263,23 @@ final class AgendaRepository
 
         $sql = 'UPDATE agenda_turnos SET idorden = ? WHERE id = ?';
         $par = [$idOrden, $idTurno];
+        if ($this->agendaTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+
+        return $st->execute($par);
+    }
+
+    public function updateObservaciones(int $idTurno, string $observaciones): bool
+    {
+        if ($idTurno < 1 || !db_table_has_column($this->pdo, 'agenda_turnos', 'observaciones')) {
+            return false;
+        }
+
+        $sql = 'UPDATE agenda_turnos SET observaciones = ? WHERE id = ?';
+        $par = [$observaciones, $idTurno];
         if ($this->agendaTieneClinica()) {
             $sql .= ' AND id_clinica = ?';
             $par[] = $this->idClinica;

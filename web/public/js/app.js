@@ -320,7 +320,7 @@
       return true;
     }
     var a = target.closest('a');
-    if (a && !a.classList.contains('agenda-paciente-link')) {
+    if (a) {
       return true;
     }
     return false;
