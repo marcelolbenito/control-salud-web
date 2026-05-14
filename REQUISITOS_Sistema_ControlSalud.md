@@ -67,11 +67,11 @@ Esta seccion traduce el circuito operativo informado por el usuario a procesos d
 6. El profesional llama al paciente por pantalla/anunciador.
 7. Luego se marca como `atendido`.
 
-**Estado actual web:** **Parcial / alto**.
+**Estado actual web:** **Alto / operativo inicial**.
 
-- Implementado: agenda diaria, marca `llego`, anunciador, cierre `atendido`, pagos, recibo y caja.
-- Falta ordenar mejor el flujo "cobrar -> llego" desde una pantalla unica de recepcion.
-- Falta validar si toda consulta particular siempre genera orden/practica o solo pago directo.
+- Implementado: agenda diaria, marca `llego`, anunciador, cierre `atendido`, pagos, recibo, caja y acceso `Cobro / Orden` desde el turno.
+- Implementado: recepcion guiada permite registrar pago particular y marcar `llego` solo si corresponde.
+- Pendiente: validar si toda consulta particular debe generar orden/practica o si algunos casos quedan como pago directo.
 
 ### P-REC-02 — Recepcion de paciente con obra social
 
@@ -84,11 +84,12 @@ Esta seccion traduce el circuito operativo informado por el usuario a procesos d
 5. Se marca el turno como `llego`.
 6. El profesional ve al paciente y lo llama por pantalla/anunciador.
 
-**Estado actual web:** **Parcial / alto**.
+**Estado actual web:** **Alto / operativo inicial**.
 
 - Implementado: ordenes, estados, cobertura/plan/practica, autorizada, entregada, filtros avanzados, agenda y anunciador.
-- Falta una accion guiada desde recepcion/agenda: "cargar orden/autorizacion y marcar llego".
-- Falta definir obligatoriedad de campos de autorizacion segun obra social.
+- Implementado: `Cobro / Orden` abre la orden completa prellenada desde el turno y evita duplicar orden si ya existe una vinculada.
+- Implementado: la orden muestra datos propios del paciente (obra social, plan, afiliado) y puede buscar arancel por obra social + practica.
+- Pendiente: definir obligatoriedad de campos de autorizacion segun obra social.
 
 ### P-TUR-01 — Solicitud y confirmacion de turno
 
@@ -98,12 +99,12 @@ Esta seccion traduce el circuito operativo informado por el usuario a procesos d
 2. Secretaria o el portal agenda el turno.
 3. Al confirmarse el turno, el paciente recibe confirmacion con fecha, hora y profesional.
 
-**Estado actual web:** **Parcial**.
+**Estado actual web:** **Parcial / MVP web**.
 
-- Implementado: agenda interna y alta/edicion de turnos.
+- Implementado: agenda interna, alta/edicion de turnos y Agenda Web MVP con ingreso por documento para reservar turnos disponibles.
 - Documentado: recordatorios WhatsApp (RF-SAT-02) y Agenda web (RF-SAT-03).
 - Falta implementar envio automatico de confirmacion al crear turno.
-- Falta portal web/autogestion de turnos.
+- Falta definir politicas de cancelacion/reprogramacion y confirmaciones al paciente.
 
 ### P-REC-03 — Recordatorio de turno
 
@@ -137,9 +138,11 @@ Esta seccion traduce el circuito operativo informado por el usuario a procesos d
 - Cantidad.
 - Costo de practica.
 
-**Estado actual web:** **Parcial**.
+**Estado actual web:** **Parcial / base ampliada**.
 
-- Implementado: ordenes, filtros por cobertura/plan/practica/fecha/doctor, estados `A/F/P` en orden y cobertura, totales.
+- Implementado: ordenes, filtros por cobertura/obra social/plan/practica/fecha/doctor, estados `A/F/P` en orden y cobertura, totales.
+- Implementado: listado operativo con fecha, practica, obra social, paciente, nro afiliado, profesional y monto obra social.
+- Implementado: arancel inicial desde `lista_precios` / `Lista Precios` por obra social + practica + plan.
 - Falta pantalla/proceso especifico de "facturar lote" por obra social.
 - Falta reporte con columnas exactas del usuario y accion masiva "marcar facturadas".
 - Falta definir si `estado_os = F` sera el campo oficial para `FACTURADA` por obra social.
@@ -155,21 +158,22 @@ Esta seccion traduce el circuito operativo informado por el usuario a procesos d
 5. Al registrar pago se indica medio: efectivo, debito, transferencia o electronico.
 6. Se diferencia turno manana / turno tarde.
 
-**Estado actual web:** **Parcial / alto**.
+**Estado actual web:** **Alto / cierre inicial**.
 
 - Implementado: pagos con `forma_pago`, caja con ingresos/egresos manuales, importes y fechas.
+- Implementado: cierre de caja por fecha/turno, detalle de movimientos y movimientos inmutables con correccion por contra movimiento.
 - Implementado parcialmente: `turnocaja` existe como texto operativo.
-- Falta cierre diario formal de caja.
 - Falta normalizar "turno manana/tarde" como campo controlado para pagos/caja.
 - Falta reporte diario de cierre con totales por medio de pago y turno.
+- Falta definir bloqueo operativo de nuevos movimientos cuando caja/turno ya fue cerrado.
 
 ### Priorizacion sugerida desde estos procesos
 
-1. **Recepcion guiada desde Agenda:** particular/obra social, cobrar o cargar orden, luego `llego`.
-2. **Facturacion obra social:** reporte por obra social + marcar ordenes facturadas.
-3. **Caja diaria:** cierre, totales por medio de pago y turno manana/tarde.
-4. **Confirmacion/recordatorio WhatsApp:** confirmacion al crear turno + recordatorio dia anterior.
-5. **Portal web de turnos:** despues de estabilizar agenda interna + WhatsApp.
+1. **Facturacion obra social:** reporte por obra social + marcar ordenes facturadas.
+2. **Caja diaria v2:** turno manana/tarde controlado, totales por medio de pago y bloqueo tras cierre.
+3. **Confirmacion/recordatorio WhatsApp:** confirmacion al crear turno + recordatorio dia anterior.
+4. **Agenda Web v2:** cancelacion/reprogramacion y reglas de disponibilidad mas finas.
+5. **Modulos clinicos mayores:** consultas medicas e internacion/camas.
 
 ---
 
@@ -692,8 +696,9 @@ CREATE TABLE IF NOT EXISTS agenda_recordatorios (
 
 ### A.7 Brecha respecto a la web actual (`web/`)
 
-- Faltan en UI/API muchos filtros del Anexo (IVA, pagos paciente/cobertura, multi-estado A/F/P como en exe, bloque sesiones, fechas de liquidación, totales).
-- La grilla web debe aproximar las columnas del Anexo (incl. **debe** calculado y nombre de **práctica** si hay lista).
+- Implementado parcialmente: filtros por obra social/cobertura, plan, practica, fechas, profesional, estados A/F/P, sesiones, IVA, autorizacion, liquidacion y totales.
+- Implementado parcialmente: grilla aproximada con fecha, practica, obra social, paciente, nro afiliado, profesional, monto obra social, debe paciente y nombre de practica si hay lista.
+- Faltan acciones avanzadas del exe: facturar lote, marcar facturadas, pagar cobertura, impresiones/exportaciones especificas y liquidacion masiva de honorarios.
 
 ---
 
@@ -763,12 +768,12 @@ Estados sugeridos para gestion diaria: **[x] listo**, **[~] parcial**, **[ ] pen
 - [~] **Ficha de paciente extendida:** existe base web, falta cerrar todos los campos/pestanas del exe (Anexo B).
 - [x] **Doctores:** ABM + uso transversal en agenda/ordenes/sesiones.
 - [x] **Agenda y turnos:** agenda diaria, alta/edicion de turnos, bloqueos.
-- [~] **Ordenes:** ABM y filtros base; falta cerrar filtros/acciones avanzadas del exe (RF-ORD-02, Anexo A).
+- [~] **Ordenes:** ABM, busqueda de paciente por nombre/DNI, arancel por obra social/practica y listado operativo; falta facturacion por lote y acciones avanzadas del exe (RF-ORD-02, Anexo A).
 - [~] **Sesiones:** ABM y vinculacion con ordenes; falta cierre de reportes y filtros avanzados por sesiones.
-- [~] **Pagos y Caja:** flujo operativo inicial activo; falta paridad de informes y reglas finas del exe.
+- [~] **Pagos y Caja:** flujo operativo inicial activo con cierre de caja y contra movimientos; falta totales por medio/turno y reglas finas del exe.
 - [ ] **Consultas medicas:** tablas/modelo presentes, falta modulo web completo.
 - [ ] **Internacion/camas:** modelo presente, falta modulo web completo.
-- [~] **Satelites (Anunciador/Recordatorios/AgendaWeb):** Anunciador v1 web operativo; pendientes Recordatorios y AgendaWeb.
+- [~] **Satelites (Anunciador/Recordatorios/AgendaWeb):** Anunciador v1 y Agenda Web MVP operativos; pendiente Recordatorios y v2 de Agenda Web.
 
 ### B) Calidad tecnica minima (para avanzar sin deuda peligrosa)
 
@@ -781,7 +786,7 @@ Estados sugeridos para gestion diaria: **[x] listo**, **[~] parcial**, **[ ] pen
 ### C) Operacion y despliegue (checklist rapido por entorno)
 
 - [ ] Base creada e importada (`sql/schema_mysql.sql` + migraciones pendientes por numero).
-- [ ] Catalogos de ordenes validados con datos reales (cobertura/plan/practica/derivacion/sucursal).
+- [~] Catalogos de ordenes validados parcialmente con datos reales (cobertura/plan/practica/precios); falta completar derivacion/sucursal y prueba funcional de aranceles.
 - [ ] Multi-clinica validada (`id_clinica` coherente en usuarios y datos operativos).
 - [ ] Flujo funcional minimo verificado: login -> paciente -> turno -> orden -> pago -> caja.
 - [ ] Configuracion de `base_path` validada segun URL real de despliegue.
@@ -847,3 +852,4 @@ Un item se considera cerrado cuando cumple todo lo siguiente:
 | 1.0 | 2026-04-30 | Se agrega checklist de implementacion futura para RF-SAT-02 Recordatorios por WhatsApp (Twilio): funcional, tecnico, datos, webhook, UI, pruebas y criterio de cierre. |
 | 1.1 | 2026-04-30 | Se agrega para RF-SAT-02 el diccionario propuesto de `agenda_recordatorios`, indices minimos y borrador documental de `migration_031_agenda_recordatorios.sql` (sin implementacion aun). |
 | 1.2 | 2026-05-13 | Se incorporan procesos operativos reales del centro: recepcion particular/obra social, turnos, recordatorios, facturacion por obra social y caja diaria, con estado actual y priorizacion. |
+| 1.3 | 2026-05-14 | Se actualiza hoja de ruta tras recepcion guiada, Agenda Web MVP, cierre de caja inicial y mejoras de ordenes/aranceles/listado para facturacion. |
