@@ -29,6 +29,7 @@ declare(strict_types=1);
                         <?php endif; ?>
                         <th>Médico convenio</th>
                         <th>Activo</th>
+                        <th>Usuario</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -44,6 +45,14 @@ declare(strict_types=1);
                             <?php endif; ?>
                             <td><?= (int) $r['medicoconvenio'] ? 'Sí' : 'No' ?></td>
                             <td><?= (int) $r['activo'] ? 'Sí' : 'No' ?></td>
+                            <td>
+                                <?php if (trim((string) ($r['usuario_login'] ?? '')) !== ''): ?>
+                                    <?= h((string) $r['usuario_login']) ?>
+                                    <span class="muted small">(<?= !empty($r['usuario_activo']) ? 'activo' : 'inactivo' ?>)</span>
+                                <?php else: ?>
+                                    <span class="muted">—</span>
+                                <?php endif; ?>
+                            </td>
                             <td class="table-actions">
                                 <a class="btn btn-sm btn-ghost btn-icon" title="Editar" href="/doctor_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="btn-label"> Editar</span></a>
                                 <form action="/doctor_eliminar.php" method="post" class="table-action-form" onsubmit="return confirm('¿Eliminar este profesional? Si tiene datos vinculados (turnos, órdenes, sesiones, caja), se desactivará en lugar de borrarse.');">

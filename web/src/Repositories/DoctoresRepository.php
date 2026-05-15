@@ -30,13 +30,22 @@ final class DoctoresRepository
 
     public function listForIndex(bool $extDoc): array
     {
+        $joinUsuario = $this->usuariosDoctorDisponible();
         $sel = $extDoc
-            ? 'SELECT id, nombre, especialidad, matricula, telefono, medicoconvenio, activo FROM lista_doctores'
-            : 'SELECT id, nombre, medicoconvenio, activo FROM lista_doctores';
-        if ($this->doctoresTieneClinica()) {
-            $sel .= ' WHERE id_clinica = ?';
+            ? 'SELECT d.id, d.nombre, d.especialidad, d.matricula, d.telefono, d.medicoconvenio, d.activo'
+            : 'SELECT d.id, d.nombre, d.medicoconvenio, d.activo';
+        $sel .= $joinUsuario ? ', u.usuario AS usuario_login, u.activo AS usuario_activo' : ', NULL AS usuario_login, NULL AS usuario_activo';
+        $sel .= ' FROM lista_doctores d';
+        if ($joinUsuario) {
+            $sel .= ' LEFT JOIN usuarios u ON u.id_doctor = d.id';
+            if ($this->doctoresTieneClinica() && db_table_has_column($this->pdo, 'usuarios', 'id_clinica')) {
+                $sel .= ' AND u.id_clinica = d.id_clinica';
+            }
         }
-        $sel .= ' ORDER BY nombre ASC LIMIT 500';
+        if ($this->doctoresTieneClinica()) {
+            $sel .= ' WHERE d.id_clinica = ?';
+        }
+        $sel .= ' ORDER BY d.nombre ASC LIMIT 500';
         if ($this->doctoresTieneClinica()) {
             $st = $this->pdo->prepare($sel);
             $st->execute([$this->idClinica]);
@@ -45,6 +54,123 @@ final class DoctoresRepository
         }
 
         return $this->pdo->query($sel)->fetchAll();
+    }
+
+    public function usuariosDoctorDisponible(): bool
+    {
+        return db_table_exists($this->pdo, 'usuarios')
+            && db_table_has_column($this->pdo, 'usuarios', 'usuario')
+            && db_table_has_column($this->pdo, 'usuarios', 'password_hash')
+            && db_table_has_column($this->pdo, 'usuarios', 'rol')
+            && db_table_has_column($this->pdo, 'usuarios', 'id_doctor');
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    public function findUsuarioByDoctor(int $doctorId): ?array
+    {
+        if ($doctorId < 1 || !$this->usuariosDoctorDisponible()) {
+            return null;
+        }
+
+        $sql = 'SELECT id, usuario, nombre, email, activo, rol, id_doctor';
+        if (db_table_has_column($this->pdo, 'usuarios', 'id_clinica')) {
+            $sql .= ', id_clinica';
+        }
+        $sql .= ' FROM usuarios WHERE id_doctor = ?';
+        $params = [$doctorId];
+        if (db_table_has_column($this->pdo, 'usuarios', 'id_clinica')) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    public function usuarioLoginDisponible(string $usuario, int $excludeUserId = 0): bool
+    {
+        if (!$this->usuariosDoctorDisponible()) {
+            return false;
+        }
+        $sql = 'SELECT id FROM usuarios WHERE usuario = ?';
+        $params = [$usuario];
+        if ($excludeUserId > 0) {
+            $sql .= ' AND id <> ?';
+            $params[] = $excludeUserId;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return !$st->fetch();
+    }
+
+    public function guardarUsuarioDoctor(
+        int $doctorId,
+        string $usuario,
+        ?string $clavePlano,
+        string $nombre,
+        int $activo,
+        ?int $usuarioId = null
+    ): int {
+        if ($doctorId < 1 || !$this->usuariosDoctorDisponible()) {
+            return 0;
+        }
+
+        $usuario = trim($usuario);
+        $nombre = trim($nombre);
+        $activo = $activo ? 1 : 0;
+        $existing = $usuarioId !== null && $usuarioId > 0 ? $usuarioId : 0;
+
+        if ($existing > 0) {
+            $sets = ['usuario = ?', 'nombre = ?', 'activo = ?', 'rol = ?', 'id_doctor = ?'];
+            $params = [$usuario, $nombre, $activo, 'doctor', $doctorId];
+            if ($clavePlano !== null && $clavePlano !== '') {
+                $sets[] = 'password_hash = ?';
+                $params[] = password_hash($clavePlano, PASSWORD_DEFAULT);
+            }
+            if (db_table_has_column($this->pdo, 'usuarios', 'id_clinica')) {
+                $sets[] = 'id_clinica = ?';
+                $params[] = $this->idClinica;
+            }
+            $params[] = $existing;
+            $sql = 'UPDATE usuarios SET ' . implode(', ', $sets) . ' WHERE id = ?';
+            $this->pdo->prepare($sql)->execute($params);
+
+            return $existing;
+        }
+
+        $cols = ['usuario', 'password_hash', 'nombre', 'activo', 'rol', 'id_doctor'];
+        $vals = [$usuario, password_hash((string) $clavePlano, PASSWORD_DEFAULT), $nombre, $activo, 'doctor', $doctorId];
+        if (db_table_has_column($this->pdo, 'usuarios', 'id_clinica')) {
+            $cols[] = 'id_clinica';
+            $vals[] = $this->idClinica;
+        }
+        $colSql = implode(', ', $cols);
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        $st = $this->pdo->prepare('INSERT INTO usuarios (' . $colSql . ') VALUES (' . $ph . ')');
+        $st->execute($vals);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    public function desactivarUsuarioDoctor(int $doctorId): void
+    {
+        if ($doctorId < 1 || !$this->usuariosDoctorDisponible()) {
+            return;
+        }
+        $sql = 'UPDATE usuarios SET activo = 0 WHERE id_doctor = ?';
+        $params = [$doctorId];
+        if (db_table_has_column($this->pdo, 'usuarios', 'id_clinica')) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function listActivos(): array

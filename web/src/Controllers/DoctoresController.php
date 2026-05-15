@@ -36,6 +36,7 @@ final class DoctoresController
         $ext = $repo->hasExtendedColumns();
         $legacyAgendaDisponible = $repo->hasLegacyHorarioTable();
         $especialidadesOpts = $ext ? $repo->listEspecialidadesCatalog() : [];
+        $usuariosDoctorDisponible = $repo->usuariosDoctorDisponible();
 
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         $row = [
@@ -62,6 +63,7 @@ final class DoctoresController
             }
             $row = array_merge($row, $loaded);
         }
+        $usuarioDoctor = $id > 0 ? $repo->findUsuarioByDoctor($id) : null;
 
         $agendaSemana = $this->buildAgendaSemanaDefaults();
         if ($legacyAgendaDisponible && $id > 0) {
@@ -81,6 +83,11 @@ final class DoctoresController
             $bloquearmisconsultas = isset($_POST['bloquearmisconsultas']) ? 1 : 0;
             $activo = isset($_POST['activo']) ? 1 : 0;
             $notas = trim((string) ($_POST['notas'] ?? ''));
+            $habilitarUsuarioDoctor = isset($_POST['habilitar_usuario_doctor']) ? 1 : 0;
+            $usuarioDoctorId = (int) ($_POST['usuario_doctor_id'] ?? 0);
+            $usuarioDoctorLogin = trim((string) ($_POST['usuario_doctor'] ?? ''));
+            $claveDoctor = (string) ($_POST['clave_doctor'] ?? '');
+            $usuarioDoctorActivo = isset($_POST['usuario_doctor_activo']) ? 1 : 0;
 
             $ex = [];
             if ($ext) {
@@ -104,6 +111,16 @@ final class DoctoresController
 
             if ($nombre === '') {
                 $error = 'El nombre es obligatorio.';
+            } elseif ($habilitarUsuarioDoctor && !$usuariosDoctorDisponible) {
+                $error = 'No está disponible la estructura de usuarios para vincular un profesional. Ejecutá las migraciones de roles/id_doctor.';
+            } elseif ($habilitarUsuarioDoctor && $usuarioDoctorLogin === '') {
+                $error = 'Indicá un usuario para el ingreso del profesional.';
+            } elseif ($habilitarUsuarioDoctor && !preg_match('/^[a-zA-Z0-9._-]{3,50}$/', $usuarioDoctorLogin)) {
+                $error = 'El usuario del profesional debe tener 3 a 50 caracteres y usar letras, números, punto, guion o guion bajo.';
+            } elseif ($habilitarUsuarioDoctor && $usuarioDoctorId < 1 && trim($claveDoctor) === '') {
+                $error = 'Indicá una contraseña inicial para el profesional.';
+            } elseif ($habilitarUsuarioDoctor && !$repo->usuarioLoginDisponible($usuarioDoctorLogin, $usuarioDoctorId)) {
+                $error = 'Ese nombre de usuario ya está en uso.';
             } else {
                 if ($ext) {
                     if ($id > 0) {
@@ -153,6 +170,20 @@ final class DoctoresController
                         $error = 'Se guardó el profesional, pero no se pudo guardar la agenda semanal.';
                     }
                 }
+                if ($error === '' && $usuariosDoctorDisponible && $doctorId > 0) {
+                    if ($habilitarUsuarioDoctor) {
+                        $repo->guardarUsuarioDoctor(
+                            $doctorId,
+                            $usuarioDoctorLogin,
+                            trim($claveDoctor) !== '' ? $claveDoctor : null,
+                            $nombre,
+                            $usuarioDoctorActivo,
+                            $usuarioDoctorId > 0 ? $usuarioDoctorId : null
+                        );
+                    } elseif ($usuarioDoctorId > 0) {
+                        $repo->desactivarUsuarioDoctor($doctorId);
+                    }
+                }
 
                 if ($error === '') {
                 flash_set($id > 0 ? 'Profesional actualizado.' : 'Profesional creado.');
@@ -171,6 +202,13 @@ final class DoctoresController
             if ($legacyAgendaDisponible) {
                 $agendaSemana = $this->buildAgendaSemanaFromPost($_POST);
             }
+            $usuarioDoctor = [
+                'id' => $usuarioDoctorId,
+                'usuario' => $usuarioDoctorLogin,
+                'activo' => $usuarioDoctorActivo,
+                'rol' => 'doctor',
+                'id_doctor' => $id,
+            ];
         }
 
         $titulo = $row['id'] ? 'Editar profesional' : 'Nuevo profesional';
@@ -180,6 +218,8 @@ final class DoctoresController
             'agendaSemana' => $agendaSemana,
             'legacyAgendaDisponible' => $legacyAgendaDisponible,
             'especialidadesOpts' => $especialidadesOpts,
+            'usuariosDoctorDisponible' => $usuariosDoctorDisponible,
+            'usuarioDoctor' => $usuarioDoctor,
             'error' => $error,
             'titulo' => $titulo,
         ]);

@@ -1,6 +1,18 @@
 <?php
 
 declare(strict_types=1);
+/** @var bool $usuariosDoctorDisponible */
+/** @var array<string,mixed>|null $usuarioDoctor */
+$usuarioDoctor = $usuarioDoctor ?? null;
+$usuarioDoctorId = (int) ($usuarioDoctor['id'] ?? 0);
+$usuarioDoctorLogin = trim((string) ($usuarioDoctor['usuario'] ?? ''));
+$usuarioDoctorTieneAcceso = $usuarioDoctorId > 0;
+$usuarioDoctorActivo = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? isset($_POST['usuario_doctor_activo'])
+    : ($usuarioDoctorId > 0 ? !empty($usuarioDoctor['activo']) : true);
+$habilitarUsuarioDoctorChecked = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? isset($_POST['habilitar_usuario_doctor'])
+    : $usuarioDoctorTieneAcceso;
 ?>
 <div class="container container-wide">
     <div class="page-head">
@@ -88,6 +100,35 @@ declare(strict_types=1);
                     <p class="hint span-2">En Access hay muchos permisos por usuario (accesoagenda, etc.); la web por ahora no los replica.</p>
                 <?php endif; ?>
             </div>
+        </section>
+
+        <section class="form-section">
+            <h2 class="form-section-title">Acceso al sistema</h2>
+            <?php if (!$usuariosDoctorDisponible): ?>
+                <p class="alert alert-error" style="background:#fffbeb;border-color:#fcd34d;color:#92400e;">
+                    Para crear usuarios médicos debe existir la tabla <code>usuarios</code> con columnas <code>rol</code> e <code>id_doctor</code>.
+                    Ejecutá <code>sql/migration_028_usuarios_roles.sql</code> y <code>sql/migration_029_usuarios_id_doctor.sql</code> si faltan.
+                </p>
+            <?php else: ?>
+                <p class="muted small">Permite que el profesional ingrese con rol <strong>doctor</strong> y vea su agenda vinculada. La contraseña no se muestra ni se guarda en texto plano.</p>
+                <input type="hidden" name="usuario_doctor_id" value="<?= $usuarioDoctorId ?>">
+                <div class="form-grid-ext">
+                    <label class="form-check span-2">
+                        <input type="checkbox" name="habilitar_usuario_doctor" value="1" <?= $habilitarUsuarioDoctorChecked ? ' checked' : '' ?>>
+                        Crear / vincular usuario para este profesional
+                    </label>
+                    <label>Usuario
+                        <input type="text" name="usuario_doctor" value="<?= h((string) ($_POST['usuario_doctor'] ?? $usuarioDoctorLogin)) ?>" maxlength="50" autocomplete="username" placeholder="Ej. dra.perez">
+                    </label>
+                    <label>Contraseña
+                        <input type="password" name="clave_doctor" autocomplete="new-password" placeholder="<?= $usuarioDoctorTieneAcceso ? 'Dejar vacío para mantener actual' : 'Contraseña inicial' ?>">
+                    </label>
+                    <label class="form-check span-2">
+                        <input type="checkbox" name="usuario_doctor_activo" value="1" <?= $usuarioDoctorActivo ? ' checked' : '' ?>>
+                        Usuario activo
+                    </label>
+                </div>
+            <?php endif; ?>
         </section>
 
         <?php if (!empty($legacyAgendaDisponible)): ?>
