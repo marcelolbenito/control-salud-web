@@ -79,9 +79,10 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                         <a class="side-sublink<?= $isPath('/caja_cierre.php') ? ' is-active' : '' ?>" href="/caja_cierre.php">Cierre de caja</a>
                         <a class="side-sublink<?= $isPath('/pagos.php') || $isPath('/pagos_form.php') ? ' is-active' : '' ?>" href="/pagos.php">Pagos</a>
                     </details>
-                    <details class="side-group"<?= $isPath('/catalogos.php') || $isPath('/sistema.php') ? ' open' : '' ?>>
+                    <details class="side-group"<?= $isPath('/catalogos.php') || $isPath('/aranceles.php') || $isPath('/sistema.php') ? ' open' : '' ?>>
                         <summary><i class="bi bi-gear" aria-hidden="true"></i><span class="side-label">Sistema</span></summary>
                         <a class="side-sublink<?= $isPath('/catalogos.php') ? ' is-active' : '' ?>" href="/catalogos.php">Tablas auxiliares</a>
+                        <a class="side-sublink<?= $isPath('/aranceles.php') ? ' is-active' : '' ?>" href="/aranceles.php">Aranceles (precios OS)</a>
                         <a class="side-sublink<?= $isPath('/sistema.php') ? ' is-active' : '' ?>" href="/sistema.php">Configuración</a>
                     </details>
                 <?php endif; ?>

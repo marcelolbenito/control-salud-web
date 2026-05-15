@@ -558,12 +558,25 @@ body.sidebar-compact .sidebar .side-group summary {
 }
 
 .filter-row input[type="date"],
-.filter-row select {
+.filter-row select,
+.filter-row input[type="search"],
+.filter-row input[type="text"] {
   padding: 0.45rem 0.6rem;
   border: 1px solid #d6d3d1;
   border-radius: 6px;
   font: inherit;
   min-width: 11rem;
+}
+
+.filter-row label.filter-actions-label {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
+.filter-row .hint {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: #64748b;
 }
 
 .checkbox-inline-group {

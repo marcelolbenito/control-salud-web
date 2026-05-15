@@ -276,7 +276,7 @@ final class CatalogosController
         $map = [
             'lista_coberturas' => ['categoria' => 'Ordenes', 'descripcion' => 'Obras sociales usadas en ordenes y pacientes.'],
             'lista_planes' => ['categoria' => 'Ordenes', 'descripcion' => 'Planes vinculados a cada cobertura.'],
-            'lista_practicas' => ['categoria' => 'Ordenes', 'descripcion' => 'Practicas/estudios del formulario de ordenes.'],
+            'lista_practicas' => ['categoria' => 'Ordenes', 'descripcion' => 'Nombres de practicas/estudios. Los importes por obra social estan en Aranceles (precios OS).'],
             'lista_derivaciones' => ['categoria' => 'Ordenes', 'descripcion' => 'Derivadores o centros de derivacion.'],
             'lista_sucursales' => ['categoria' => 'Ordenes', 'descripcion' => 'Sucursales para ordenes y reportes.'],
             'lista_motivos_consulta' => ['categoria' => 'Agenda', 'descripcion' => 'Motivos de consulta para turnos.'],
