@@ -4,11 +4,25 @@
 *.mdb
 *.accdb
 
-# Bases / dumps grandes
+# Bases / dumps grandes (no subir a GitHub)
 *.mdf
 *.ldf
 *.sql~
+control_salud.sql
+control_salud_datos.sql
+control_salud_phpmyadmin.sql
+instituto_datos.sql
+control_salud_datos/
 sql/migracion/migration_from_sqlserver_full.sql
+sql/migracion/export/*.sql
+sql/migracion/config.env
+
+# SQL Server local / backups de datos
+DATA/
+
+# Laboratorio / migración — artefactos locales
+Laboratorio/laboratorio-main.zip
+/Logo*.zip
 
 # Secretos y entorno local
 **/config.local.php
