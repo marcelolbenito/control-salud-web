@@ -1,0 +1,79 @@
+# Nginx — módulo Laboratorio (Control Salud)
+# Producción (gesis2 / rutas reales): ver nginx-laboratorio-produccion.conf
+# Copiar el bloque que corresponda al server {} del sitio.
+# Ajustar rutas absolutas y el socket/php-fpm (o proxy_pass).
+# Probar: nginx -t && systemctl reload nginx
+#
+# En Laboratorio/.env: APP_BASE_PATH=/laboratorio
+# En web config: 'laboratorio' => ['enabled' => true, 'path' => '/laboratorio']
+
+# ---------------------------------------------------------------------------
+# Opción A (recomendada): servir directo desde Laboratorio/public
+# No usa el puente web/public/laboratorio/
+# ---------------------------------------------------------------------------
+
+# RUTA_LAB = /home/USUARIO/Laboratorio/public
+
+location = /laboratorio {
+    return 301 /laboratorio/;
+}
+
+# CSS/JS sin pasar por PHP (rápido)
+location ^~ /laboratorio/assets/ {
+    alias /home/USUARIO/Laboratorio/public/assets/;
+    expires 7d;
+    access_log off;
+}
+
+location ^~ /laboratorio/ {
+    alias /home/USUARIO/Laboratorio/public/;
+    index index.php;
+
+    # Sin esto, /laboratorio/pedidos/nuevo devuelve 404 o 500 en Nginx.
+    try_files $uri $uri/ @laboratorio_fallback;
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $request_filename;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    }
+}
+
+location @laboratorio_fallback {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME /home/USUARIO/Laboratorio/public/index.php;
+    fastcgi_param REQUEST_URI $request_uri;
+    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+}
+
+# ---------------------------------------------------------------------------
+# Opción B: puente FTP (web/public/laboratorio/index.php)
+# RUTA_WEB = /home/USUARIO/public_html   (DocumentRoot = contenido de web/public)
+#
+# OBLIGATORIO: sin try_files, solo funciona /laboratorio/ (index.php físico).
+# /laboratorio/health, /laboratorio/pedidos/nuevo → caen en Control Salud → login/500.
+# ---------------------------------------------------------------------------
+
+# location = /laboratorio {
+#     return 301 /laboratorio/;
+# }
+#
+# location ^~ /laboratorio/assets/ {
+#     alias /home/USUARIO/Laboratorio/public/assets/;
+#     expires 7d;
+# }
+#
+location /laboratorio/ {
+    root /home/USUARIO/public_html;
+    try_files $uri $uri/ /laboratorio/index.php?$query_string;
+}
+
+location = /laboratorio/index.php {
+    root /home/USUARIO/public_html;
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+}
+
+# Mismo bloque para health.php del puente (diagnóstico sin rewrite):
+# /laboratorio/health.php?deep=1
