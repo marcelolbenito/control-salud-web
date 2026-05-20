@@ -1,0 +1,25 @@
+# Dependencias
+/vendor/
+
+# Variables de entorno
+.env
+.env.local
+.env.testing
+
+# Storage (ignorar contenido pero conservar carpeta)
+/storage/logs/*
+!/storage/logs/.gitkeep
+
+/storage/informes/*
+!/storage/informes/.gitkeep
+
+# Caches
+*.cache
+.phpunit.result.cache
+.phpunit.cache/
+
+# IDEs / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

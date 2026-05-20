@@ -1,0 +1,418 @@
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_areas` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `codigo` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Identificacion corta (ej: HEM, QC, HOR)',
+  `descripcion` text COLLATE utf8mb4_unicode_ci,
+  `orden` int unsigned NOT NULL DEFAULT '0' COMMENT 'Orden de aparicion en informes',
+  `activo` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_areas_nombre` (`nombre`),
+  UNIQUE KEY `uk_lab_areas_codigo` (`codigo`),
+  KEY `idx_lab_areas_activo` (`activo`),
+  KEY `idx_lab_areas_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Areas del laboratorio (hematologia, quimica, hormonas, etc.)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_determinaciones` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `area_id` bigint unsigned NOT NULL,
+  `codigo` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Identificacion corta (ej: GLU, TSH)',
+  `nombre` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nombre_corto` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Version abreviada para PDF',
+  `unidad` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Ej: mg/dL, mU/L',
+  `metodo` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Ej: Enzimatico, ELISA',
+  `tipo_resultado` enum('numerico','texto','seleccion') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'numerico',
+  `decimales` tinyint unsigned NOT NULL DEFAULT '2' COMMENT 'Cantidad de decimales a mostrar',
+  `tiempo_demora_horas` int unsigned DEFAULT NULL COMMENT 'TAT estimado en horas',
+  `precio` decimal(10,2) DEFAULT NULL COMMENT 'Precio referencial',
+  `valor_critico_min` decimal(12,4) DEFAULT NULL,
+  `valor_critico_max` decimal(12,4) DEFAULT NULL,
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `activo` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_determinaciones_codigo` (`codigo`),
+  KEY `idx_lab_determinaciones_area_id` (`area_id`),
+  KEY `idx_lab_determinaciones_activo` (`activo`),
+  KEY `idx_lab_determinaciones_deleted_at` (`deleted_at`),
+  CONSTRAINT `fk_lab_determinaciones_area` FOREIGN KEY (`area_id`) REFERENCES `lab_areas` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=399 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Catalogo maestro de analisis del laboratorio';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_valores_referencia` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `determinacion_id` bigint unsigned NOT NULL,
+  `sexo` enum('M','F','ambos') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'ambos',
+  `edad_min_dias` int unsigned DEFAULT NULL COMMENT 'NULL = sin limite inferior',
+  `edad_max_dias` int unsigned DEFAULT NULL COMMENT 'NULL = sin limite superior',
+  `valor_min` decimal(12,4) DEFAULT NULL,
+  `valor_max` decimal(12,4) DEFAULT NULL,
+  `texto_referencia` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Para resultados textuales (ej: Negativo)',
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_lab_valores_ref_lookup` (`determinacion_id`,`sexo`,`edad_min_dias`,`edad_max_dias`),
+  KEY `idx_lab_valores_ref_deleted_at` (`deleted_at`),
+  CONSTRAINT `fk_lab_valores_ref_determinacion` FOREIGN KEY (`determinacion_id`) REFERENCES `lab_determinaciones` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Rangos normales por sexo y edad (en dias)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_perfiles` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `codigo` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nombre` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `descripcion` text COLLATE utf8mb4_unicode_ci,
+  `activo` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_perfiles_codigo` (`codigo`),
+  KEY `idx_lab_perfiles_activo` (`activo`),
+  KEY `idx_lab_perfiles_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agrupaciones predefinidas de determinaciones';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_perfil_determinaciones` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `perfil_id` bigint unsigned NOT NULL,
+  `determinacion_id` bigint unsigned NOT NULL,
+  `orden` int unsigned NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_perfil_det` (`perfil_id`,`determinacion_id`),
+  KEY `idx_lab_perfil_det_determinacion` (`determinacion_id`),
+  CONSTRAINT `fk_lab_perfil_det_determinacion` FOREIGN KEY (`determinacion_id`) REFERENCES `lab_determinaciones` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_lab_perfil_det_perfil` FOREIGN KEY (`perfil_id`) REFERENCES `lab_perfiles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pivote perfil <-> determinacion';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_pedidos` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `numero` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Numero visible: P-YYYY-NNNNN',
+  `paciente_id` bigint unsigned NOT NULL COMMENT 'FK externa a pacientes',
+  `medico_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a medicos',
+  `medico_externo` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nombre del medico si no esta en sistema',
+  `obra_social_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a obras_sociales',
+  `numero_afiliado` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `diagnostico` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `prioridad` enum('rutina','urgente','guardia') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'rutina',
+  `estado` enum('pendiente','en_proceso','parcial','completo','entregado','anulado') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pendiente',
+  `es_critico` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Denormalizado para listados rapidos',
+  `fecha_solicitud` datetime NOT NULL,
+  `fecha_extraccion` datetime DEFAULT NULL,
+  `fecha_entrega` datetime DEFAULT NULL,
+  `usuario_recepcion_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a usuarios',
+  `usuario_anulacion_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a usuarios',
+  `motivo_anulacion` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `snapshot_paciente` json DEFAULT NULL COMMENT 'Snapshot inmutable de datos del paciente al momento del pedido',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  `estado_paciente` char(1) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'A' COMMENT 'A=A facturar, F=Facturada, P=Pagada, N=No aplica',
+  `estado_seguro` char(1) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'N' COMMENT 'A=A facturar, F=Facturada, P=Pagada, N=No aplica',
+  `monto_paciente` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `monto_seguro` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `monto_honorarios` decimal(12,2) NOT NULL DEFAULT '0.00' COMMENT 'Honorarios del bioquimico responsable',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_pedidos_numero` (`numero`),
+  KEY `idx_lab_pedidos_paciente` (`paciente_id`),
+  KEY `idx_lab_pedidos_medico` (`medico_id`),
+  KEY `idx_lab_pedidos_estado` (`estado`),
+  KEY `idx_lab_pedidos_fecha_solicitud` (`fecha_solicitud`),
+  KEY `idx_lab_pedidos_es_critico` (`es_critico`),
+  KEY `idx_lab_pedidos_deleted_at` (`deleted_at`),
+  KEY `idx_lab_pedidos_estado_paciente` (`estado_paciente`),
+  KEY `idx_lab_pedidos_estado_seguro` (`estado_seguro`)
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pedidos / ordenes medicas de laboratorio';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_pedido_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `pedido_id` bigint unsigned NOT NULL,
+  `determinacion_id` bigint unsigned NOT NULL,
+  `perfil_id` bigint unsigned DEFAULT NULL COMMENT 'Perfil que origino el item',
+  `estado` enum('pendiente','en_proceso','cargado','validado','rectificado','anulado') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pendiente',
+  `precio` decimal(10,2) DEFAULT NULL COMMENT 'Snapshot del precio al momento del pedido',
+  `observaciones` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_pedido_items` (`pedido_id`,`determinacion_id`),
+  KEY `idx_lab_pedido_items_estado` (`estado`),
+  KEY `idx_lab_pedido_items_determinacion` (`determinacion_id`),
+  KEY `idx_lab_pedido_items_perfil` (`perfil_id`),
+  KEY `idx_lab_pedido_items_pedido_estado` (`pedido_id`,`estado`),
+  KEY `idx_lab_pedido_items_deleted_at` (`deleted_at`),
+  CONSTRAINT `fk_lab_pedido_items_determinacion` FOREIGN KEY (`determinacion_id`) REFERENCES `lab_determinaciones` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_lab_pedido_items_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `lab_pedidos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_lab_pedido_items_perfil` FOREIGN KEY (`perfil_id`) REFERENCES `lab_perfiles` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Items (determinaciones) de cada pedido';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_resultados` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `pedido_item_id` bigint unsigned NOT NULL,
+  `valor_numerico` decimal(15,4) DEFAULT NULL,
+  `valor_texto` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Para resultados cualitativos',
+  `unidad` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Snapshot de la unidad',
+  `es_anormal` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Fuera de rango de referencia',
+  `es_critico` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Fuera de rango critico',
+  `estado` enum('cargado','rectificado') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'cargado',
+  `valor_referencia_min` decimal(12,4) DEFAULT NULL COMMENT 'Snapshot del rango aplicado',
+  `valor_referencia_max` decimal(12,4) DEFAULT NULL,
+  `texto_referencia` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `usuario_carga_id` bigint unsigned NOT NULL COMMENT 'FK externa a usuarios',
+  `fecha_carga` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_resultados_pedido_item` (`pedido_item_id`),
+  KEY `idx_lab_resultados_estado` (`estado`),
+  KEY `idx_lab_resultados_es_critico` (`es_critico`),
+  KEY `idx_lab_resultados_es_anormal` (`es_anormal`),
+  KEY `idx_lab_resultados_deleted_at` (`deleted_at`),
+  CONSTRAINT `fk_lab_resultados_pedido_item` FOREIGN KEY (`pedido_item_id`) REFERENCES `lab_pedido_items` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Resultado actual (vivo) de cada item';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_resultados_historico` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `resultado_id` bigint unsigned NOT NULL COMMENT 'Apunta al resultado actual',
+  `pedido_item_id` bigint unsigned NOT NULL,
+  `valor_numerico` decimal(15,4) DEFAULT NULL,
+  `valor_texto` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `unidad` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `es_anormal` tinyint(1) NOT NULL,
+  `es_critico` tinyint(1) NOT NULL,
+  `version` int unsigned NOT NULL,
+  `valor_referencia_min` decimal(12,4) DEFAULT NULL,
+  `valor_referencia_max` decimal(12,4) DEFAULT NULL,
+  `texto_referencia` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `usuario_carga_id` bigint unsigned NOT NULL COMMENT 'FK externa a usuarios',
+  `usuario_validacion_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a usuarios',
+  `fecha_carga` datetime NOT NULL,
+  `fecha_validacion` datetime DEFAULT NULL,
+  `motivo_rectificacion` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `usuario_rectificacion_id` bigint unsigned NOT NULL COMMENT 'FK externa a usuarios',
+  `fecha_rectificacion` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_lab_resultados_hist_resultado` (`resultado_id`),
+  KEY `idx_lab_resultados_hist_pedido_item` (`pedido_item_id`),
+  KEY `idx_lab_resultados_hist_version` (`resultado_id`,`version`),
+  CONSTRAINT `fk_lab_resultados_hist_pedido_item` FOREIGN KEY (`pedido_item_id`) REFERENCES `lab_pedido_items` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_lab_resultados_hist_resultado` FOREIGN KEY (`resultado_id`) REFERENCES `lab_resultados` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Versiones anteriores de resultados (append-only)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_informes` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `pedido_id` bigint unsigned NOT NULL,
+  `numero` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Numero visible: I-YYYY-NNNNN',
+  `ruta_pdf` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Path relativo a storage/informes/',
+  `hash_pdf` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'SHA-256 del PDF',
+  `es_parcial` tinyint(1) NOT NULL DEFAULT '0',
+  `usuario_emision_id` bigint unsigned NOT NULL COMMENT 'FK externa a usuarios',
+  `fecha_emision` datetime NOT NULL,
+  `entregado` tinyint(1) NOT NULL DEFAULT '0',
+  `fecha_entrega` datetime DEFAULT NULL,
+  `usuario_entrega_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a usuarios',
+  `destinatario` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'A quien se entrego (paciente, familiar, etc.)',
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_informes_numero` (`numero`),
+  KEY `idx_lab_informes_pedido` (`pedido_id`),
+  KEY `idx_lab_informes_entregado` (`entregado`),
+  KEY `idx_lab_informes_fecha_emision` (`fecha_emision`),
+  KEY `idx_lab_informes_deleted_at` (`deleted_at`),
+  CONSTRAINT `fk_lab_informes_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `lab_pedidos` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Informes PDF emitidos';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_auditoria` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `usuario_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a usuarios. NULL = accion del sistema/cron',
+  `accion` enum('crear','actualizar','eliminar','validar','rectificar','anular','login','logout','cambiar_estado') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tabla_afectada` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `registro_id` bigint unsigned DEFAULT NULL,
+  `valor_anterior` json DEFAULT NULL,
+  `valor_nuevo` json DEFAULT NULL,
+  `ip` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Soporta IPv6',
+  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `contexto` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Descripcion opcional de la accion',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_lab_auditoria_tabla_registro` (`tabla_afectada`,`registro_id`),
+  KEY `idx_lab_auditoria_usuario` (`usuario_id`),
+  KEY `idx_lab_auditoria_created_at` (`created_at`),
+  KEY `idx_lab_auditoria_accion` (`accion`)
+) ENGINE=InnoDB AUTO_INCREMENT=80 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Log de auditoria (append-only)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_pagos` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `pedido_id` bigint unsigned NOT NULL,
+  `lote_id` bigint unsigned DEFAULT NULL COMMENT 'Lote de OS al que pertenece este pago (NULL = pago suelto, no por lote)',
+  `quien_pago` enum('paciente','seguro') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `monto` decimal(12,2) NOT NULL,
+  `fecha_pago` date NOT NULL,
+  `medio_pago` enum('efectivo','tarjeta','transferencia','cheque','otro') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'efectivo',
+  `referencia` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nro de comprobante / autorizacion / cheque',
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `usuario_carga_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a usuarios (quien registra)',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_lab_pagos_pedido` (`pedido_id`),
+  KEY `idx_lab_pagos_fecha` (`fecha_pago`),
+  KEY `idx_lab_pagos_quien` (`quien_pago`),
+  KEY `idx_lab_pagos_deleted` (`deleted_at`),
+  KEY `idx_lab_pagos_lote` (`lote_id`),
+  CONSTRAINT `fk_lab_pagos_lote` FOREIGN KEY (`lote_id`) REFERENCES `lab_lotes_os` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_lab_pagos_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `lab_pedidos` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pagos recibidos del paciente o del seguro por una orden de lab';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_nbu_determinaciones` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `determinacion_id` bigint unsigned NOT NULL,
+  `unidades` decimal(8,2) NOT NULL DEFAULT '0.00' COMMENT 'Cantidad de unidades NBU del analisis',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_nbu_det_determinacion` (`determinacion_id`),
+  CONSTRAINT `fk_lab_nbu_det_det` FOREIGN KEY (`determinacion_id`) REFERENCES `lab_determinaciones` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=518 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Unidades NBU por analisis (catalogo)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_nbu_valores_os` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `obra_social_id` bigint unsigned NOT NULL,
+  `valor_unitario` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '$ por unidad NBU',
+  `fecha_desde` date NOT NULL,
+  `fecha_hasta` date DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_nbu_vigencia` (`obra_social_id`,`fecha_desde`,`fecha_hasta`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Valor por unidad NBU por obra social. Sin FK a obras_sociales (otro dev).';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_lotes_os` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `numero` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'L-YYYY-NNNNN',
+  `obra_social_id` bigint unsigned NOT NULL COMMENT 'FK externa a obras_sociales',
+  `fecha_desde` date NOT NULL,
+  `fecha_hasta` date NOT NULL,
+  `estado` enum('abierto','cobrado','anulado') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'abierto',
+  `monto_total` decimal(14,2) NOT NULL DEFAULT '0.00' COMMENT 'Suma de monto_seguro_snapshot de los pedidos del lote',
+  `cantidad_pedidos` int unsigned NOT NULL DEFAULT '0' COMMENT 'Denormalizado para listados',
+  `fecha_generacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_cobro` datetime DEFAULT NULL,
+  `fecha_anulacion` datetime DEFAULT NULL,
+  `motivo_anulacion` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `usuario_generacion_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a usuarios',
+  `usuario_cobro_id` bigint unsigned DEFAULT NULL,
+  `usuario_anulacion_id` bigint unsigned DEFAULT NULL,
+  `observaciones` text COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_lotes_os_numero` (`numero`),
+  KEY `idx_lab_lotes_os_obra_social` (`obra_social_id`),
+  KEY `idx_lab_lotes_os_estado` (`estado`),
+  KEY `idx_lab_lotes_os_fechas` (`fecha_desde`,`fecha_hasta`),
+  KEY `idx_lab_lotes_os_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Lotes de facturacion a obra social (SP8)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_lote_pedidos` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `lote_id` bigint unsigned NOT NULL,
+  `pedido_id` bigint unsigned NOT NULL,
+  `monto_seguro_snapshot` decimal(12,2) NOT NULL COMMENT 'monto_seguro del pedido al sumarlo al lote (inmutable)',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lab_lote_pedidos` (`lote_id`,`pedido_id`),
+  KEY `idx_lab_lote_pedidos_pedido` (`pedido_id`),
+  CONSTRAINT `fk_lab_lote_pedidos_lote` FOREIGN KEY (`lote_id`) REFERENCES `lab_lotes_os` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_lab_lote_pedidos_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `lab_pedidos` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pedidos incluidos en cada lote (pivot, SP8)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_lote_pedido_item_excluido` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `lote_id` bigint unsigned NOT NULL,
+  `pedido_item_id` bigint unsigned NOT NULL,
+  `usuario_id` bigint unsigned DEFAULT NULL,
+  `motivo` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_lote_item` (`lote_id`,`pedido_item_id`),
+  KEY `idx_pedido_item` (`pedido_item_id`),
+  CONSTRAINT `fk_excl_item` FOREIGN KEY (`pedido_item_id`) REFERENCES `lab_pedido_items` (`id`),
+  CONSTRAINT `fk_excl_lote` FOREIGN KEY (`lote_id`) REFERENCES `lab_lotes_os` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Items del pedido excluidos de un lote OS (no cubiertos). Pasan a monto_paciente.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lab_config` (
+  `clave` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `valor` text COLLATE utf8mb4_unicode_ci,
+  `descripcion` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Para que un admin entienda que guarda la clave',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`clave`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Configuracion institucional del laboratorio (clave/valor)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+

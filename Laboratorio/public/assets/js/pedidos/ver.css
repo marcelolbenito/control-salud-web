@@ -1,0 +1,68 @@
+.ord-detalle {
+    padding: 16px 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 16px;
+}
+
+.ord-card {
+    background: #fff;
+    padding: 14px 16px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.ord-card h2 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c5aa0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+}
+
+.ord-dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 13px;
+}
+
+.ord-dl dt {
+    color: #666;
+    font-weight: 500;
+}
+
+.ord-dl dd {
+    margin: 0;
+    color: #222;
+}
+
+#ord-loading {
+    grid-column: 1 / -1;
+    padding: 40px;
+    text-align: center;
+    color: #888;
+    font-style: italic;
+}
+
+#ord-error {
+    grid-column: 1 / -1;
+}
+
+#ord-acciones .ord-btn {
+    margin-right: 8px;
+}
+
+.ord-acciones-hint {
+    font-size: 12px;
+    color: #666;
+    margin-top: 10px;
+}
+
+#ord-acciones .ord-btn[disabled] {
+    background: #ddd;
+    color: #888;
+    border-color: #bbb;
+}

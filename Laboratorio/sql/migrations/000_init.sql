@@ -1,0 +1,20 @@
+-- ============================================================================
+-- 000_init.sql - PLACEHOLDER (sin sentencias)
+-- ============================================================================
+-- Marcador de inicio. Las migrations reales arrancan en 001 y siguen
+-- secuencialmente. Ver sql/migrations/README.md para la lista completa,
+-- el orden de ejecucion y las reglas que aplican.
+--
+-- Reglas resumidas:
+--   - Prefijo lab_ en todas las tablas
+--   - Motor InnoDB, charset utf8mb4_unicode_ci
+--   - PK: id BIGINT UNSIGNED AUTO_INCREMENT
+--   - Timestamps obligatorios + soft delete (deleted_at)
+--   - DECIMAL para valores clinicos, nunca FLOAT
+--   - Estados como ENUM
+--
+-- Las tablas pacientes, usuarios, medicos, obras_sociales son del sistema
+-- principal: este modulo NO las crea, solo las referencia (sin FK explicita
+-- hasta acordar en INTEGRACION.md).
+-- ============================================================================
+

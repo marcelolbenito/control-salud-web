@@ -1,0 +1,62 @@
+/* Reportes financieros (sub-proyecto 6). */
+
+.rep-totales {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(120px, 1fr));
+    gap: 8px;
+    margin: 12px 24px;
+}
+
+.rep-tot-card {
+    background: #fff;
+    border: 1px solid #d4d4d4;
+    border-radius: 6px;
+    padding: 10px 12px;
+    text-align: center;
+}
+
+.rep-tot-card--alt {
+    background: #fff7ec;
+    border-color: #f0c97c;
+}
+
+.rep-tot-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #555;
+    letter-spacing: 0.4px;
+}
+
+.rep-tot-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1d3f73;
+    margin-top: 4px;
+}
+
+.rep-tabla {
+    font-size: 12px;
+}
+
+.rep-tabla th,
+.rep-tabla td {
+    padding: 4px 6px;
+}
+
+.rep-tabla td.num,
+.rep-tabla th.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rep-tabla td.saldo-pos {
+    color: #b34f00;
+    font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+    .rep-totales {
+        grid-template-columns: repeat(3, minmax(120px, 1fr));
+    }
+}

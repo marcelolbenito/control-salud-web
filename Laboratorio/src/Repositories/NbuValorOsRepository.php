@@ -1,0 +1,147 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Repositories;
+
+use PDO;
+
+/**
+ * Vigencias del valor unitario NBU por obra social.
+ *
+ * Una OS puede tener N vigencias historicas. Vigencia activa = fecha_hasta IS NULL
+ * o futura. Una sola vigencia es valida para una fecha dada (no se permite overlap;
+ * al crear una nueva, la anterior abierta se cierra automaticamente).
+ */
+final class NbuValorOsRepository
+{
+    public function __construct(private PDO $db)
+    {
+    }
+
+    /**
+     * Valor vigente al `fecha` (YYYY-MM-DD). Null si no hay vigencia que aplique.
+     */
+    public function findValorAt(int $obraSocialId, string $fecha): ?float
+    {
+        $stmt = $this->db->prepare(
+            'SELECT valor_unitario FROM lab_nbu_valores_os
+             WHERE obra_social_id = :id
+               AND deleted_at IS NULL
+               AND fecha_desde <= :fecha_a
+               AND (fecha_hasta IS NULL OR fecha_hasta >= :fecha_b)
+             ORDER BY fecha_desde DESC
+             LIMIT 1'
+        );
+        $stmt->execute([':id' => $obraSocialId, ':fecha_a' => $fecha, ':fecha_b' => $fecha]);
+        $row = $stmt->fetch();
+
+        return $row === false ? null : (float) $row['valor_unitario'];
+    }
+
+    /**
+     * Listado completo de OS activas con la vigencia actual (fecha_hasta IS NULL).
+     * LEFT JOIN: incluye OS sin ninguna vigencia.
+     *
+     * @return array<int,array{obra_social_id:int, nombre:string, valor_unitario:?float, fecha_desde:?string, updated_at:?string}>
+     */
+    public function listAllVigentes(): array
+    {
+        $sql = "SELECT os.id AS obra_social_id,
+                       os.nombre,
+                       v.valor_unitario,
+                       v.fecha_desde,
+                       v.updated_at
+                FROM obras_sociales os
+                LEFT JOIN lab_nbu_valores_os v
+                       ON v.obra_social_id = os.id
+                      AND v.deleted_at IS NULL
+                      AND v.fecha_hasta IS NULL
+                WHERE os.activo = 1
+                ORDER BY os.nombre ASC";
+
+        $rows = $this->db->query($sql)->fetchAll();
+
+        return array_map(static fn(array $r): array => [
+            'obra_social_id' => (int) $r['obra_social_id'],
+            'nombre'         => (string) $r['nombre'],
+            'valor_unitario' => $r['valor_unitario'] !== null ? (float) $r['valor_unitario'] : null,
+            'fecha_desde'    => $r['fecha_desde'] !== null ? (string) $r['fecha_desde'] : null,
+            'updated_at'     => $r['updated_at'] !== null ? (string) $r['updated_at'] : null,
+        ], $rows);
+    }
+
+    /**
+     * Historial de vigencias de una OS, ordenado por fecha_desde desc.
+     *
+     * @return array<int,array{id:int, valor_unitario:float, fecha_desde:string, fecha_hasta:?string}>
+     */
+    public function listarVigencias(int $obraSocialId): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id, valor_unitario, fecha_desde, fecha_hasta
+             FROM lab_nbu_valores_os
+             WHERE obra_social_id = :id AND deleted_at IS NULL
+             ORDER BY fecha_desde DESC, id DESC'
+        );
+        $stmt->execute([':id' => $obraSocialId]);
+        $rows = $stmt->fetchAll() ?: [];
+
+        return array_map(static fn(array $r): array => [
+            'id'             => (int) $r['id'],
+            'valor_unitario' => (float) $r['valor_unitario'],
+            'fecha_desde'    => (string) $r['fecha_desde'],
+            'fecha_hasta'    => $r['fecha_hasta'] !== null ? (string) $r['fecha_hasta'] : null,
+        ], $rows);
+    }
+
+    /**
+     * Crea una nueva vigencia para la OS, cerrando automaticamente la anterior abierta:
+     *   - Si existe una vigencia con fecha_hasta IS NULL, se le pone fecha_hasta = fechaDesde - 1 dia.
+     *   - Si existe alguna vigencia cerrada que abarque a fechaDesde (fecha_desde <= X <= fecha_hasta),
+     *     tambien se le ajusta el fecha_hasta a fechaDesde - 1 dia.
+     *
+     * @return int Id de la nueva vigencia
+     */
+    public function crearVigencia(int $obraSocialId, float $valorUnitario, string $fechaDesde): int
+    {
+        $diaAnterior = (new \DateTimeImmutable($fechaDesde))->modify('-1 day')->format('Y-m-d');
+
+        $stmt = $this->db->prepare(
+            'UPDATE lab_nbu_valores_os
+             SET fecha_hasta = :dia_anterior
+             WHERE obra_social_id = :id
+               AND deleted_at IS NULL
+               AND fecha_desde <= :fecha_a
+               AND (fecha_hasta IS NULL OR fecha_hasta >= :fecha_b)'
+        );
+        $stmt->execute([
+            ':id'           => $obraSocialId,
+            ':fecha_a'      => $fechaDesde,
+            ':fecha_b'      => $fechaDesde,
+            ':dia_anterior' => $diaAnterior,
+        ]);
+
+        $stmt = $this->db->prepare(
+            'INSERT INTO lab_nbu_valores_os (obra_social_id, valor_unitario, fecha_desde, fecha_hasta)
+             VALUES (:id, :v, :fd, NULL)'
+        );
+        $stmt->execute([
+            ':id' => $obraSocialId,
+            ':v'  => $valorUnitario,
+            ':fd' => $fechaDesde,
+        ]);
+
+        return (int) $this->db->lastInsertId();
+    }
+
+    public function softDelete(int $vigenciaId): bool
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE lab_nbu_valores_os SET deleted_at = CURRENT_TIMESTAMP
+             WHERE id = :id AND deleted_at IS NULL'
+        );
+        $stmt->execute([':id' => $vigenciaId]);
+        return $stmt->rowCount() > 0;
+    }
+}

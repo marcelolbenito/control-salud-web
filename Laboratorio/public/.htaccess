@@ -1,0 +1,8 @@
+# Montaje bajo /laboratorio en Apache (Alias). Reversible: quitar Alias del vhost.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /laboratorio/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
