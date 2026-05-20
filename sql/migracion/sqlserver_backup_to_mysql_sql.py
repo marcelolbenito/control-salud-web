@@ -64,6 +64,7 @@ def sql_literal(val) -> str:
         b = bytes(val)
         return "X'" + b.hex().upper() + "'"
     s = str(val)
+    s = re.sub(r"[\r\n]+", " ", s)
     s = s.replace("\\", "\\\\").replace("'", "''")
     return "'" + s + "'"
 

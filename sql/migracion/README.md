@@ -1,5 +1,13 @@
 # Migrar Control Salud (Access) → MySQL
 
+## Dump SQL Server (`Datos.bak`) → producción (doctores, pacientes, turnos)
+
+**Guía paso a paso repetible:** [`PROCEDIMIENTO_DUMP_BAK_PRODUCCION.md`](PROCEDIMIENTO_DUMP_BAK_PRODUCCION.md)
+
+Incluye export desde SQL Server, preparación de archivos (`preparar_legacy_para_produccion.ps1` o scripts Python sueltos), subida por SSH, import en Docker (`mysqldb`) y fusión con `migration_033`.
+
+---
+
 ## La forma más simple (archivo `.sql` de datos, sin CSV)
 
 No hace falta exportar a CSV a mano. Generás **un solo archivo SQL** con los datos del `.mdb` y lo ejecutás en MySQL.
