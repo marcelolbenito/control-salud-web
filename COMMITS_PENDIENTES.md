@@ -1,6 +1,23 @@
 # Commits pendientes — plan sugerido
 
-Estado al **2026-05-19** (rama `main`, último commit: `ae6b18f` — usuario médico en doctores).
+Estado al **2026-05-19** — **completado** en `main` (6 commits después de `ae6b18f`).
+
+| Commit | Mensaje |
+|--------|---------|
+| `a63abe8` | chore: ignora dumps locales, DATA y config.env con secretos |
+| `852c7de` | feat(sql): migracion legacy pacientes, doctores y turnos sin truncar (033) |
+| `0a8743f` | feat(docker): integra modulo Laboratorio en Apache local |
+| `e84889b` | feat(laboratorio): modulo LIS embebido |
+| `a0be5ca` | feat(web): puente laboratorio y guia de despliegue |
+| `a3b354e` | docs: integracion laboratorio y notas de auditoria |
+
+**Siguiente paso:** `git push origin main` cuando quieras publicar.
+
+---
+
+## Referencia del plan original
+
+Estado histórico (rama `main`, último commit previo: `ae6b18f` — usuario médico en doctores).
 
 Objetivo: ordenar lo que hay en el working tree **sin** subir secretos, dumps ni `DATA/`.
 
