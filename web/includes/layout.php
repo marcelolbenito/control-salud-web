@@ -85,6 +85,14 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                         <a class="side-sublink<?= $isPath('/aranceles.php') ? ' is-active' : '' ?>" href="/aranceles.php">Aranceles (precios OS)</a>
                         <a class="side-sublink<?= $isPath('/sistema.php') ? ' is-active' : '' ?>" href="/sistema.php">Configuración</a>
                     </details>
+                    <?php
+                    $labCfg = $cfg['laboratorio'] ?? [];
+                    if (!empty($labCfg['enabled'])) {
+                        $labPath = trim((string) ($labCfg['path'] ?? '/laboratorio'));
+                        $labHref = url(rtrim($labPath, '/') . '/');
+                        ?>
+                    <a class="side-link" href="<?= h($labHref) ?>"><i class="bi bi-droplet-half" aria-hidden="true"></i><span class="side-label">Laboratorio</span></a>
+                    <?php } ?>
                 <?php endif; ?>
                 <a class="side-link<?= $isPath('/ayuda.php') ? ' is-active' : '' ?>" href="/ayuda.php"><i class="bi bi-question-circle" aria-hidden="true"></i><span class="side-label">Ayuda</span></a>
             </nav>

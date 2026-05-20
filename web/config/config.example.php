@@ -23,4 +23,9 @@ return [
         // Dejar vacío para raíz (local). Para subcarpeta usar, por ejemplo: '/controlsalud'
         'base_path' => '',
     ],
+    // Modulo Laboratorio embebido en /laboratorio (ver Laboratorio/.env.example)
+    'laboratorio' => [
+        'enabled' => false,
+        'path' => '/laboratorio',
+    ],
 ];

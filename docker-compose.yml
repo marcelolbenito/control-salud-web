@@ -37,6 +37,7 @@ services:
       DB_PORT: "3306"
     volumes:
       - ./web:/var/www
+      - ./Laboratorio:/var/www/laboratorio
     ports:
       - "${CONTROL_SALUD_WEB_PUBLISH:-8080:80}"
 
