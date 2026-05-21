@@ -182,7 +182,7 @@ final class PedidoServiceTest extends TestCase
         $result = $service->crear($this->inputValido(), 1);
 
         $this->assertSame(99, $result['id']);
-        $this->assertMatchesRegularExpression('/^P-\d{4}-00042$/', $result['numero']);
+        $this->assertSame('42', $result['numero']);
         $this->assertSame(1, $result['items_count']);
     }
 
@@ -379,7 +379,7 @@ final class PedidoServiceTest extends TestCase
     public function test_eliminar_softdeletea_y_audita(): void
     {
         $repo = $this->createMock(PedidoRepository::class);
-        $repo->method('findById')->willReturn(['id' => 1, 'estado' => 'pendiente', 'numero' => 'P-2026-00001']);
+        $repo->method('findById')->willReturn(['id' => 1, 'estado' => 'pendiente', 'numero' => '1']);
         $repo->expects($this->once())->method('softDelete')->with(1)->willReturn(true);
 
         $this->makeService($repo)->eliminar(1, 7);

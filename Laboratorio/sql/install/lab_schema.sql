@@ -110,7 +110,8 @@ CREATE TABLE `lab_perfil_determinaciones` (
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `lab_pedidos` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `numero` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Numero visible: P-YYYY-NNNNN',
+  `numero` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Correlativo simple por año (reseteo anual). Ver columna generada anio_orden.',
+  `anio_orden` smallint unsigned GENERATED ALWAYS AS (year(`fecha_solicitud`)) STORED COMMENT 'Año derivado de fecha_solicitud, usado en la UNIQUE compuesta con numero',
   `paciente_id` bigint unsigned NOT NULL COMMENT 'FK externa a pacientes',
   `medico_id` bigint unsigned DEFAULT NULL COMMENT 'FK externa a medicos',
   `medico_externo` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nombre del medico si no esta en sistema',
@@ -137,7 +138,7 @@ CREATE TABLE `lab_pedidos` (
   `monto_seguro` decimal(12,2) NOT NULL DEFAULT '0.00',
   `monto_honorarios` decimal(12,2) NOT NULL DEFAULT '0.00' COMMENT 'Honorarios del bioquimico responsable',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_lab_pedidos_numero` (`numero`),
+  UNIQUE KEY `uk_lab_pedidos_anio_numero` (`anio_orden`,`numero`),
   KEY `idx_lab_pedidos_paciente` (`paciente_id`),
   KEY `idx_lab_pedidos_medico` (`medico_id`),
   KEY `idx_lab_pedidos_estado` (`estado`),

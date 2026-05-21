@@ -18,7 +18,7 @@ Copia de trabajo del otro dev (2026-05-19, ver `CAMBIOS.md` allí).
 | 1 | Perfiles muestran determinaciones en nuevo pedido + planilla | Solo front |
 | 2 | Búsqueda rápida en listado (`q` = DNI, nombre, HC, N° orden) | Backend + vista + CSS |
 | 3 | Búsqueda en `/resultados/cargar` (dropdown de pedidos) | Vista + JS |
-| 4 | N° orden simple + migration `024` | **BD compartida** — coordinar antes de prod |
+| 4 | N° orden simple + migration `024` | ✅ código; **aplicar SQL en prod con backup** |
 
 ## Qué NO tocar al copiar (solo en Control Salud)
 
@@ -54,12 +54,12 @@ Copia de trabajo del otro dev (2026-05-19, ver `CAMBIOS.md` allí).
 2. `public/assets/js/resultados/cargar.js` — dropdown + filtro estados cargables + `../api.js`  
 3. `public/assets/css/app.css` — `.buscador-pedido`, `.dropdown-resultados`
 
-### Fase D — N° orden (solo con acuerdo)
+### Fase D — N° orden simple ✅ (código + migration `024`)
 
-1. Copiar `sql/migrations/024_numero_orden_simple.sql` → Control Salud  
-2. `src/Services/PedidoService.php` — formato número (externo usa correlativo simple)  
-3. Actualizar `sql/install/lab_schema.sql` si aplica  
-4. **Producción:** backup + ventana; PDFs viejos conservan número anterior
+1. `sql/migrations/024_numero_orden_simple.sql`  
+2. `PedidoService.php` + `PedidoRepository::getNextNumeroForYear`  
+3. `sql/install/lab_schema.sql` y `lab_schema_phpmyadmin.sql`  
+4. **Producción:** backup + aplicar `024` **antes** de subir PHP; PDFs viejos conservan número anterior
 
 Copiar también `CAMBIOS.md` del externo a este repo como referencia histórica (opcional).
 
@@ -90,6 +90,5 @@ Después de cada fase:
 ## Orden recomendado
 
 ```text
-A (perfiles UI) → B (listado q) → C (resultados) → copy-lab-assets → deploy
-→ D (024) solo cuando coordinen producción e impresos
+A → B → C → D (código listo; migration 024 en cada entorno)
 ```

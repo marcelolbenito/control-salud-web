@@ -21,7 +21,7 @@ use Throwable;
  *   - Validacion de input (paciente, items, prioridad).
  *   - Expansion de perfiles a determinaciones.
  *   - Deduplicacion de determinaciones (un pedido no repite el mismo analisis).
- *   - Generacion de numero P-YYYY-NNNNN con reseteo anual.
+ *   - Generacion de numero correlativo simple por año (1, 2, 3, ...) con reseteo anual.
  *   - Snapshot inmutable de datos del paciente.
  *   - Atomicidad: pedido + items + auditoria en una sola transaccion.
  */
@@ -123,11 +123,7 @@ final class PedidoService
         }
 
         $year = (int) date('Y');
-        $numero = sprintf(
-            'P-%04d-%05d',
-            $year,
-            $this->pedidoRepo->getNextNumeroForYear($year)
-        );
+        $numero = (string) $this->pedidoRepo->getNextNumeroForYear($year);
 
         $pedido = new Pedido(
             id: null,

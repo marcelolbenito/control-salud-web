@@ -79,7 +79,7 @@ final class InformeServiceTest extends TestCase
     {
         return array_merge([
             'id'                => 1,
-            'numero'            => 'P-2026-00001',
+            'numero'            => '1',
             'estado'            => 'completo',
             'fecha_solicitud'   => '2026-05-06 09:00:00',
             'medico_externo'    => 'Dra. Lopez',

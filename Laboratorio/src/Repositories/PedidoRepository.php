@@ -37,22 +37,17 @@ final class PedidoRepository
     }
 
     /**
-     * Obtiene el siguiente correlativo del año (1, 2, 3, ...) en base al mayor
-     * numero P-YYYY-NNNNN existente.
+     * Obtiene el siguiente correlativo del año (1, 2, 3, ...) usando la
+     * columna generada `anio_orden` (= YEAR(fecha_solicitud)).
      */
     public function getNextNumeroForYear(int $year): int
     {
-        $prefix = sprintf('P-%04d-', $year);
-
-        $sql = "SELECT MAX(CAST(SUBSTRING(numero, ?) AS UNSIGNED)) AS last_num
+        $sql = "SELECT MAX(CAST(numero AS UNSIGNED)) AS last_num
                 FROM lab_pedidos
-                WHERE numero LIKE ?";
+                WHERE anio_orden = ?";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            strlen($prefix) + 1,
-            $prefix . '%',
-        ]);
+        $stmt->execute([$year]);
         $row = $stmt->fetch();
 
         return ((int) ($row['last_num'] ?? 0)) + 1;

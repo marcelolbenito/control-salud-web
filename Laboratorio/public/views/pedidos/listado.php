@@ -75,8 +75,8 @@ require __DIR__ . '/../_layout/header.php';
                 </label>
 
                 <label>
-                    N&deg; orden (parcial)
-                    <input id="f-numero" name="numero" type="text" placeholder="P-2026-...">
+                    N&deg; orden (exacto)
+                    <input id="f-numero" name="numero" type="text" placeholder="42">
                 </label>
 
                 <div class="paciente-picker" id="f-paciente-picker">
