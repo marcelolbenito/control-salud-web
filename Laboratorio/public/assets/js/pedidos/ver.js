@@ -2,7 +2,7 @@
  * Detalle de pedido — sub-proyecto 2.
  * Carga el pedido + items y permite anular o eliminar.
  */
-import { api, labPath } from '../api.js';
+import { api, labPath } from '../api.js?v=9';
 
 const ENDPOINT = '/api/pedidos';
 

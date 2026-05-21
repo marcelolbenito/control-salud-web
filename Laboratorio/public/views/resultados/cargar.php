@@ -14,13 +14,15 @@ require __DIR__ . '/../_layout/header.php';
 
         <fieldset class="form-section">
             <legend>Buscar pedido</legend>
-            <form id="form-buscar" class="grid">
-                <label>
-                    Numero de pedido
-                    <input type="number" id="buscar-pedido-id" min="1" required inputmode="numeric" placeholder="ID del pedido">
+            <div class="buscador-pedido">
+                <label class="busqueda-rapida">
+                    Buscar
+                    <input type="search" id="buscar-q" autocomplete="off"
+                           placeholder="DNI, apellido, nombre, HC o N&deg; orden...">
                 </label>
-                <button type="submit" class="grid-btn"><i class="bi bi-search"></i> Buscar</button>
-            </form>
+                <ul id="buscar-resultados" class="dropdown-resultados" hidden></ul>
+            </div>
+            <p class="hint">Pedidos en estado pendiente, en proceso o parcial.</p>
         </fieldset>
 
         <section id="panel-pedido" hidden>
@@ -53,5 +55,5 @@ require __DIR__ . '/../_layout/header.php';
 
         <div id="mensaje" class="mensaje" role="status" aria-live="polite" hidden></div>
 
-        <script type="module" src="<?= lab_h('/assets/js/resultados/cargar.js') ?>"></script>
+        <script type="module" src="<?= lab_asset_h('/assets/js/resultados/cargar.js') ?>?v=<?= lab_scripts_version() ?>"></script>
 <?php require __DIR__ . '/../_layout/footer.php'; ?>

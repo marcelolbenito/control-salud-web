@@ -2,8 +2,8 @@
  * Listado de pedidos — sub-proyecto 2.
  * Reusa PacienteSelector (sub-proyecto 1) para el filtro de paciente.
  */
-import { api, labPath } from '../api.js?v=7';
-import { PacienteSelector } from '../pacientes/paciente-selector.js?v=7';
+import { api, labPath } from '../api.js?v=8';
+import { PacienteSelector } from '../pacientes/paciente-selector.js?v=8';
 
 const ENDPOINT = '/api/pedidos';
 

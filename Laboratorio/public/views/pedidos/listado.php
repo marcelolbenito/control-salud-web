@@ -41,7 +41,16 @@ require __DIR__ . '/../_layout/header.php';
 
         <fieldset class="form-section">
             <legend>Filtros</legend>
-            <form id="ord-form" class="grid" autocomplete="off">
+            <form id="ord-form" autocomplete="off">
+                <label class="busqueda-rapida">
+                    Buscar
+                    <input id="f-q" name="q" type="search"
+                           placeholder="DNI, apellido, nombre, HC o N&deg; orden...">
+                </label>
+
+                <details class="filtros-avanzados">
+                    <summary>M&aacute;s filtros</summary>
+                    <div class="grid">
                 <label>
                     Estado
                     <select id="f-estado" name="estado">
@@ -66,7 +75,7 @@ require __DIR__ . '/../_layout/header.php';
                 </label>
 
                 <label>
-                    N&deg; orden
+                    N&deg; orden (parcial)
                     <input id="f-numero" name="numero" type="text" placeholder="P-2026-...">
                 </label>
 
@@ -128,8 +137,10 @@ require __DIR__ . '/../_layout/header.php';
                         <input type="checkbox" name="incluir_anulados" value="1"> Incluir anulados
                     </label>
                 </div>
+                    </div>
+                </details>
 
-                <div class="form-actions" style="grid-column: 1 / -1;">
+                <div class="form-actions">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Buscar</button>
                     <button type="button" id="btn-limpiar" class="btn btn-ghost"><i class="bi bi-eraser"></i> Limpiar</button>
                 </div>

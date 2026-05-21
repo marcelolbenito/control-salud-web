@@ -1,5 +1,5 @@
-import { api } from '../api.js?v=7';
-import { PacienteSelector } from '../pacientes/paciente-selector.js?v=7';
+import { api } from '../api.js?v=9';
+import { PacienteSelector } from '../pacientes/paciente-selector.js?v=9';
 
 const state = {
     determinaciones: [],

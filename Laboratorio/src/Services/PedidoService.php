@@ -410,7 +410,7 @@ final class PedidoService
         $out = [];
 
         // Strings que se trimean.
-        foreach (['numero', 'medico'] as $k) {
+        foreach (['numero', 'medico', 'q'] as $k) {
             if (isset($crudos[$k]) && trim((string) $crudos[$k]) !== '') {
                 $out[$k] = trim((string) $crudos[$k]);
             }

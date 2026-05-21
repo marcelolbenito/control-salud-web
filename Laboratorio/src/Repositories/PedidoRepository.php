@@ -368,6 +368,29 @@ final class PedidoRepository
             $clauses[] = 'p.numero LIKE :numero';
             $params[':numero'] = '%' . $f['numero'] . '%';
         }
+        if (!empty($f['q'])) {
+            $like = '%' . $f['q'] . '%';
+            if (ControlSaludIntegration::enabled()) {
+                $parts = [
+                    'pac.DNI LIKE :q_dni',
+                    'pac.Nombres LIKE :q_nom',
+                    'CAST(pac.NroHC AS CHAR) LIKE :q_hc',
+                    'p.numero LIKE :q_num',
+                ];
+                if (ControlSaludIntegration::pacienteHasColumn('apellido')) {
+                    $parts[] = 'pac.apellido LIKE :q_ape';
+                }
+                $clauses[] = '(' . implode(' OR ', $parts) . ')';
+            } else {
+                $clauses[] = '(pac.dni LIKE :q_dni OR pac.apellido LIKE :q_ape OR pac.nombres LIKE :q_nom'
+                           . ' OR pac.nro_hc LIKE :q_hc OR p.numero LIKE :q_num)';
+            }
+            $params[':q_dni'] = $like;
+            $params[':q_ape'] = $like;
+            $params[':q_nom'] = $like;
+            $params[':q_hc']  = $like;
+            $params[':q_num'] = $like;
+        }
         if (!empty($f['prioridad'])) {
             $clauses[] = 'p.prioridad = :prioridad';
             $params[':prioridad'] = $f['prioridad'];

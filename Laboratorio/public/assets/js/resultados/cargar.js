@@ -1,10 +1,12 @@
-import { api } from '/assets/js/api.js';
+import { api } from '../api.js?v=9';
 
 const $ = (id) => document.getElementById(id);
 const $msg = $('mensaje');
 const $panel = $('panel-pedido');
 const $info = $('info-pedido');
 const $lista = $('lista-items');
+
+const ESTADOS_CARGA = new Set(['pendiente', 'en_proceso', 'parcial']);
 
 const state = { pedidoId: null, items: [], resultados: {} };
 
@@ -97,10 +99,76 @@ function renderItems() {
     }).join('');
 }
 
-$('form-buscar').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const id = parseInt($('buscar-pedido-id').value, 10);
-    if (id > 0) await buscarPedido(id);
+// ========= Buscador de pedidos por DNI / nombre / N° orden =========
+
+const $bq = $('buscar-q');
+const $bres = $('buscar-resultados');
+let debounceTimer = null;
+let busquedaActual = 0;
+
+function ocultarDropdown() { $bres.hidden = true; $bres.innerHTML = ''; }
+
+function fmtFecha(s) {
+    if (!s) return '';
+    const d = new Date(s.replace(' ', 'T'));
+    return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString('es-AR');
+}
+
+function fmtPaciente(p) {
+    const nombre = [p.paciente_apellido, p.paciente_nombres].filter(Boolean).join(', ');
+    const hc = p.paciente_nro_hc ? ` (HC ${p.paciente_nro_hc})` : '';
+    return `${esc(nombre || '-')}${hc}`;
+}
+
+async function buscarSugerencias(q) {
+    const nro = ++busquedaActual;
+    try {
+        const data = await api.get(
+            `/api/pedidos?accion=listar&q=${encodeURIComponent(q)}&page=1`,
+        );
+        if (nro !== busquedaActual) return;
+        const pedidos = (data.pedidos || []).filter((p) => ESTADOS_CARGA.has(p.estado));
+        renderSugerencias(pedidos);
+    } catch (e) {
+        if (nro !== busquedaActual) return;
+        ocultarDropdown();
+        showMsg(`Error buscando: ${e.message}`, 'error');
+    }
+}
+
+function renderSugerencias(pedidos) {
+    if (pedidos.length === 0) {
+        $bres.innerHTML = '<li class="placeholder">Sin resultados</li>';
+        $bres.hidden = false;
+        return;
+    }
+    $bres.innerHTML = pedidos.map((p) => `
+        <li data-pedido-id="${p.id}">
+            <span><strong>N° ${esc(p.numero)}</strong> · ${fmtPaciente(p)}</span>
+            <span class="muted">${esc(fmtFecha(p.fecha_solicitud))} · ${badge(p.estado)}</span>
+        </li>`).join('');
+    $bres.hidden = false;
+}
+
+$bq.addEventListener('input', () => {
+    const q = $bq.value.trim();
+    clearTimeout(debounceTimer);
+    if (q.length < 2) { ocultarDropdown(); return; }
+    debounceTimer = setTimeout(() => buscarSugerencias(q), 300);
+});
+
+$bres.addEventListener('click', async (e) => {
+    const li = e.target.closest('li[data-pedido-id]');
+    if (!li) return;
+    const id = parseInt(li.dataset.pedidoId, 10);
+    if (!(id > 0)) return;
+    ocultarDropdown();
+    $bq.value = '';
+    await buscarPedido(id);
+});
+
+document.addEventListener('click', (e) => {
+    if (!$bres.contains(e.target) && e.target !== $bq) ocultarDropdown();
 });
 
 $lista.addEventListener('click', async (e) => {
