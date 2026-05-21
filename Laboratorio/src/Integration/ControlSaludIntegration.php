@@ -172,6 +172,42 @@ final class ControlSaludIntegration
             SQL;
     }
 
+    /** JOINs para listado de lab_pedidos (paciente + cobertura). */
+    public static function pedidoListJoinsSql(): string
+    {
+        if (!self::enabled()) {
+            return <<<'SQL'
+                LEFT JOIN pacientes pac ON pac.id = p.paciente_id
+                LEFT JOIN obras_sociales os ON os.id = p.obra_social_id
+                SQL;
+        }
+
+        $cid = self::clinicaId();
+
+        return <<<SQL
+            LEFT JOIN pacientes pac ON pac.id = p.paciente_id AND pac.id_clinica = {$cid}
+            LEFT JOIN lista_coberturas os ON os.id = p.obra_social_id
+            SQL;
+    }
+
+    /** Columnas de paciente en SELECT del listado de pedidos. */
+    public static function pedidoListPacienteSelectSql(string $pacAlias = 'pac'): string
+    {
+        if (!self::enabled()) {
+            return "{$pacAlias}.nro_hc AS paciente_nro_hc,
+                    {$pacAlias}.apellido AS paciente_apellido,
+                    {$pacAlias}.nombres AS paciente_nombres";
+        }
+
+        $apellido = self::pacienteHasColumn('apellido')
+            ? "COALESCE(NULLIF(TRIM({$pacAlias}.apellido), ''), '')"
+            : "''";
+
+        return "CAST({$pacAlias}.NroHC AS CHAR) AS paciente_nro_hc,
+                {$apellido} AS paciente_apellido,
+                COALESCE(NULLIF(TRIM({$pacAlias}.Nombres), ''), '') AS paciente_nombres";
+    }
+
     private static function loadPacienteColumns(): void
     {
         if (self::$pacienteColumns !== null) {

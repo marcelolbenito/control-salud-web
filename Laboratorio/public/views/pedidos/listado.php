@@ -169,6 +169,6 @@ require __DIR__ . '/../_layout/header.php';
             </div>
         </section>
 
-        <link rel="stylesheet" href="<?= lab_h('/assets/js/pacientes/paciente-selector.css') ?>">
-        <script type="module" src="<?= lab_h('/assets/js/pedidos/listado.js') ?>"></script>
+        <link rel="stylesheet" href="<?= lab_asset_h('/assets/js/pacientes/paciente-selector.css') ?>?v=<?= lab_scripts_version() ?>">
+        <script type="module" src="<?= lab_asset_h('/assets/js/pedidos/listado.js') ?>?v=<?= lab_scripts_version() ?>"></script>
 <?php require __DIR__ . '/../_layout/footer.php'; ?>

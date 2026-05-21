@@ -59,6 +59,6 @@ if (!function_exists('lab_api_bridge')) {
 if (!function_exists('lab_scripts_version')) {
     function lab_scripts_version(): string
     {
-        return '6';
+        return '7';
     }
 }

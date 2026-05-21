@@ -1,5 +1,5 @@
-import { api } from '../api.js?v=6';
-import { PacienteSelector } from '../pacientes/paciente-selector.js?v=6';
+import { api } from '../api.js?v=7';
+import { PacienteSelector } from '../pacientes/paciente-selector.js?v=7';
 
 const state = {
     determinaciones: [],
@@ -180,10 +180,18 @@ function renderPerf() {
     }
     for (const p of filtrados) {
         const li = document.createElement('li');
+        li.classList.add('perfil-item');
         const key = `per-${p.id}`;
-        const cnt = (p.determinaciones || []).length;
+        const dets = p.determinaciones || [];
+        const cnt = dets.length;
+        const detalle = cnt > 0
+            ? dets.map((d) => esc(d.codigo || d.nombre)).join(' &middot; ')
+            : '(sin determinaciones)';
         li.innerHTML = `
-            <span><strong>${esc(p.codigo)}</strong> &middot; ${esc(p.nombre)}</span>
+            <div class="perfil-item-main">
+                <span class="perfil-item-titulo"><strong>${esc(p.codigo)}</strong> &middot; ${esc(p.nombre)}</span>
+                <small class="perfil-detalle">${detalle}</small>
+            </div>
             <span class="tag">${cnt} det.</span>
         `;
         if (state.seleccionados.has(key)) {

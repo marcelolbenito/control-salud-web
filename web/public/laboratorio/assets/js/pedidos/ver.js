@@ -2,7 +2,7 @@
  * Detalle de pedido — sub-proyecto 2.
  * Carga el pedido + items y permite anular o eliminar.
  */
-import { api } from '../api.js';
+import { api, labPath } from '../api.js';
 
 const ENDPOINT = '/api/pedidos';
 
@@ -126,7 +126,7 @@ function cablearAcciones(p) {
         try {
             await api.post(`${ENDPOINT}?accion=eliminar&id=${p.id}`, {});
             alert('Pedido eliminado.');
-            window.location.href = '/pedidos';
+            window.location.href = labPath('/pedidos');
         } catch (err) {
             alert('No se pudo eliminar: ' + (err.message || 'error'));
         }

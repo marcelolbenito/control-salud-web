@@ -2,8 +2,8 @@
  * Listado de pedidos — sub-proyecto 2.
  * Reusa PacienteSelector (sub-proyecto 1) para el filtro de paciente.
  */
-import { api, labPath } from '../api.js';
-import { PacienteSelector } from '../pacientes/paciente-selector.js';
+import { api, labPath } from '../api.js?v=7';
+import { PacienteSelector } from '../pacientes/paciente-selector.js?v=7';
 
 const ENDPOINT = '/api/pedidos';
 
@@ -141,6 +141,19 @@ function cablearModalPlanilla() {
     elsPlanilla.btnGenerar.addEventListener('click', generarPlanilla);
     elsPlanilla.selectPerfil.addEventListener('change', () => {
         elsPlanilla.btnGenerar.disabled = !elsPlanilla.selectPerfil.value;
+        const perfilId = parseInt(elsPlanilla.selectPerfil.value, 10);
+        const totalPed = estado.ultimo?.pedidos?.length ?? 0;
+        const baseMsg = `Se incluirán las ${totalPed} órdenes visibles en la página actual.`;
+        if (!perfilId) {
+            elsPlanilla.info.textContent = baseMsg;
+            return;
+        }
+        const perfil = (perfilesCache || []).find((p) => p.id === perfilId);
+        const dets = perfil?.determinaciones ?? [];
+        const detalle = dets.length > 0
+            ? dets.map((d) => d.codigo || d.nombre).join(' · ')
+            : '(sin determinaciones)';
+        elsPlanilla.info.innerHTML = `${escapeHtml(baseMsg)}<br><small class="perfil-detalle">Incluye: ${escapeHtml(detalle)}</small>`;
     });
     elsPlanilla.overlay.addEventListener('click', (e) => {
         if (e.target === elsPlanilla.overlay) cerrarModalPlanilla();
@@ -282,7 +295,7 @@ function renderResultados(data) {
     els.tbody.querySelectorAll('tr[data-id]').forEach((tr) => {
         tr.classList.add('is-clickable');
         tr.addEventListener('click', () => {
-            window.location.href = `/pedidos/ver?id=${tr.getAttribute('data-id')}`;
+            window.location.href = labPath(`/pedidos/ver?id=${tr.getAttribute('data-id')}`);
         });
     });
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Integration\ControlSaludIntegration;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
 use PDO;
@@ -30,6 +31,9 @@ final class PedidoRepository
 
     public function __construct(private PDO $db)
     {
+        if (ControlSaludIntegration::enabled()) {
+            ControlSaludIntegration::bindDb($db);
+        }
     }
 
     /**
@@ -305,9 +309,11 @@ final class PedidoRepository
 
         [$where, $params] = $this->construirWhereBuscar($filtros);
 
+        $joins = ControlSaludIntegration::pedidoListJoinsSql();
+        $pacCols = ControlSaludIntegration::pedidoListPacienteSelectSql('pac');
+
         $sqlBase = "FROM lab_pedidos p
-                    LEFT JOIN pacientes pac ON pac.id = p.paciente_id
-                    LEFT JOIN obras_sociales os ON os.id = p.obra_social_id
+                    {$joins}
                     WHERE p.deleted_at IS NULL"
                   . ($where !== '' ? " AND $where" : '');
 
@@ -318,9 +324,7 @@ final class PedidoRepository
         $sql = "SELECT p.id, p.numero, p.paciente_id, p.medico_id, p.medico_externo,
                        p.obra_social_id, p.estado, p.prioridad, p.es_critico,
                        p.fecha_solicitud, p.fecha_entrega,
-                       pac.nro_hc AS paciente_nro_hc,
-                       pac.apellido AS paciente_apellido,
-                       pac.nombres AS paciente_nombres,
+                       {$pacCols},
                        os.nombre AS obra_social_nombre
                 $sqlBase
                 ORDER BY $orden
