@@ -7,6 +7,7 @@ use App\Helpers\Database;
 use App\Helpers\Response;
 use App\Repositories\NbuDeterminacionRepository;
 use App\Repositories\NbuValorOsRepository;
+use App\Repositories\PedidoRepository;
 use App\Services\AuditoriaService;
 
 require __DIR__ . '/../config/bootstrap.php';
@@ -16,6 +17,7 @@ $db = Database::connection();
 $controller = new AranceladorController(
     nbuDetRepo: new NbuDeterminacionRepository($db),
     nbuOsRepo: new NbuValorOsRepository($db),
+    pedidoRepo: new PedidoRepository($db),
     auditoria: new AuditoriaService($db),
 );
 

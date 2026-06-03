@@ -37,6 +37,31 @@ $fmtValor = static function (array $r): string {
     return '-';
 };
 
+$fmtReferencia = static function (array $r): string {
+    $texto = trim((string) ($r['texto_referencia'] ?? ''));
+    if ($texto !== '') {
+        return $texto;
+    }
+    $min = $r['valor_referencia_min'] ?? null;
+    $max = $r['valor_referencia_max'] ?? null;
+    $dec = (int) ($r['decimales'] ?? 2);
+    $fmt = static fn (mixed $v): string => number_format((float) $v, $dec, ',', '.');
+    $unidad = trim((string) ($r['unidad'] ?? ''));
+    $u = $unidad !== '' ? ' ' . $unidad : '';
+    $tieneMin = $min !== null && $min !== '';
+    $tieneMax = $max !== null && $max !== '';
+    if ($tieneMin && $tieneMax) {
+        return $fmt($min) . ' a ' . $fmt($max) . $u;
+    }
+    if ($tieneMin) {
+        return '> ' . $fmt($min) . $u;
+    }
+    if ($tieneMax) {
+        return '< ' . $fmt($max) . $u;
+    }
+    return '';
+};
+
 $storageBase = realpath(__DIR__ . '/../../../storage') ?: '';
 $logoPath = (string) ($lab['laboratorio_logo_path'] ?? '');
 $logoFull = $logoPath !== '' && $storageBase !== '' ? $storageBase . '/' . $logoPath : '';
@@ -61,11 +86,11 @@ $bqTitulo = (string) ($firmante['titulo'] ?? 'Bioquimica');
     <meta charset="UTF-8">
     <title>Informe <?= $esc($numero) ?></title>
     <style>
-        @page { margin: 65mm 15mm 38mm 15mm; }
+        @page { margin: 42mm 15mm 38mm 15mm; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 9.5pt; color: #1a1a1a; }
 
         header {
-            position: fixed; top: -60mm; left: 0; right: 0; height: 55mm;
+            position: fixed; top: -37mm; left: 0; right: 0; height: 32mm;
         }
         header .logo { float: left; width: 38mm; }
         header .logo img { max-width: 35mm; max-height: 28mm; }
@@ -200,7 +225,7 @@ $bqTitulo = (string) ($firmante['titulo'] ?? 'Bioquimica');
                 $unidad = (string) ($r['unidad'] ?? '');
                 $valorConUnidad = $resultadoStr . ($unidad !== '' ? ' ' . $unidad : '');
                 $metodo = (string) ($r['determinacion_metodo'] ?? $r['metodo'] ?? '');
-                $textoRef = (string) ($r['texto_referencia'] ?? '');
+                $textoRef = $fmtReferencia($r);
                 $multiline = str_contains($textoRef, "\n");
                 ?>
                 <tr>

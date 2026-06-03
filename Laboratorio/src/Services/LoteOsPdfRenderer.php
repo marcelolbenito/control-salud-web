@@ -10,7 +10,7 @@ use App\Repositories\LoteOsRepository;
 use PDO;
 
 /**
- * Renderiza el PDF resumen de un lote (1 fila por pedido).
+ * Renderiza el PDF resumen de un lote (planilla de facturacion).
  */
 final class LoteOsPdfRenderer
 {
@@ -33,22 +33,87 @@ final class LoteOsPdfRenderer
             throw new ValidationException('Lote no encontrado', ['lote_id' => 'No existe'], 404);
         }
 
-        $pedidos = $this->loteRepo->findPedidosDelLote($loteId);
+        $filas = $this->loteRepo->findDetalleParaPlanilla($loteId);
         $obraSocialNombre = $this->buscarNombreOs($lote->obraSocialId);
+        $lab = $this->buscarDatosLab();
+
+        $pedidos = [];
+        foreach ($filas as $f) {
+            $pid = (int) $f['pedido_id'];
+            if (!isset($pedidos[$pid])) {
+                $snap = $f['snapshot_paciente'] ?? null;
+                if (is_string($snap)) {
+                    $snap = json_decode($snap, true) ?: [];
+                }
+                $snap = is_array($snap) ? $snap : [];
+                $nombre = trim((string) ($snap['nombre'] ?? '')) !== ''
+                    ? (string) $snap['nombre']
+                    : trim((string) ($f['paciente_join'] ?? ''), ', ');
+
+                $fecha = (string) ($f['fecha_solicitud'] ?? '');
+                $ts = $fecha !== '' ? strtotime($fecha) : false;
+
+                $pedidos[$pid] = [
+                    'numero'       => (string) ($f['pedido_numero'] ?? ''),
+                    'fecha'        => $ts !== false ? date('d/m/Y', $ts) : substr($fecha, 0, 10),
+                    'paciente'     => $nombre !== '' ? $nombre : '-',
+                    'nro_afiliado' => (string) ($f['numero_afiliado'] ?? ($snap['nro_afiliado'] ?? '')),
+                    'items'        => [],
+                    'subtotal'     => 0.0,
+                ];
+            }
+            $monto = (float) ($f['monto_item'] ?? 0);
+            $pedidos[$pid]['items'][] = [
+                'codigo'      => (string) ($f['determinacion_codigo'] ?? ''),
+                'descripcion' => (string) ($f['determinacion_nombre'] ?? ''),
+                'ub'          => $f['nbu_unidades'],
+                'ub_os'       => $f['nbu_valor_unitario'],
+                'precio'      => $monto,
+            ];
+            $pedidos[$pid]['subtotal'] += $monto;
+        }
+
+        $pedidos = array_values($pedidos);
+        $totalGeneral = 0.0;
+        foreach ($pedidos as $p) {
+            $totalGeneral += $p['subtotal'];
+        }
 
         return $this->pdfRenderer->render($this->templatePath, [
+            'lab' => $lab,
+            'obraSocialNombre' => $obraSocialNombre,
             'lote' => [
                 'numero' => $lote->numero,
                 'fecha_desde' => $lote->fechaDesde,
                 'fecha_hasta' => $lote->fechaHasta,
                 'estado' => $lote->estado,
-                'monto_total' => $lote->montoTotal,
-                'cantidad_pedidos' => $lote->cantidadPedidos,
             ],
             'pedidos' => $pedidos,
-            'obraSocialNombre' => $obraSocialNombre,
+            'totalGeneral' => $totalGeneral,
             'fechaEmision' => date('Y-m-d H:i:s'),
         ]);
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function buscarDatosLab(): array
+    {
+        $claves = [
+            'laboratorio_nombre',
+            'laboratorio_direccion',
+            'firmante_apellido',
+            'firmante_nombres',
+            'firmante_matricula',
+        ];
+        $in = implode(',', array_fill(0, count($claves), '?'));
+        $stmt = $this->db->prepare("SELECT clave, valor FROM lab_config WHERE clave IN ($in)");
+        $stmt->execute($claves);
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[(string) $row['clave']] = (string) $row['valor'];
+        }
+        return $out;
     }
 
     private function buscarNombreOs(int $obraSocialId): string

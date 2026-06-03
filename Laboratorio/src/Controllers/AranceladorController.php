@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Helpers\Response;
 use App\Repositories\NbuDeterminacionRepository;
 use App\Repositories\NbuValorOsRepository;
+use App\Repositories\PedidoRepository;
 use App\Services\AuditoriaService;
 
 final class AranceladorController
@@ -14,6 +15,7 @@ final class AranceladorController
     public function __construct(
         private NbuDeterminacionRepository $nbuDetRepo,
         private NbuValorOsRepository $nbuOsRepo,
+        private PedidoRepository $pedidoRepo,
         private AuditoriaService $auditoria,
     ) {
     }
@@ -54,19 +56,11 @@ final class AranceladorController
         Response::success(['determinacion_id' => $detId, 'unidades' => round($unidades, 2)]);
     }
 
-    /**
-     * Lista las vigencias actuales (la abierta, fecha_hasta=NULL) por OS.
-     * Incluye OS sin vigencia configurada.
-     */
     public function listarValoresOs(): void
     {
         Response::success($this->nbuOsRepo->listAllVigentes());
     }
 
-    /**
-     * Historial completo de vigencias para una OS.
-     * Query param: ?os_id=N
-     */
     public function listarVigencias(int $osId): void
     {
         if ($osId <= 0) {
@@ -76,10 +70,6 @@ final class AranceladorController
         Response::success($this->nbuOsRepo->listarVigencias($osId));
     }
 
-    /**
-     * Crea una nueva vigencia. Cierra automaticamente la vigencia anterior abierta.
-     * Body JSON: { obra_social_id, valor_unitario, fecha_desde (YYYY-MM-DD) }
-     */
     public function crearVigenciaOs(?int $usuarioId): void
     {
         $body = json_decode((string) file_get_contents('php://input'), true) ?? [];
@@ -103,6 +93,7 @@ final class AranceladorController
         }
 
         $vigenciaId = $this->nbuOsRepo->crearVigencia($osId, round($valor, 2), $fechaDesde);
+        $repreciados = $this->pedidoRepo->reprecioPorVigenciaOs($osId);
 
         $this->auditoria->log(
             usuarioId: $usuarioId,
@@ -113,15 +104,17 @@ final class AranceladorController
                 'obra_social_id' => $osId,
                 'valor_unitario' => round($valor, 2),
                 'fecha_desde'    => $fechaDesde,
+                'pedidos_repreciados' => $repreciados,
             ],
             contexto: 'Crear vigencia NBU por obra social',
         );
 
         Response::success([
-            'id'             => $vigenciaId,
-            'obra_social_id' => $osId,
-            'valor_unitario' => round($valor, 2),
-            'fecha_desde'    => $fechaDesde,
+            'id'                  => $vigenciaId,
+            'obra_social_id'      => $osId,
+            'valor_unitario'      => round($valor, 2),
+            'fecha_desde'         => $fechaDesde,
+            'pedidos_repreciados' => $repreciados,
         ]);
     }
 }

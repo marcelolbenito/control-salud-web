@@ -21,6 +21,11 @@ final class NbuValorOsRepository
 
     /**
      * Valor vigente al `fecha` (YYYY-MM-DD). Null si no hay vigencia que aplique.
+     *
+     * Regla unica (step-function): se toma la vigencia con la fecha_desde mas
+     * reciente que sea <= `fecha`. No se filtra por fecha_hasta: el valor cambia
+     * recien cuando empieza la vigencia siguiente. Asi el resultado es siempre
+     * inequivoco aunque hubiera rangos solapados.
      */
     public function findValorAt(int $obraSocialId, string $fecha): ?float
     {
@@ -28,12 +33,11 @@ final class NbuValorOsRepository
             'SELECT valor_unitario FROM lab_nbu_valores_os
              WHERE obra_social_id = :id
                AND deleted_at IS NULL
-               AND fecha_desde <= :fecha_a
-               AND (fecha_hasta IS NULL OR fecha_hasta >= :fecha_b)
-             ORDER BY fecha_desde DESC
+               AND fecha_desde <= :fecha
+             ORDER BY fecha_desde DESC, id DESC
              LIMIT 1'
         );
-        $stmt->execute([':id' => $obraSocialId, ':fecha_a' => $fecha, ':fecha_b' => $fecha]);
+        $stmt->execute([':id' => $obraSocialId, ':fecha' => $fecha]);
         $row = $stmt->fetch();
 
         return $row === false ? null : (float) $row['valor_unitario'];
@@ -96,43 +100,66 @@ final class NbuValorOsRepository
     }
 
     /**
-     * Crea una nueva vigencia para la OS, cerrando automaticamente la anterior abierta:
-     *   - Si existe una vigencia con fecha_hasta IS NULL, se le pone fecha_hasta = fechaDesde - 1 dia.
-     *   - Si existe alguna vigencia cerrada que abarque a fechaDesde (fecha_desde <= X <= fecha_hasta),
-     *     tambien se le ajusta el fecha_hasta a fechaDesde - 1 dia.
+     * Crea (o actualiza) una vigencia y deja la linea de tiempo de la OS sin
+     * superposiciones, sin importar el orden de carga.
      *
-     * @return int Id de la nueva vigencia
+     * @return int Id de la vigencia creada o actualizada
      */
     public function crearVigencia(int $obraSocialId, float $valorUnitario, string $fechaDesde): int
     {
-        $diaAnterior = (new \DateTimeImmutable($fechaDesde))->modify('-1 day')->format('Y-m-d');
-
         $stmt = $this->db->prepare(
-            'UPDATE lab_nbu_valores_os
-             SET fecha_hasta = :dia_anterior
-             WHERE obra_social_id = :id
-               AND deleted_at IS NULL
-               AND fecha_desde <= :fecha_a
-               AND (fecha_hasta IS NULL OR fecha_hasta >= :fecha_b)'
+            'SELECT id FROM lab_nbu_valores_os
+             WHERE obra_social_id = :id AND deleted_at IS NULL AND fecha_desde = :fd
+             ORDER BY id DESC LIMIT 1'
         );
-        $stmt->execute([
-            ':id'           => $obraSocialId,
-            ':fecha_a'      => $fechaDesde,
-            ':fecha_b'      => $fechaDesde,
-            ':dia_anterior' => $diaAnterior,
-        ]);
+        $stmt->execute([':id' => $obraSocialId, ':fd' => $fechaDesde]);
+        $existenteId = $stmt->fetchColumn();
 
+        if ($existenteId !== false) {
+            $vigenciaId = (int) $existenteId;
+            $upd = $this->db->prepare(
+                'UPDATE lab_nbu_valores_os SET valor_unitario = :v WHERE id = :id'
+            );
+            $upd->execute([':v' => $valorUnitario, ':id' => $vigenciaId]);
+        } else {
+            $ins = $this->db->prepare(
+                'INSERT INTO lab_nbu_valores_os (obra_social_id, valor_unitario, fecha_desde, fecha_hasta)
+                 VALUES (:id, :v, :fd, NULL)'
+            );
+            $ins->execute([':id' => $obraSocialId, ':v' => $valorUnitario, ':fd' => $fechaDesde]);
+            $vigenciaId = (int) $this->db->lastInsertId();
+        }
+
+        $this->recomputarTimeline($obraSocialId);
+
+        return $vigenciaId;
+    }
+
+    /**
+     * Recalcula los fecha_hasta de todas las vigencias activas de la OS.
+     */
+    public function recomputarTimeline(int $obraSocialId): void
+    {
         $stmt = $this->db->prepare(
-            'INSERT INTO lab_nbu_valores_os (obra_social_id, valor_unitario, fecha_desde, fecha_hasta)
-             VALUES (:id, :v, :fd, NULL)'
+            'SELECT id, fecha_desde FROM lab_nbu_valores_os
+             WHERE obra_social_id = :id AND deleted_at IS NULL
+             ORDER BY fecha_desde ASC, id ASC'
         );
-        $stmt->execute([
-            ':id' => $obraSocialId,
-            ':v'  => $valorUnitario,
-            ':fd' => $fechaDesde,
-        ]);
+        $stmt->execute([':id' => $obraSocialId]);
+        $rows = $stmt->fetchAll() ?: [];
 
-        return (int) $this->db->lastInsertId();
+        $upd = $this->db->prepare('UPDATE lab_nbu_valores_os SET fecha_hasta = :fh WHERE id = :id');
+
+        $n = count($rows);
+        foreach ($rows as $i => $row) {
+            if ($i + 1 < $n) {
+                $fechaHasta = (new \DateTimeImmutable((string) $rows[$i + 1]['fecha_desde']))
+                    ->modify('-1 day')->format('Y-m-d');
+            } else {
+                $fechaHasta = null;
+            }
+            $upd->execute([':fh' => $fechaHasta, ':id' => (int) $row['id']]);
+        }
     }
 
     public function softDelete(int $vigenciaId): bool

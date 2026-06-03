@@ -18,7 +18,7 @@ final class Pedido
     public function __construct(
         public ?int $id,
         public string $numero,
-        public int $pacienteId,
+        public ?int $pacienteId,
         public ?int $medicoId,
         public ?string $medicoExterno,
         public ?int $obraSocialId,

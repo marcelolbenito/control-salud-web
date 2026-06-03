@@ -3,7 +3,7 @@
  * Respeta APP_BASE_PATH (/laboratorio) via meta lab-base.
  * v6: meta lab-api-bridge → api.php (Nginx); query aparte de e=
  */
-export const LAB_API_JS_VERSION = '9';
+export const LAB_API_JS_VERSION = '12';
 
 function apiBridgeBase() {
     const bridge = document.querySelector('meta[name="lab-api-bridge"]')?.getAttribute('content') || '';

@@ -225,37 +225,131 @@ final class LoteOsRepository
      */
     public function findItemsDelLote(int $loteId): array
     {
-        // Calcula al vuelo: unidades NBU del catalogo * valor_unitario vigente al dia
-        // del cobro del lote (o, si no fue cobrado, valor vigente actual).
-        $sql = "SELECT l.numero AS lote_numero,
-                       p.numero AS pedido_numero,
-                       pac.nro_hc AS paciente_nro_hc,
-                       CONCAT_WS(', ', pac.apellido, pac.nombres) AS paciente_nombre,
-                       d.codigo AS determinacion_codigo,
-                       d.nombre AS determinacion_nombre,
-                       n.unidades AS nbu_unidades,
-                       v.valor_unitario AS nbu_valor_unitario,
-                       ROUND(COALESCE(n.unidades, 0) * COALESCE(v.valor_unitario, 0), 2) AS monto_item
-                FROM lab_lote_pedidos lp
-                INNER JOIN lab_lotes_os l ON l.id = lp.lote_id
-                INNER JOIN lab_pedidos p ON p.id = lp.pedido_id
-                INNER JOIN lab_pedido_items i ON i.pedido_id = p.id
-                INNER JOIN lab_determinaciones d ON d.id = i.determinacion_id
-                LEFT JOIN lab_nbu_determinaciones n ON n.determinacion_id = d.id
-                LEFT JOIN lab_nbu_valores_os v
-                       ON v.obra_social_id = p.obra_social_id
-                      AND v.deleted_at IS NULL
-                      AND v.fecha_desde <= COALESCE(DATE(l.fecha_cobro), CURRENT_DATE())
-                      AND (v.fecha_hasta IS NULL OR v.fecha_hasta >= COALESCE(DATE(l.fecha_cobro), CURRENT_DATE()))
-                LEFT JOIN pacientes pac ON pac.id = p.paciente_id
-                LEFT JOIN lab_lote_pedido_item_excluido x
-                       ON x.pedido_item_id = i.id AND x.lote_id = lp.lote_id
-                WHERE lp.lote_id = :id
-                  AND i.deleted_at IS NULL
-                  AND x.id IS NULL
-                ORDER BY p.fecha_solicitud ASC, p.id ASC, d.nombre ASC";
+        $subValor = "(SELECT vv.valor_unitario FROM lab_nbu_valores_os vv
+                       WHERE vv.obra_social_id = p.obra_social_id
+                         AND vv.deleted_at IS NULL
+                         AND vv.fecha_desde <= DATE(p.fecha_solicitud)
+                       ORDER BY vv.fecha_desde DESC, vv.id DESC
+                       LIMIT 1)";
+
+        $sql = "SELECT lote_numero, pedido_numero, paciente_nro_hc, paciente_nombre,
+                       determinacion_codigo, determinacion_nombre,
+                       nbu_unidades, nbu_valor_unitario, monto_item
+                FROM (
+                    SELECT l.numero AS lote_numero, p.numero AS pedido_numero,
+                           pac.nro_hc AS paciente_nro_hc,
+                           CONCAT_WS(', ', pac.apellido, pac.nombres) AS paciente_nombre,
+                           d.codigo AS determinacion_codigo, d.nombre AS determinacion_nombre,
+                           n.unidades AS nbu_unidades,
+                           $subValor AS nbu_valor_unitario,
+                           ROUND(COALESCE(n.unidades, 0) * COALESCE($subValor, 0), 2) AS monto_item,
+                           0 AS orden_linea, p.fecha_solicitud AS f_ord, p.id AS ped_ord
+                    FROM lab_lote_pedidos lp
+                    INNER JOIN lab_lotes_os l ON l.id = lp.lote_id
+                    INNER JOIN lab_pedidos p ON p.id = lp.pedido_id
+                    INNER JOIN lab_pedido_items i ON i.pedido_id = p.id
+                    INNER JOIN lab_determinaciones d ON d.id = i.determinacion_id
+                    LEFT JOIN lab_nbu_determinaciones n ON n.determinacion_id = d.id AND n.deleted_at IS NULL
+                    LEFT JOIN lab_perfiles pf ON pf.id = i.perfil_id AND pf.deleted_at IS NULL
+                    LEFT JOIN pacientes pac ON pac.id = p.paciente_id
+                    LEFT JOIN lab_lote_pedido_item_excluido x
+                           ON x.pedido_item_id = i.id AND x.lote_id = lp.lote_id
+                    WHERE lp.lote_id = :id_a AND i.deleted_at IS NULL AND x.id IS NULL
+                      AND (pf.id IS NULL OR pf.nbu_unidades IS NULL)
+
+                    UNION ALL
+
+                    SELECT l.numero, p.numero, pac.nro_hc,
+                           CONCAT_WS(', ', pac.apellido, pac.nombres),
+                           pf.codigo, pf.nombre,
+                           pf.nbu_unidades,
+                           $subValor,
+                           ROUND(COALESCE(pf.nbu_unidades, 0) * COALESCE($subValor, 0), 2),
+                           1 AS orden_linea, p.fecha_solicitud, p.id
+                    FROM lab_lote_pedidos lp
+                    INNER JOIN lab_lotes_os l ON l.id = lp.lote_id
+                    INNER JOIN lab_pedidos p ON p.id = lp.pedido_id
+                    LEFT JOIN pacientes pac ON pac.id = p.paciente_id
+                    INNER JOIN lab_perfiles pf
+                           ON pf.deleted_at IS NULL AND pf.nbu_unidades IS NOT NULL
+                          AND pf.id IN (
+                              SELECT DISTINCT i.perfil_id FROM lab_pedido_items i
+                               WHERE i.pedido_id = p.id AND i.deleted_at IS NULL
+                                 AND i.perfil_id IS NOT NULL)
+                    WHERE lp.lote_id = :id_b
+                ) lineas
+                ORDER BY f_ord ASC, ped_ord ASC, orden_linea ASC, determinacion_nombre ASC";
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([':id' => $loteId]);
+        $stmt->execute([':id_a' => $loteId, ':id_b' => $loteId]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Detalle item-por-item del lote para la planilla de facturacion (PDF),
+     * con los datos del pedido necesarios para agrupar por orden.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function findDetalleParaPlanilla(int $loteId): array
+    {
+        $subValor = "(SELECT v.valor_unitario FROM lab_nbu_valores_os v
+                       WHERE v.obra_social_id = p.obra_social_id
+                         AND v.deleted_at IS NULL
+                         AND v.fecha_desde <= DATE(p.fecha_solicitud)
+                       ORDER BY v.fecha_desde DESC, v.id DESC
+                       LIMIT 1)";
+
+        $sql = "SELECT pedido_id, pedido_numero, fecha_solicitud, numero_afiliado, snapshot_paciente,
+                       paciente_nro_hc, paciente_join,
+                       determinacion_codigo, determinacion_nombre,
+                       nbu_unidades, nbu_valor_unitario, monto_item, orden_linea
+                FROM (
+                    SELECT p.id AS pedido_id, p.numero AS pedido_numero, p.fecha_solicitud,
+                           p.numero_afiliado, p.snapshot_paciente,
+                           pac.nro_hc AS paciente_nro_hc,
+                           CONCAT_WS(', ', pac.apellido, pac.nombres) AS paciente_join,
+                           d.codigo AS determinacion_codigo, d.nombre AS determinacion_nombre,
+                           n.unidades AS nbu_unidades,
+                           $subValor AS nbu_valor_unitario,
+                           ROUND(COALESCE(n.unidades, 0) * COALESCE($subValor, 0), 2) AS monto_item,
+                           0 AS orden_linea, p.id AS ped_ord, p.fecha_solicitud AS f_ord
+                    FROM lab_lote_pedidos lp
+                    INNER JOIN lab_lotes_os l ON l.id = lp.lote_id
+                    INNER JOIN lab_pedidos p ON p.id = lp.pedido_id
+                    INNER JOIN lab_pedido_items i ON i.pedido_id = p.id
+                    INNER JOIN lab_determinaciones d ON d.id = i.determinacion_id
+                    LEFT JOIN lab_nbu_determinaciones n ON n.determinacion_id = d.id AND n.deleted_at IS NULL
+                    LEFT JOIN lab_perfiles pf ON pf.id = i.perfil_id AND pf.deleted_at IS NULL
+                    LEFT JOIN pacientes pac ON pac.id = p.paciente_id
+                    LEFT JOIN lab_lote_pedido_item_excluido x
+                           ON x.pedido_item_id = i.id AND x.lote_id = lp.lote_id
+                    WHERE lp.lote_id = :id_a AND i.deleted_at IS NULL AND x.id IS NULL
+                      AND (pf.id IS NULL OR pf.nbu_unidades IS NULL)
+
+                    UNION ALL
+
+                    SELECT p.id, p.numero, p.fecha_solicitud, p.numero_afiliado, p.snapshot_paciente,
+                           pac.nro_hc, CONCAT_WS(', ', pac.apellido, pac.nombres),
+                           pf.codigo, pf.nombre,
+                           pf.nbu_unidades,
+                           $subValor,
+                           ROUND(COALESCE(pf.nbu_unidades, 0) * COALESCE($subValor, 0), 2),
+                           1 AS orden_linea, p.id, p.fecha_solicitud
+                    FROM lab_lote_pedidos lp
+                    INNER JOIN lab_lotes_os l ON l.id = lp.lote_id
+                    INNER JOIN lab_pedidos p ON p.id = lp.pedido_id
+                    LEFT JOIN pacientes pac ON pac.id = p.paciente_id
+                    INNER JOIN lab_perfiles pf
+                           ON pf.deleted_at IS NULL AND pf.nbu_unidades IS NOT NULL
+                          AND pf.id IN (
+                              SELECT DISTINCT i.perfil_id FROM lab_pedido_items i
+                               WHERE i.pedido_id = p.id AND i.deleted_at IS NULL
+                                 AND i.perfil_id IS NOT NULL)
+                    WHERE lp.lote_id = :id_b
+                ) lineas
+                ORDER BY f_ord ASC, ped_ord ASC, orden_linea ASC, determinacion_nombre ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id_a' => $loteId, ':id_b' => $loteId]);
         return $stmt->fetchAll();
     }
 

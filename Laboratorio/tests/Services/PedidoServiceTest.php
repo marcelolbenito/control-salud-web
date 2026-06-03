@@ -67,18 +67,23 @@ final class PedidoServiceTest extends TestCase
         ];
     }
 
-    public function testFallaSinPacienteId(): void
+    public function testPermiteCrearSinPacienteId(): void
     {
-        $service = $this->makeService();
+        $pedidoRepo = $this->createMock(PedidoRepository::class);
+        $pedidoRepo->method('getNextNumeroForYear')->willReturn(1);
+        $pedidoRepo->method('insert')->willReturn(10);
+        $pedidoRepo->method('insertItem')->willReturn(1);
+
+        $detRepo = $this->createMock(DeterminacionRepository::class);
+        $detRepo->method('findActivasByIds')->willReturn([['id' => 1, 'precio' => '100.00']]);
+        $detRepo->method('findSoloFacturacionIds')->willReturn([]);
+
+        $service = $this->makeService($pedidoRepo, $detRepo);
         $input = $this->inputValido();
         unset($input['paciente_id']);
 
-        try {
-            $service->crear($input, 1);
-            $this->fail('Esperaba ValidationException');
-        } catch (ValidationException $e) {
-            $this->assertArrayHasKey('paciente_id', $e->getFields());
-        }
+        $result = $service->crear($input, 1);
+        $this->assertSame(10, $result['id']);
     }
 
     public function testFallaSinSnapshotPaciente(): void

@@ -263,6 +263,15 @@ final class InformeService
     }
 
     /**
+     * @param array<string,mixed> $filtros
+     * @return array<int,array<string,mixed>>
+     */
+    public function listarRecientes(array $filtros = []): array
+    {
+        return $this->informeRepo->listarRecientes($filtros);
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     public function obtener(int $id): ?array

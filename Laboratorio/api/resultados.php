@@ -28,13 +28,19 @@ $service = new ResultadoService(
 $controller = new ResultadoController($service);
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pedidoId = isset($_GET['pedido_id']) ? (int) $_GET['pedido_id'] : 0;
+$pedidoItemId = isset($_GET['pedido_item_id']) ? (int) $_GET['pedido_item_id'] : 0;
 
 switch ($method) {
     case 'POST':
-        // SP9: las acciones 'validar' y 'rectificar' fueron eliminadas. Cargar
-        // un resultado es ahora el unico endpoint de escritura. Re-postear
-        // sobre el mismo pedido_item_id sobrescribe el valor.
         $controller->cargar();
+        break;
+
+    case 'DELETE':
+        if ($pedidoItemId <= 0) {
+            Response::error('Falta query param ?pedido_item_id=<int>', 400);
+            break;
+        }
+        $controller->quitar($pedidoItemId);
         break;
 
     case 'GET':

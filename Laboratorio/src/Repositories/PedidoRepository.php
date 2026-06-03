@@ -108,17 +108,22 @@ final class PedidoRepository
      */
     public function findById(int $id): ?array
     {
-        $sql = "SELECT id, numero, paciente_id, medico_id, medico_externo,
-                       obra_social_id, numero_afiliado, diagnostico,
-                       prioridad, estado, es_critico,
-                       fecha_solicitud, fecha_extraccion, fecha_entrega,
-                       usuario_recepcion_id, usuario_anulacion_id, motivo_anulacion,
-                       observaciones, snapshot_paciente,
-                       estado_paciente, estado_seguro,
-                       monto_paciente, monto_seguro, monto_honorarios,
-                       created_at, updated_at
-                FROM lab_pedidos
-                WHERE id = :id AND deleted_at IS NULL";
+        $joins = ControlSaludIntegration::pedidoListJoinsSql();
+        $osNombre = ControlSaludIntegration::pedidoObraSocialNombreSql();
+
+        $sql = "SELECT p.id, p.numero, p.paciente_id, p.medico_id, p.medico_externo,
+                       p.obra_social_id, p.numero_afiliado, p.diagnostico,
+                       p.prioridad, p.estado, p.es_critico,
+                       p.fecha_solicitud, p.fecha_extraccion, p.fecha_entrega,
+                       p.usuario_recepcion_id, p.usuario_anulacion_id, p.motivo_anulacion,
+                       p.observaciones, p.snapshot_paciente,
+                       p.estado_paciente, p.estado_seguro,
+                       p.monto_paciente, p.monto_seguro, p.monto_honorarios,
+                       p.created_at, p.updated_at,
+                       {$osNombre} AS obra_social_nombre
+                FROM lab_pedidos p
+                {$joins}
+                WHERE p.id = :id AND p.deleted_at IS NULL";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $id]);
@@ -134,6 +139,28 @@ final class PedidoRepository
         }
 
         return $row;
+    }
+
+    /**
+     * Busca un pedido por su numero visible.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findByNumero(string $numero): ?array
+    {
+        $sql = "SELECT id FROM lab_pedidos
+                WHERE numero = :numero AND deleted_at IS NULL
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':numero' => $numero]);
+        $id = $stmt->fetchColumn();
+
+        if ($id === false) {
+            return null;
+        }
+
+        return $this->findById((int) $id);
     }
 
     /**
@@ -306,6 +333,7 @@ final class PedidoRepository
 
         $joins = ControlSaludIntegration::pedidoListJoinsSql();
         $pacCols = ControlSaludIntegration::pedidoListPacienteSelectSql('pac');
+        $snapCols = ControlSaludIntegration::pedidoListSnapshotSelectSql('pac');
 
         $sqlBase = "FROM lab_pedidos p
                     {$joins}
@@ -320,6 +348,7 @@ final class PedidoRepository
                        p.obra_social_id, p.estado, p.prioridad, p.es_critico,
                        p.fecha_solicitud, p.fecha_entrega,
                        {$pacCols},
+                       {$snapCols},
                        os.nombre AS obra_social_nombre
                 $sqlBase
                 ORDER BY $orden
@@ -375,16 +404,21 @@ final class PedidoRepository
                 if (ControlSaludIntegration::pacienteHasColumn('apellido')) {
                     $parts[] = 'pac.apellido LIKE :q_ape';
                 }
+                $parts = array_merge($parts, ControlSaludIntegration::pedidoBuscarSnapshotClauses());
                 $clauses[] = '(' . implode(' OR ', $parts) . ')';
             } else {
                 $clauses[] = '(pac.dni LIKE :q_dni OR pac.apellido LIKE :q_ape OR pac.nombres LIKE :q_nom'
-                           . ' OR pac.nro_hc LIKE :q_hc OR p.numero LIKE :q_num)';
+                           . ' OR pac.nro_hc LIKE :q_hc OR p.numero LIKE :q_num'
+                           . " OR JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.nombre')) LIKE :q_snap_nom"
+                           . " OR JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.dni')) LIKE :q_snap_dni)";
             }
             $params[':q_dni'] = $like;
             $params[':q_ape'] = $like;
             $params[':q_nom'] = $like;
             $params[':q_hc']  = $like;
             $params[':q_num'] = $like;
+            $params[':q_snap_nom'] = $like;
+            $params[':q_snap_dni'] = $like;
         }
         if (!empty($f['prioridad'])) {
             $clauses[] = 'p.prioridad = :prioridad';
@@ -516,6 +550,7 @@ final class PedidoRepository
                 JOIN lab_determinaciones d ON d.id = pi.determinacion_id
                 LEFT JOIN lab_perfiles pf ON pf.id = pi.perfil_id
                 WHERE pi.pedido_id = :pedido_id AND pi.deleted_at IS NULL
+                  AND d.solo_facturacion = 0
                 ORDER BY pi.id";
 
         $stmt = $this->db->prepare($sql);
@@ -525,44 +560,80 @@ final class PedidoRepository
     }
 
     /**
-     * Actualiza monto_seguro y monto_paciente del pedido.
+     * Actualiza monto_seguro y monto_paciente del pedido y reconcilia los
+     * estados de facturacion (estado_paciente / estado_seguro) si todavia
+     * estan en los defaults del schema.
      */
     public function updateMontos(int $pedidoId, float $montoSeguro, float $montoPaciente): void
     {
         $sql = "UPDATE lab_pedidos
-                SET monto_seguro = :s, monto_paciente = :p
+                SET monto_seguro    = :s,
+                    monto_paciente  = :p,
+                    estado_seguro   = CASE
+                                          WHEN estado_seguro IN ('F','P') THEN estado_seguro
+                                          WHEN :s2 > 0 THEN 'A'
+                                          ELSE 'N'
+                                      END,
+                    estado_paciente = CASE
+                                          WHEN estado_paciente IN ('F','P') THEN estado_paciente
+                                          WHEN :p2 > 0 THEN 'A'
+                                          ELSE 'N'
+                                      END
                 WHERE id = :id AND deleted_at IS NULL";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             ':s'  => $montoSeguro,
+            ':s2' => $montoSeguro,
             ':p'  => $montoPaciente,
+            ':p2' => $montoPaciente,
             ':id' => $pedidoId,
         ]);
     }
 
-    /**
-     * Recalcula monto_seguro de un pedido usando la vigencia NBU de la OS
-     * que aplica a la fecha indicada. Persiste en lab_pedidos.monto_seguro
-     * y devuelve el total.
-     *
-     * monto_seguro = SUM(unidades_NBU * valor_vigente_a_fecha)
-     */
+    private function valorNbuSql(string $p): string
+    {
+        return "(SELECT v.valor_unitario FROM lab_nbu_valores_os v
+                  WHERE v.obra_social_id = {$p}.obra_social_id
+                    AND v.deleted_at IS NULL
+                    AND v.fecha_desde <= DATE({$p}.fecha_solicitud)
+                  ORDER BY v.fecha_desde DESC, v.id DESC
+                  LIMIT 1)";
+    }
+
+    private function unidadesNbuSql(string $p): string
+    {
+        return "(
+            (SELECT COALESCE(SUM(nd.unidades), 0)
+               FROM lab_pedido_items i
+               JOIN lab_nbu_determinaciones nd
+                     ON nd.determinacion_id = i.determinacion_id AND nd.deleted_at IS NULL
+               LEFT JOIN lab_perfiles pf ON pf.id = i.perfil_id AND pf.deleted_at IS NULL
+              WHERE i.pedido_id = {$p}.id AND i.deleted_at IS NULL
+                AND (pf.id IS NULL OR pf.nbu_unidades IS NULL))
+          + (SELECT COALESCE(SUM(pf2.nbu_unidades), 0)
+               FROM lab_perfiles pf2
+              WHERE pf2.deleted_at IS NULL AND pf2.nbu_unidades IS NOT NULL
+                AND pf2.id IN (
+                    SELECT DISTINCT i2.perfil_id FROM lab_pedido_items i2
+                     WHERE i2.pedido_id = {$p}.id AND i2.deleted_at IS NULL
+                       AND i2.perfil_id IS NOT NULL))
+        )";
+    }
+
+    public function calcularMontoSeguroUnits(int $pedidoId): float
+    {
+        $sql = "SELECT ROUND(COALESCE(" . $this->valorNbuSql('p') . ", 0) * "
+             . $this->unidadesNbuSql('p') . ", 2) AS total
+                FROM lab_pedidos p
+                WHERE p.id = :id AND p.deleted_at IS NULL";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id' => $pedidoId]);
+        return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
     public function recalcularMontoSeguroAlVuelo(int $pedidoId, string $fecha): float
     {
-        $stmt = $this->db->prepare(
-            "SELECT ROUND(COALESCE(SUM(n.unidades * v.valor_unitario), 0), 2) AS total
-             FROM lab_pedido_items i
-             INNER JOIN lab_pedidos p ON p.id = i.pedido_id
-             LEFT JOIN lab_nbu_determinaciones n ON n.determinacion_id = i.determinacion_id
-             LEFT JOIN lab_nbu_valores_os v
-                    ON v.obra_social_id = p.obra_social_id
-                   AND v.deleted_at IS NULL
-                   AND v.fecha_desde <= :fecha_a
-                   AND (v.fecha_hasta IS NULL OR v.fecha_hasta >= :fecha_b)
-             WHERE i.pedido_id = :id AND i.deleted_at IS NULL"
-        );
-        $stmt->execute([':id' => $pedidoId, ':fecha_a' => $fecha, ':fecha_b' => $fecha]);
-        $total = (float) ($stmt->fetchColumn() ?: 0);
+        $total = $this->calcularMontoSeguroUnits($pedidoId);
 
         $stmt = $this->db->prepare(
             'UPDATE lab_pedidos SET monto_seguro = :s WHERE id = :id AND deleted_at IS NULL'
@@ -572,40 +643,39 @@ final class PedidoRepository
         return $total;
     }
 
-    /**
-     * Recalcula monto_seguro y monto_paciente de un pedido en el contexto de un lote,
-     * considerando los items excluidos para ese lote (que no cubre la OS).
-     *
-     * monto_seguro   = SUM(unidades * valor) WHERE item NOT IN excluidos(lote)
-     * monto_paciente = SUM(unidades * valor) WHERE item IN excluidos(lote)
-     *
-     * Persiste en lab_pedidos y devuelve el par.
-     *
-     * @return array{monto_seguro:float, monto_paciente:float}
-     */
     public function recalcularPedidoConExclusiones(int $pedidoId, int $loteId, string $fecha): array
     {
-        $stmt = $this->db->prepare(
-            "SELECT
-                ROUND(COALESCE(SUM(CASE WHEN x.id IS NULL THEN n.unidades * v.valor_unitario ELSE 0 END), 0), 2) AS seguro,
-                ROUND(COALESCE(SUM(CASE WHEN x.id IS NOT NULL THEN n.unidades * v.valor_unitario ELSE 0 END), 0), 2) AS paciente
-             FROM lab_pedido_items i
-             INNER JOIN lab_pedidos p ON p.id = i.pedido_id
-             LEFT JOIN lab_nbu_determinaciones n ON n.determinacion_id = i.determinacion_id
-             LEFT JOIN lab_nbu_valores_os v
-                    ON v.obra_social_id = p.obra_social_id
-                   AND v.deleted_at IS NULL
-                   AND v.fecha_desde <= :fecha_a
-                   AND (v.fecha_hasta IS NULL OR v.fecha_hasta >= :fecha_b)
-             LEFT JOIN lab_lote_pedido_item_excluido x
-                    ON x.pedido_item_id = i.id AND x.lote_id = :lote_id
-             WHERE i.pedido_id = :id AND i.deleted_at IS NULL"
-        );
+        $valor = $this->valorNbuSql('p');
+        $compEx = static function (string $cond, string $loteParam): string {
+            return "(SELECT COALESCE(SUM(nd.unidades), 0)
+                       FROM lab_pedido_items i
+                       JOIN lab_nbu_determinaciones nd
+                             ON nd.determinacion_id = i.determinacion_id AND nd.deleted_at IS NULL
+                       LEFT JOIN lab_perfiles pf ON pf.id = i.perfil_id AND pf.deleted_at IS NULL
+                       LEFT JOIN lab_lote_pedido_item_excluido x
+                             ON x.pedido_item_id = i.id AND x.lote_id = $loteParam
+                      WHERE i.pedido_id = p.id AND i.deleted_at IS NULL
+                        AND (pf.id IS NULL OR pf.nbu_unidades IS NULL)
+                        AND $cond)";
+        };
+        $perfilesConNbu = "(SELECT COALESCE(SUM(pf2.nbu_unidades), 0)
+                             FROM lab_perfiles pf2
+                            WHERE pf2.deleted_at IS NULL AND pf2.nbu_unidades IS NOT NULL
+                              AND pf2.id IN (
+                                  SELECT DISTINCT i2.perfil_id FROM lab_pedido_items i2
+                                   WHERE i2.pedido_id = p.id AND i2.deleted_at IS NULL
+                                     AND i2.perfil_id IS NOT NULL))";
+
+        $sql = "SELECT
+                    ROUND(COALESCE($valor, 0) * (" . $compEx('x.id IS NULL', ':lote_a') . " + $perfilesConNbu), 2) AS seguro,
+                    ROUND(COALESCE($valor, 0) * " . $compEx('x.id IS NOT NULL', ':lote_b') . ", 2) AS paciente
+                FROM lab_pedidos p
+                WHERE p.id = :id AND p.deleted_at IS NULL";
+        $stmt = $this->db->prepare($sql);
         $stmt->execute([
-            ':id'      => $pedidoId,
-            ':lote_id' => $loteId,
-            ':fecha_a' => $fecha,
-            ':fecha_b' => $fecha,
+            ':id'     => $pedidoId,
+            ':lote_a' => $loteId,
+            ':lote_b' => $loteId,
         ]);
         $row = $stmt->fetch();
         $seguro = (float) ($row['seguro'] ?? 0);
@@ -619,6 +689,43 @@ final class PedidoRepository
         $stmt->execute([':s' => $seguro, ':p' => $paciente, ':id' => $pedidoId]);
 
         return ['monto_seguro' => $seguro, 'monto_paciente' => $paciente];
+    }
+
+    public function reprecioPorVigenciaOs(int $obraSocialId): int
+    {
+        $noFacturados =
+            "p.id NOT IN (
+                 SELECT lp.pedido_id
+                 FROM lab_lote_pedidos lp
+                 INNER JOIN lab_lotes_os l ON l.id = lp.lote_id
+                 WHERE l.estado IN ('abierto','cobrado') AND l.deleted_at IS NULL
+             )";
+
+        $sqlMonto =
+            "UPDATE lab_pedidos p
+             SET p.monto_seguro = ROUND(COALESCE(" . $this->valorNbuSql('p') . ", 0) * "
+                                . $this->unidadesNbuSql('p') . ", 2)
+             WHERE p.obra_social_id = :os
+               AND p.deleted_at IS NULL
+               AND $noFacturados";
+        $stmt = $this->db->prepare($sqlMonto);
+        $stmt->execute([':os' => $obraSocialId]);
+        $afectados = $stmt->rowCount();
+
+        $sqlEstado =
+            "UPDATE lab_pedidos p
+             SET p.estado_seguro = CASE
+                     WHEN p.estado_seguro IN ('F','P') THEN p.estado_seguro
+                     WHEN p.monto_seguro > 0 THEN 'A'
+                     ELSE 'N'
+                 END
+             WHERE p.obra_social_id = :os
+               AND p.deleted_at IS NULL
+               AND $noFacturados";
+        $stmt = $this->db->prepare($sqlEstado);
+        $stmt->execute([':os' => $obraSocialId]);
+
+        return $afectados;
     }
 
     /**

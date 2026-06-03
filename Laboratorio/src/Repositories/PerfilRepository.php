@@ -61,6 +61,60 @@ final class PerfilRepository
         return array_values($perfiles);
     }
 
+    public function crear(string $codigo, string $nombre, ?string $descripcion): int
+    {
+        $stmt = $this->db->prepare(
+            "INSERT INTO lab_perfiles (codigo, nombre, descripcion, activo) VALUES (?, ?, ?, 1)"
+        );
+        $stmt->execute([$codigo, $nombre, $descripcion]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    public function actualizar(int $id, string $codigo, string $nombre, ?string $descripcion): bool
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE lab_perfiles SET codigo = ?, nombre = ?, descripcion = ?
+             WHERE id = ? AND deleted_at IS NULL"
+        );
+        $stmt->execute([$codigo, $nombre, $descripcion, $id]);
+        return $stmt->rowCount() >= 0;
+    }
+
+    /**
+     * @param array<int,int> $detIds
+     */
+    public function reemplazarDeterminaciones(int $perfilId, array $detIds): void
+    {
+        $del = $this->db->prepare("DELETE FROM lab_perfil_determinaciones WHERE perfil_id = ?");
+        $del->execute([$perfilId]);
+
+        if ($detIds === []) {
+            return;
+        }
+        $ins = $this->db->prepare(
+            "INSERT INTO lab_perfil_determinaciones (perfil_id, determinacion_id, orden) VALUES (?, ?, ?)"
+        );
+        $orden = 0;
+        foreach ($detIds as $detId) {
+            $orden++;
+            $ins->execute([$perfilId, (int) $detId, $orden]);
+        }
+    }
+
+    public function codigoExiste(string $codigo, ?int $exceptId = null): bool
+    {
+        $sql = "SELECT 1 FROM lab_perfiles WHERE codigo = :c AND deleted_at IS NULL";
+        $params = [':c' => $codigo];
+        if ($exceptId !== null) {
+            $sql .= " AND id <> :id";
+            $params[':id'] = $exceptId;
+        }
+        $sql .= " LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchColumn() !== false;
+    }
+
     /**
      * Devuelve los IDs de determinaciones activas que componen un perfil,
      * en el orden definido en lab_perfil_determinaciones.

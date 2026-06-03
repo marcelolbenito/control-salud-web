@@ -1,5 +1,5 @@
-import { api } from '../api.js?v=9';
-import { PacienteSelector } from '../pacientes/paciente-selector.js?v=9';
+import { api } from '../api.js?v=10';
+import { PacienteSelector } from '../pacientes/paciente-selector.js?v=10';
 
 const state = {
     determinaciones: [],
@@ -67,6 +67,19 @@ async function init() {
             buscarPacienteRapido();
         }
     });
+
+    await precargarPacienteDesdeUrl();
+}
+
+async function precargarPacienteDesdeUrl() {
+    const id = new URLSearchParams(window.location.search).get('paciente_id');
+    if (!id || !/^\d+$/.test(id)) return;
+    try {
+        const p = await api.get(`/api/pacientes?accion=obtener&id=${id}`);
+        if (p && p.id) aplicarPaciente(p);
+    } catch {
+        // el usuario puede buscar a mano
+    }
 }
 
 function aplicarPaciente(p) {
@@ -258,29 +271,20 @@ async function onSubmit(e) {
     e.preventDefault();
     hideMsg();
 
-    if (!$pacienteId.value || parseInt($pacienteId.value, 10) <= 0) {
-        showError('Tenés que elegir un paciente (buscador rápido o completo).');
-        return;
-    }
-
-    if (!$snapFecha.value) {
-        showError('Completá la fecha de nacimiento del paciente (si falta en la ficha, ingresala manualmente).');
-        return;
-    }
-
     if (state.seleccionados.size === 0) {
         showError('Tenes que seleccionar al menos una determinacion o perfil');
         return;
     }
 
     const fd = new FormData($form);
+    const pacienteIdRaw = String(fd.get('paciente_id') || '').trim();
     const payload = {
-        paciente_id: parseInt(String(fd.get('paciente_id') || '0'), 10),
+        paciente_id: pacienteIdRaw === '' ? null : parseInt(pacienteIdRaw, 10),
         snapshot_paciente: {
             nombre: String(fd.get('snap_nombre') || '').trim(),
             dni: String(fd.get('snap_dni') || '').trim() || null,
             sexo: fd.get('snap_sexo'),
-            fecha_nac: fd.get('snap_fecha_nac'),
+            fecha_nac: (String(fd.get('snap_fecha_nac') || '').trim() || null),
         },
         medico_externo: String(fd.get('medico_externo') || '').trim() || null,
         diagnostico: String(fd.get('diagnostico') || '').trim() || null,

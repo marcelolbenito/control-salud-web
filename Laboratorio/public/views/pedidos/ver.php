@@ -30,22 +30,17 @@ require __DIR__ . '/../_layout/header.php';
                     <dt>Fecha extraccion</dt><dd id="d-fext">--</dd>
                     <dt>Fecha entrega</dt><dd id="d-fent">--</dd>
                 </dl>
-            </fieldset>
 
-            <fieldset class="form-section">
-                <legend>Paciente</legend>
+                <h3 class="subseccion">Paciente</h3>
                 <dl class="data-grid">
-                    <dt>HC</dt><dd id="d-hc">--</dd>
                     <dt>Nombre</dt><dd id="d-pac-nombre">--</dd>
                     <dt>DNI</dt><dd id="d-pac-dni">--</dd>
                     <dt>Sexo</dt><dd id="d-pac-sexo">--</dd>
                     <dt>Fecha nac.</dt><dd id="d-pac-fnac">--</dd>
                 </dl>
-                <p><a id="d-link-historial" href="#"><i class="bi bi-clock-history"></i> Ver historial completo del paciente</a></p>
-            </fieldset>
+                <p id="d-historial-wrap" hidden><a id="d-link-historial" href="#"><i class="bi bi-clock-history"></i> Ver historial completo del paciente</a></p>
 
-            <fieldset class="form-section">
-                <legend>Medico / Obra social</legend>
+                <h3 class="subseccion">Medico / Obra social</h3>
                 <dl class="data-grid">
                     <dt>Medico</dt><dd id="d-medico">--</dd>
                     <dt>Obra social</dt><dd id="d-os">--</dd>
@@ -63,7 +58,9 @@ require __DIR__ . '/../_layout/header.php';
                                 <th>Codigo</th>
                                 <th>Determinacion</th>
                                 <th>Perfil</th>
+                                <th>Resultado</th>
                                 <th>Unidad</th>
+                                <th>Referencia</th>
                                 <th>Estado</th>
                                 <th>Precio</th>
                             </tr>
@@ -97,7 +94,7 @@ require __DIR__ . '/../_layout/header.php';
         </div>
 
         <script type="module">
-            import { initVer } from '<?= lab_h('/assets/js/pedidos/ver.js') ?>';
+            import { initVer } from '<?= lab_asset_h('/assets/js/pedidos/ver.js') ?>?v=<?= lab_scripts_version() ?>';
             initVer(<?= (int) $id ?>);
         </script>
 <?php require __DIR__ . '/../_layout/footer.php'; ?>

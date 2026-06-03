@@ -72,8 +72,8 @@ require __DIR__ . '/../_layout/header.php';
 
         <div id="mensaje" class="mensaje" role="status" aria-live="polite" hidden></div>
 
-        <div id="os-modal" class="modal" hidden role="dialog" aria-modal="true">
-            <div class="modal-content">
+        <div id="os-modal" class="modal-overlay" hidden role="dialog" aria-modal="true">
+            <div class="modal">
                 <h2 id="os-modal-titulo"></h2>
                 <div id="os-modal-cuerpo"></div>
             </div>

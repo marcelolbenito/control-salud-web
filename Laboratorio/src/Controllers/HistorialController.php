@@ -50,4 +50,18 @@ final class HistorialController
         }
         Response::success($dossier);
     }
+
+    public function dossierByNumero(string $numero): void
+    {
+        if ($numero === '') {
+            Response::error('numero invalido', 400);
+            return;
+        }
+        $dossier = $this->service->dossierPedidoByNumero($numero);
+        if ($dossier === null) {
+            Response::error("Pedido N° $numero no encontrado", 404);
+            return;
+        }
+        Response::success($dossier);
+    }
 }

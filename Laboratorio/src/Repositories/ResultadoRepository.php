@@ -126,6 +126,91 @@ final class ResultadoRepository
     }
 
     /**
+     * Resultados anteriores del mismo paciente para un conjunto de determinaciones.
+     *
+     * @param int[] $determinacionIds
+     * @return array<int,array<int,array<string,mixed>>>
+     */
+    public function findAnterioresPorPaciente(
+        ?int $pacienteId,
+        ?string $dni,
+        array $determinacionIds,
+        int $excludePedidoId,
+        int $limitPorDet = 5
+    ): array {
+        $tieneDni = $dni !== null && $dni !== '';
+        if ($determinacionIds === [] || ($pacienteId === null && !$tieneDni)) {
+            return [];
+        }
+
+        $matchParts = [];
+        $params = [];
+        if ($pacienteId !== null) {
+            $matchParts[] = 'p.paciente_id = ?';
+            $params[] = $pacienteId;
+        }
+        if ($tieneDni) {
+            $matchParts[] = "JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.dni')) = ?";
+            $params[] = $dni;
+        }
+        $matchSql = '(' . implode(' OR ', $matchParts) . ')';
+
+        $detPlaceholders = implode(',', array_fill(0, count($determinacionIds), '?'));
+
+        $sql = "SELECT pi.determinacion_id,
+                       r.valor_numerico, r.valor_texto, r.unidad, r.es_anormal,
+                       COALESCE(p.fecha_extraccion, p.fecha_solicitud) AS fecha,
+                       p.numero AS pedido_numero
+                FROM lab_resultados r
+                JOIN lab_pedido_items pi ON pi.id = r.pedido_item_id
+                JOIN lab_pedidos p ON p.id = pi.pedido_id
+                WHERE $matchSql
+                  AND p.id <> ?
+                  AND pi.determinacion_id IN ($detPlaceholders)
+                  AND r.deleted_at IS NULL
+                  AND pi.deleted_at IS NULL
+                  AND p.deleted_at IS NULL
+                ORDER BY pi.determinacion_id, fecha DESC, p.id DESC";
+
+        $params[] = $excludePedidoId;
+        foreach ($determinacionIds as $d) {
+            $params[] = (int) $d;
+        }
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $det = (int) $row['determinacion_id'];
+            if (!isset($map[$det])) {
+                $map[$det] = [];
+            }
+            if (count($map[$det]) >= $limitPorDet) {
+                continue;
+            }
+            $map[$det][] = [
+                'valor_numerico' => $row['valor_numerico'],
+                'valor_texto'    => $row['valor_texto'],
+                'unidad'         => $row['unidad'],
+                'es_anormal'     => (int) $row['es_anormal'],
+                'fecha'          => $row['fecha'],
+                'pedido_numero'  => $row['pedido_numero'],
+            ];
+        }
+
+        return $map;
+    }
+
+    public function deleteByPedidoItemId(int $pedidoItemId): bool
+    {
+        $stmt = $this->db->prepare('DELETE FROM lab_resultados WHERE pedido_item_id = :pid');
+        $stmt->execute([':pid' => $pedidoItemId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
      * Actualiza el resultado vivo. SP9: la re-escritura es libre, no requiere
      * pasar por validacion. Cada edicion queda en lab_auditoria (lo registra
      * el service).

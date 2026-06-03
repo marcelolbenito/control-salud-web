@@ -2,7 +2,7 @@
  * Detalle de pedido — sub-proyecto 2.
  * Carga el pedido + items y permite anular o eliminar.
  */
-import { api, labPath } from '../api.js?v=9';
+import { api, labPath } from '../api.js?v=10';
 
 const ENDPOINT = '/api/pedidos';
 
@@ -16,8 +16,15 @@ export function initVer(id) {
 
 async function cargar(id) {
     try {
-        const pedido = await api.get(`${ENDPOINT}?id=${id}`);
-        render(pedido);
+        const [pedido, resData] = await Promise.all([
+            api.get(`${ENDPOINT}?id=${id}`),
+            api.get(`/api/resultados?pedido_id=${id}`).catch(() => ({ resultados: [] })),
+        ]);
+        const resPorItem = new Map();
+        for (const r of (resData?.resultados ?? [])) {
+            resPorItem.set(r.pedido_item_id, r);
+        }
+        render(pedido, resPorItem);
         cablearAcciones(pedido);
     } catch (err) {
         mostrarError(err.status === 404
@@ -26,7 +33,7 @@ async function cargar(id) {
     }
 }
 
-function render(p) {
+function render(p, resPorItem = new Map()) {
     document.getElementById('ord-loading').hidden = true;
     document.getElementById('ord-cuerpo').hidden = false;
 
@@ -37,7 +44,6 @@ function render(p) {
 
     set('d-numero', p.numero);
 
-    // Render con badges para estado, prioridad y critico (clases definidas en app.css).
     const safeKey = (s) => String(s ?? '').replace(/[^a-z_]/gi, '');
     document.getElementById('d-estado').innerHTML =
         `<span class="badge badge-${safeKey(p.estado)}">${escapeHtml(String(p.estado ?? '').replace('_', ' '))}</span>`;
@@ -57,38 +63,44 @@ function render(p) {
     set('d-pac-dni', snapshot?.dni ?? '—');
     set('d-pac-sexo', snapshot?.sexo ?? '—');
     set('d-pac-fnac', snapshot?.fecha_nac ?? '—');
-    set('d-hc', `(paciente_id=${p.paciente_id})`);
 
-    const link = document.getElementById('d-link-historial');
-    link.href = `/historial?paciente_id=${p.paciente_id}`;
+    const histWrap = document.getElementById('d-historial-wrap');
+    if (p.paciente_id) {
+        document.getElementById('d-link-historial').href = labPath(`/historial?paciente_id=${p.paciente_id}`);
+        if (histWrap) histWrap.hidden = false;
+    } else if (histWrap) {
+        histWrap.hidden = true;
+    }
 
     set('d-medico', p.medico_externo ?? (p.medico_id ? `medico_id=${p.medico_id}` : '—'));
-    set('d-os', p.obra_social_id ?? '—');
+    set('d-os', p.obra_social_nombre ?? '—');
     set('d-afiliado', p.numero_afiliado ?? '—');
     set('d-diag', p.diagnostico ?? '—');
 
-    // SP5: facturacion
     const estadoLbl = { A: 'A facturar', F: 'Facturada', P: 'Pagada', N: 'No aplica' };
     set('d-estado-pac', estadoLbl[p.estado_paciente] ?? p.estado_paciente ?? '—');
     set('d-estado-seg', estadoLbl[p.estado_seguro] ?? p.estado_seguro ?? '—');
     set('d-monto-pac',  formatMoney(p.monto_paciente));
     set('d-monto-seg',  formatMoney(p.monto_seguro));
-    set('d-honorarios', formatMoney(p.monto_honorarios));
 
     const items = p.items ?? [];
     document.getElementById('d-items').innerHTML = items.length === 0
-        ? `<tr><td colspan="6" class="muted" style="text-align:center; padding: 1.5rem;">Sin items.</td></tr>`
-        : items.map((it) => `
+        ? `<tr><td colspan="8" class="muted" style="text-align:center; padding: 1.5rem;">Sin items.</td></tr>`
+        : items.map((it) => {
+            const r = resPorItem.get(it.id);
+            return `
             <tr>
               <td>${escapeHtml(it.determinacion_codigo ?? '')}</td>
               <td>${escapeHtml(it.determinacion_nombre ?? '')}</td>
               <td>${escapeHtml(it.perfil_nombre ?? '')}</td>
-              <td>${escapeHtml(it.unidad ?? '')}</td>
+              <td>${renderResultado(r)}</td>
+              <td>${escapeHtml(it.unidad ?? (r?.unidad ?? ''))}</td>
+              <td>${renderReferencia(r)}</td>
               <td>${escapeHtml(it.estado ?? '')}</td>
               <td>${it.precio !== null && it.precio !== undefined ? escapeHtml(String(it.precio)) : ''}</td>
-            </tr>`).join('');
+            </tr>`;
+        }).join('');
 
-    // Habilita/deshabilita acciones según estado.
     const btnAnular = document.getElementById('btn-anular');
     const btnEliminar = document.getElementById('btn-eliminar');
     if (['entregado', 'anulado'].includes(p.estado)) {
@@ -99,15 +111,15 @@ function render(p) {
 
 function cablearAcciones(p) {
     document.getElementById('btn-portada').addEventListener('click', () => {
-        window.open(`${ENDPOINT}?accion=portada&id=${p.id}`, '_blank', 'noopener');
+        window.open(labPath(`${ENDPOINT}?accion=portada&id=${p.id}`), '_blank', 'noopener');
     });
     document.getElementById('btn-talon').addEventListener('click', () => {
-        window.open(`${ENDPOINT}?accion=talon&id=${p.id}`, '_blank', 'noopener');
+        window.open(labPath(`${ENDPOINT}?accion=talon&id=${p.id}`), '_blank', 'noopener');
     });
 
     document.getElementById('btn-anular').addEventListener('click', async () => {
         const motivo = window.prompt('Motivo de anulación:');
-        if (motivo === null) return; // canceló
+        if (motivo === null) return;
         if (motivo.trim() === '') {
             alert('El motivo es obligatorio.');
             return;
@@ -160,4 +172,36 @@ function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[c]));
+}
+
+function renderResultado(r) {
+    if (!r) return '<span class="muted">—</span>';
+    const raw = r.valor_numerico ?? r.valor_texto;
+    if (raw === null || raw === undefined || raw === '') return '<span class="muted">—</span>';
+    let txt = String(raw);
+    if (r.valor_numerico !== null && r.valor_numerico !== undefined) {
+        const n = parseFloat(r.valor_numerico);
+        if (!isNaN(n)) {
+            const dec = Number.isInteger(r.decimales) ? r.decimales : 2;
+            txt = n.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        }
+    }
+    const flag = parseInt(r.es_critico, 10) === 1
+        ? ' <span class="badge badge-critico" title="Valor crítico">!!</span>'
+        : (parseInt(r.es_anormal, 10) === 1 ? ' <span class="badge badge-anormal" title="Fuera de rango">!</span>' : '');
+    const cls = parseInt(r.es_critico, 10) === 1 ? 'val-critico'
+              : (parseInt(r.es_anormal, 10) === 1 ? 'val-anormal' : '');
+    return `<span class="${cls}"><strong>${escapeHtml(txt)}</strong></span>${flag}`;
+}
+
+function renderReferencia(r) {
+    if (!r) return '<span class="muted">—</span>';
+    if (r.texto_referencia) return escapeHtml(r.texto_referencia);
+    const min = r.valor_referencia_min;
+    const max = r.valor_referencia_max;
+    const has = (v) => v !== null && v !== undefined && v !== '';
+    if (has(min) && has(max)) return `${escapeHtml(String(min))} – ${escapeHtml(String(max))}`;
+    if (has(min)) return `≥ ${escapeHtml(String(min))}`;
+    if (has(max)) return `≤ ${escapeHtml(String(max))}`;
+    return '<span class="muted">—</span>';
 }

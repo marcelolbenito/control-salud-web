@@ -254,6 +254,95 @@ final class ResultadoService
     }
 
     /**
+     * Quita el resultado de un item mal cargado.
+     *
+     * @return array<string,mixed>
+     */
+    public function quitar(int $pedidoItemId, int $usuarioId): array
+    {
+        if ($pedidoItemId <= 0) {
+            throw new ValidationException('Errores de validacion', [
+                'pedido_item_id' => 'pedido_item_id es obligatorio y debe ser > 0',
+            ]);
+        }
+
+        $itemCtx = $this->itemRepo->findByIdConContexto($pedidoItemId);
+        if ($itemCtx === null) {
+            throw new ValidationException('Item no encontrado', [
+                'pedido_item_id' => "Item $pedidoItemId no existe",
+            ]);
+        }
+
+        $estadoPedido = (string) $itemCtx['pedido_estado'];
+        if (in_array($estadoPedido, ['anulado', 'entregado'], true)) {
+            throw new DomainException(
+                "El pedido esta '$estadoPedido', no se puede quitar el resultado"
+            );
+        }
+
+        $existente = $this->resultadoRepo->findByPedidoItemId($pedidoItemId);
+        if ($existente === null) {
+            throw new ValidationException('No hay resultado para quitar', [
+                'pedido_item_id' => 'Este item no tiene un resultado cargado',
+            ]);
+        }
+
+        $pedidoId = (int) $itemCtx['pedido_id'];
+
+        $this->db->beginTransaction();
+        try {
+            $this->resultadoRepo->deleteByPedidoItemId($pedidoItemId);
+            $this->itemRepo->updateEstado($pedidoItemId, 'pendiente');
+
+            $estados = $this->itemRepo->listarEstadosByPedidoId($pedidoId);
+            $hayCargados = in_array('cargado', $estados, true);
+            $nuevoEstado = $hayCargados ? 'parcial' : 'pendiente';
+            if ($nuevoEstado !== $estadoPedido) {
+                $this->pedidoRepo->updateEstado($pedidoId, $nuevoEstado);
+            }
+
+            $restantes = $this->resultadoRepo->findByPedidoId($pedidoId);
+            $hayCritico = false;
+            foreach ($restantes as $r) {
+                if ((int) ($r['es_critico'] ?? 0) === 1) {
+                    $hayCritico = true;
+                    break;
+                }
+            }
+            $this->pedidoRepo->updateEsCritico($pedidoId, $hayCritico);
+
+            $this->auditoria->log(
+                usuarioId: $usuarioId,
+                accion: 'eliminar',
+                tablaAfectada: 'lab_resultados',
+                registroId: (int) $existente['id'],
+                valorAnterior: [
+                    'pedido_item_id' => $pedidoItemId,
+                    'valor_numerico' => $existente['valor_numerico'],
+                    'valor_texto'    => $existente['valor_texto'],
+                    'es_anormal'     => (int) $existente['es_anormal'],
+                    'es_critico'     => (int) $existente['es_critico'],
+                ],
+                valorNuevo: null,
+                contexto: 'Quitar resultado mal cargado',
+            );
+
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+
+        return [
+            'pedido_item_id' => $pedidoItemId,
+            'pedido_id'      => $pedidoId,
+            'estado_pedido'  => $nuevoEstado,
+        ];
+    }
+
+    /**
      * @return array<int,array<string,mixed>>
      */
     public function listarPorPedido(int $pedidoId): array

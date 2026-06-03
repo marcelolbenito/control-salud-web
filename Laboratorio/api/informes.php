@@ -59,7 +59,11 @@ switch ($method) {
             $controller->listarPorPedido($pedidoId);
             break;
         }
-        Response::error('Falta query param ?id=<int>&download=1 o ?pedido_id=<int>', 400);
+        if ($accion === 'recientes') {
+            $controller->listarRecientes($_GET);
+            break;
+        }
+        Response::error('Falta query param ?id=<int>&download=1, ?pedido_id=<int> o ?accion=recientes', 400);
         break;
 
     default:

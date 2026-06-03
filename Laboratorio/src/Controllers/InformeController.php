@@ -75,6 +75,24 @@ final class InformeController
         Response::success(['informes' => $informes]);
     }
 
+    /**
+     * @param array<string,mixed> $query
+     */
+    public function listarRecientes(array $query): void
+    {
+        $filtros = [
+            'numero'    => $query['numero']    ?? null,
+            'paciente'  => $query['paciente']  ?? null,
+            'dni'       => $query['dni']       ?? null,
+            'desde'     => $query['desde']     ?? null,
+            'hasta'     => $query['hasta']     ?? null,
+            'entregado' => $query['entregado'] ?? null,
+            'limit'     => isset($query['limit']) ? (int) $query['limit'] : null,
+        ];
+        $informes = $this->service->listarRecientes($filtros);
+        Response::success(['informes' => $informes]);
+    }
+
     public function descargar(int $id): void
     {
         if ($id <= 0) {

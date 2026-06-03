@@ -73,6 +73,20 @@ require __DIR__ . '/_layout/header.php';
                     <div class="stat-card-label">Unidades NBU por an&aacute;lisis y valor por obra social</div>
                 </div>
             </a>
+            <a href="<?= lab_h('/perfiles') ?>" class="stat-card">
+                <div class="stat-card-icon"><i class="bi bi-collection"></i></div>
+                <div>
+                    <div class="stat-card-value">Perfiles</div>
+                    <div class="stat-card-label">Conjuntos de determinaciones para pedidos</div>
+                </div>
+            </a>
+            <a href="<?= lab_h('/nomenclador') ?>" class="stat-card">
+                <div class="stat-card-icon"><i class="bi bi-card-list"></i></div>
+                <div>
+                    <div class="stat-card-value">Nomenclador</div>
+                    <div class="stat-card-label">Alta y edici&oacute;n de determinaciones</div>
+                </div>
+            </a>
             <a href="<?= lab_h('/facturacion-os') ?>" class="stat-card">
                 <div class="stat-card-icon"><i class="bi bi-receipt"></i></div>
                 <div>

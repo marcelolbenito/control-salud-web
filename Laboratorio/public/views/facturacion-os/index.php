@@ -21,7 +21,11 @@ require __DIR__ . '/../_layout/header.php';
             <fieldset class="form-section">
                 <legend>Filtros</legend>
                 <div class="grid">
-                    <label>OS <input type="number" id="filtro-os" placeholder="ID de OS"></label>
+                    <label>Obra social
+                        <select id="filtro-os">
+                            <option value="">(Todas)</option>
+                        </select>
+                    </label>
                     <label>Estado
                         <select id="filtro-estado">
                             <option value="">Todos</option>
@@ -58,7 +62,11 @@ require __DIR__ . '/../_layout/header.php';
             <fieldset class="form-section">
                 <legend>Buscar pedidos elegibles</legend>
                 <div class="grid">
-                    <label>Obra social <input type="number" id="nuevo-os" required></label>
+                    <label>Obra social
+                        <select id="nuevo-os" required>
+                            <option value="">— elegir obra social —</option>
+                        </select>
+                    </label>
                     <label>Desde <input type="date" id="nuevo-desde" required></label>
                     <label>Hasta <input type="date" id="nuevo-hasta" required></label>
                 </div>

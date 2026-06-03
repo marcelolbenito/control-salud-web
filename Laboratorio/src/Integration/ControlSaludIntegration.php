@@ -208,6 +208,46 @@ final class ControlSaludIntegration
                 COALESCE(NULLIF(TRIM({$pacAlias}.Nombres), ''), '') AS paciente_nombres";
     }
 
+    /**
+     * Nombre/DNI visibles en listado: prioriza snapshot del pedido.
+     */
+    public static function pedidoListSnapshotSelectSql(string $pacAlias = 'pac'): string
+    {
+        if (!self::enabled()) {
+            return "COALESCE(
+                    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.nombre')), ''),
+                    NULLIF(TRIM(CONCAT_WS(', ', {$pacAlias}.apellido, {$pacAlias}.nombres)), '')
+                ) AS paciente_nombre,
+                JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.dni')) AS paciente_dni";
+        }
+
+        $apellido = self::pacienteHasColumn('apellido')
+            ? "COALESCE(NULLIF(TRIM({$pacAlias}.apellido), ''), '')"
+            : "''";
+        $nombres = "COALESCE(NULLIF(TRIM({$pacAlias}.Nombres), ''), '')";
+
+        return "COALESCE(
+                    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.nombre')), ''),
+                    NULLIF(TRIM(CONCAT_WS(', ', {$apellido}, {$nombres})), '')
+                ) AS paciente_nombre,
+                JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.dni')) AS paciente_dni";
+    }
+
+    /** Cláusulas LIKE de búsqueda rápida sobre snapshot (además de paciente join). */
+    public static function pedidoBuscarSnapshotClauses(): array
+    {
+        return [
+            "JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.nombre')) LIKE :q_snap_nom",
+            "JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.dni')) LIKE :q_snap_dni",
+        ];
+    }
+
+    /** Nombre de obra social en JOIN de pedidos. */
+    public static function pedidoObraSocialNombreSql(): string
+    {
+        return self::enabled() ? 'os.nombre' : 'os.nombre';
+    }
+
     private static function loadPacienteColumns(): void
     {
         if (self::$pacienteColumns !== null) {

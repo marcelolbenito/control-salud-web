@@ -35,6 +35,19 @@ final class ResultadoController
         }
     }
 
+    public function quitar(int $pedidoItemId): void
+    {
+        try {
+            $result = $this->service->quitar($pedidoItemId, self::USUARIO_ID_HARDCODED);
+            Response::success($result);
+        } catch (ValidationException $e) {
+            Response::error($e->getMessage(), 422, $e->getFields(), 'VALIDATION');
+        } catch (DomainException $e) {
+            $status = $e->getCode() === 403 ? 403 : 409;
+            Response::error($e->getMessage(), $status);
+        }
+    }
+
     public function listarPorPedido(int $pedidoId): void
     {
         if ($pedidoId <= 0) {

@@ -49,6 +49,7 @@ final class PedidoServiceArancelTest extends TestCase
             ['id' => 1, 'precio' => '100.00'],
             ['id' => 2, 'precio' => '200.00'],
         ]);
+        $detRepo->method('findSoloFacturacionIds')->willReturn([]);
 
         return new PedidoService(
             db: $db,
@@ -75,6 +76,7 @@ final class PedidoServiceArancelTest extends TestCase
         $pedidoRepo->method('getNextNumeroForYear')->willReturn(1);
         $pedidoRepo->method('insert')->willReturn(42);
         $pedidoRepo->method('insertItem')->willReturn(1);
+        $pedidoRepo->method('calcularMontoSeguroUnits')->with(42)->willReturn(1260.00);
 
         $montosCapturados = null;
         $pedidoRepo->method('updateMontos')
@@ -132,6 +134,7 @@ final class PedidoServiceArancelTest extends TestCase
         $pedidoRepo->method('getNextNumeroForYear')->willReturn(1);
         $pedidoRepo->method('insert')->willReturn(44);
         $pedidoRepo->method('insertItem')->willReturn(1);
+        $pedidoRepo->method('calcularMontoSeguroUnits')->with(44)->willReturn(300.00);
 
         $montos = null;
         $pedidoRepo->method('updateMontos')

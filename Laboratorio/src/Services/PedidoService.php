@@ -67,20 +67,22 @@ final class PedidoService
     {
         $errors = [];
 
-        $pacienteId = isset($input['paciente_id']) ? (int) $input['paciente_id'] : 0;
-        if ($pacienteId <= 0) {
-            $errors['paciente_id'] = 'paciente_id es obligatorio y debe ser > 0';
-        }
+        // paciente_id es opcional: en Control Salud el paciente puede venir del
+        // contexto. La fuente de verdad por pedido es snapshot_paciente.
+        $pacienteId = !empty($input['paciente_id']) ? (int) $input['paciente_id'] : null;
 
         $snapshot = $input['snapshot_paciente'] ?? null;
         if (!is_array($snapshot)) {
-            $errors['snapshot_paciente'] = 'snapshot_paciente es obligatorio (objeto con nombre, sexo, fecha_nac)';
+            $errors['snapshot_paciente'] = 'snapshot_paciente es obligatorio (objeto con nombre y sexo; fecha_nac opcional)';
             $snapshot = [];
         } else {
-            foreach (['nombre', 'sexo', 'fecha_nac'] as $f) {
+            foreach (['nombre', 'sexo'] as $f) {
                 if (empty($snapshot[$f])) {
                     $errors["snapshot_paciente.$f"] = "Falta $f en snapshot_paciente";
                 }
+            }
+            if (!isset($snapshot['fecha_nac']) || $snapshot['fecha_nac'] === '') {
+                $snapshot['fecha_nac'] = null;
             }
             if (isset($snapshot['sexo']) && !in_array($snapshot['sexo'], self::SEXOS_VALIDOS, true)) {
                 $errors['snapshot_paciente.sexo'] = "sexo debe ser 'M' o 'F'";
@@ -105,6 +107,14 @@ final class PedidoService
 
         if ($errors !== []) {
             throw new ValidationException('Errores de validacion en items', $errors);
+        }
+
+        // El acto bioquimico (determinacion solo_facturacion) se agrega a todo pedido.
+        $idsPresentes = array_column($itemsResueltos, 'determinacion_id');
+        foreach ($this->determinacionRepo->findSoloFacturacionIds() as $actoId) {
+            if (!in_array($actoId, $idsPresentes, true)) {
+                $itemsResueltos[] = ['determinacion_id' => $actoId, 'perfil_id' => null];
+            }
         }
 
         $determinacionIds = array_unique(array_column($itemsResueltos, 'determinacion_id'));
@@ -159,8 +169,6 @@ final class PedidoService
 
             $hoy = date('Y-m-d');
             foreach ($itemsResueltos as $r) {
-                $monto = $this->arancelador->calcularMontoItem($r['determinacion_id'], $obraSocialId, $hoy);
-
                 $item = new PedidoItem(
                     id: null,
                     pedidoId: $pedidoId,
@@ -172,10 +180,13 @@ final class PedidoService
                 );
                 $this->pedidoRepo->insertItem($pedidoId, $item);
                 $itemsCreados++;
+            }
 
-                if ($obraSocialId !== null) {
-                    $totalSeguro += $monto->total;
-                } else {
+            if ($obraSocialId !== null) {
+                $totalSeguro = $this->pedidoRepo->calcularMontoSeguroUnits($pedidoId);
+            } else {
+                foreach ($itemsResueltos as $r) {
+                    $monto = $this->arancelador->calcularMontoItem($r['determinacion_id'], null, $hoy);
                     $totalPaciente += $monto->total;
                 }
             }

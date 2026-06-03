@@ -2,8 +2,8 @@
  * Listado de pedidos — sub-proyecto 2.
  * Reusa PacienteSelector (sub-proyecto 1) para el filtro de paciente.
  */
-import { api, labPath } from '../api.js?v=9';
-import { PacienteSelector } from '../pacientes/paciente-selector.js?v=9';
+import { api, labPath } from '../api.js?v=10';
+import { PacienteSelector } from '../pacientes/paciente-selector.js?v=10';
 
 const ENDPOINT = '/api/pedidos';
 
@@ -35,6 +35,7 @@ let estado = {
     await Promise.all([cargarObrasSociales(), cargarMedicos()]);
     cablearEventos();
     cablearModalPlanilla();
+    ejecutarBusqueda();
 })();
 
 async function cargarObrasSociales() {
@@ -275,13 +276,13 @@ function renderResultados(data) {
     }
 
     els.tbody.innerHTML = pedidos.map((p) => {
-        const paciente = [p.paciente_apellido, p.paciente_nombres].filter(Boolean).join(', ');
+        const paciente = p.paciente_nombre || [p.paciente_apellido, p.paciente_nombres].filter(Boolean).join(', ');
         const fecha = formatearFecha(p.fecha_solicitud);
         return `
         <tr data-id="${escapeAttr(String(p.id))}">
           <td>${escapeHtml(p.numero ?? '')}</td>
           <td>${escapeHtml(fecha)}</td>
-          <td>${escapeHtml(p.paciente_nro_hc ?? '')}</td>
+          <td>${escapeHtml(p.paciente_nro_hc || p.paciente_dni || '')}</td>
           <td>${escapeHtml(paciente)}</td>
           <td>${escapeHtml(p.medico_externo ?? '')}</td>
           <td>${escapeHtml(p.obra_social_nombre ?? '')}</td>
