@@ -1,7 +1,8 @@
 # Integrar cambios desde `c:\Laboratorio\Laboratorio`
 
-Copia de trabajo del otro dev (2026-05-19, ver `CAMBIOS.md` allí).  
-**No reemplazar** `c:\Control Salud\Laboratorio` entero: perderíamos integración Control Salud, puente Nginx y correcciones de producción.
+Copia de trabajo del otro dev. **Fuente de verdad de novedades:** `Laboratorio/CAMBIOS.md` (copiado del externo).
+
+**No reemplazar** `c:\Control Salud\Laboratorio` entero: perderíamos integración Control Salud, rutas embebidas y correcciones de producción.
 
 ## Rutas
 
@@ -9,86 +10,109 @@ Copia de trabajo del otro dev (2026-05-19, ver `CAMBIOS.md` allí).
 |---------|-----|
 | `c:\Laboratorio\Laboratorio\` | Lab “puro” (standalone) |
 | `c:\Control Salud\Laboratorio\` | Lab embebido en Control Salud Web |
-| `c:\Control Salud\web\public\laboratorio\` | Puente (`api.php`, assets, health) |
+| `c:\Control Salud\web\public\laboratorio\` | Puente opcional (Nginx Opción A **no lo usa**) |
 
-## Qué trae el externo (CAMBIOS.md)
+## Proceso (igual que la última vez)
 
-| # | Funcionalidad | Impacto integración |
-|---|---------------|---------------------|
-| 1 | Perfiles muestran determinaciones en nuevo pedido + planilla | Solo front |
-| 2 | Búsqueda rápida en listado (`q` = DNI, nombre, HC, N° orden) | Backend + vista + CSS |
-| 3 | Búsqueda en `/resultados/cargar` (dropdown de pedidos) | Vista + JS |
-| 4 | N° orden simple + migration `024` | ✅ código; **aplicar SQL en prod con backup** |
+1. Leer **`CAMBIOS.md`** (sesión por sesión, de arriba hacia abajo).
+2. **Diff cherry-pick** — nunca copiar la carpeta entera:
+
+```powershell
+$ext = "c:\Laboratorio\Laboratorio"
+$cs  = "c:\Control Salud\Laboratorio"
+
+git -C "c:\Control Salud" diff --no-index `
+  "$cs\src\Services\PedidoService.php" `
+  "$ext\src\Services\PedidoService.php"
+```
+
+3. Traer el archivo del externo y **reaplicar a mano** lo de Control Salud (integración CS, columnas `DNI`/`NroHC`, `lista_coberturas`, etc.).
+4. En vistas/JS: **`lab_h()`**, **`lab_asset_h()`**, import `../api.js?v=N` (no paths absolutos `/assets/...`).
+5. Probar local: `http://localhost:8080/laboratorio/...` (login CS primero).
+6. Deploy Gesis2: subir solo archivos tocados bajo **`Laboratorio/`** (sin `.env`, sin `vendor` salvo composer nuevo). **Sin puente** si Nginx Opción A.
+7. BD: migrations en orden + seeds si indica `CAMBIOS.md`.
 
 ## Qué NO tocar al copiar (solo en Control Salud)
 
 - `src/Integration/ControlSaludIntegration.php`
 - `config/session_bridge.php`
 - `public/views/_layout/lab_url.php`
-- `public/views/_layout/header.php` (meta `lab-api-bridge`, fetch wrapper, `lab_h()`)
-- `public/assets/js/api.js` (versión + `labPath` / `api.php`)
-- `public/request_path.php`, `public/serve_static.php`
-- `public/index.php` (rutas embebidas)
-- Puente `web/public/laboratorio/*`
+- `public/views/_layout/header.php` (meta `lab-api-bridge`, `lab_h()`)
+- `public/assets/js/api.js` (`labPath`, `api.php`)
+- `public/api.php`, `public/index.php`, `public/request_path.php`
+- Puente `web/public/laboratorio/*` (opcional; no obligatorio en prod)
 
-**Estrategia para `header.php`:** copiar solo bloques de UI/CSS nuevos; **reaplicar a mano** metas y script de API del header de Control Salud.
+**Header / CSS:** copiar bloques UI nuevos; **no** pisar metas ni script de API del header CS.
 
-## Archivos a traer (cherry-pick)
+---
 
-### Fase A — Solo front ✅ en `main`
+## Ya integrado en Control Salud (Sesión 1 — A–D)
 
-1. `public/assets/js/pedidos/nuevo.js` — perfiles con determinaciones  
-2. `public/assets/js/pedidos/listado.js` — planilla `perfil-detalle`  
-3. `public/assets/css/app.css` — `.perfil-item`, `.perfil-detalle`
+| Fase | Qué | Estado |
+|------|-----|--------|
+| **A** | Perfiles con determinaciones (nuevo + planilla) | ✅ |
+| **B** | Búsqueda `q` en listado | ✅ |
+| **C** | Búsqueda en `/resultados/cargar` | ✅ |
+| **D** | N° orden simple + migration `024` | ✅ código; SQL aplicado en local |
 
-### Fase B — Listado con `q` ✅
+Commits locales: `7f641bd` (B+C), `675c318` (D). Push pendiente si no se publicó.
 
-1. `public/views/pedidos/listado.php` — buscador + `<details>` más filtros  
-2. `public/assets/css/app.css` — `.busqueda-rapida`, `.filtros-avanzados`  
-3. `src/Services/PedidoService.php` — filtro `q`  
-4. `src/Repositories/PedidoRepository.php` — `q` con columnas Control Salud
+---
 
-### Fase C — Resultados ✅
+## Integrado — Sesión 2 (2026-05-28) ✅
 
-1. `public/views/resultados/cargar.php` — buscador rápido + `lab_asset_h` / versión scripts  
-2. `public/assets/js/resultados/cargar.js` — dropdown + filtro estados cargables + `../api.js`  
-3. `public/assets/css/app.css` — `.buscador-pedido`, `.dropdown-resultados`
+Desplegado local + Gesis2. SQL: **025**, **026**, seed **003** + fixes perfiles y area_id.
 
-### Fase D — N° orden simple ✅ (código + migration `024`)
+Ver checklist en `sql/APLICAR_EN_ORDEN.md`.
 
-1. `sql/migrations/024_numero_orden_simple.sql`  
-2. `PedidoService.php` + `PedidoRepository::getNextNumeroForYear`  
-3. `sql/install/lab_schema.sql` y `lab_schema_phpmyadmin.sql`  
-4. **Producción:** backup + aplicar `024` **antes** de subir PHP; PDFs viejos conservan número anterior
+---
 
-Copiar también `CAMBIOS.md` del externo a este repo como referencia histórica (opcional).
+## Integrado — Sesión 3 (2026-05-29) ✅
 
-## Cómo trabajar en la práctica
+Desplegado local + Gesis2. SQL: **027**. Incluye NBU por fecha, re-precio, ficha
+paciente, nomenclador, acto bioquímico, NBU por perfil, API valores-referencia.
 
-```powershell
-$ext = "c:\Laboratorio\Laboratorio"
-$cs  = "c:\Control Salud\Laboratorio"
+---
 
-# Ejemplo: diff de un archivo antes de copiar
-git -C "c:\Control Salud" diff --no-index `
-  "$cs\public\assets\js\pedidos\nuevo.js" `
-  "$ext\public\assets\js\pedidos\nuevo.js"
-```
+## Pendiente — Sesión 4 (2026-06-01)
 
-Después de cada fase:
+| # | Tema | Notas |
+|---|------|-------|
+| 1 | Checkbox acto en nomenclador | ✅ ya en S3 |
+| 2 | ABM rangos referencia | ✅ ya en S3 (`valores-referencia`) |
+| 3 | Textos informe PDF en config | pendiente |
+| 4 | UX modal nomenclador | pendiente |
 
-1. `.\web\deploy\copy-lab-assets.ps1` (sincroniza assets al puente)  
-2. Probar local: `/laboratorio/?r=pedidos.nuevo`, listado, resultados  
-3. En prod: solo subir archivos tocados + migration si corresponde
+---
 
-## Estado actual (comparación rápida)
+## Migraciones — estado Control Salud
 
-- **Solo en externo:** `CAMBIOS.md`, `024_numero_orden_simple.sql`  
-- **Solo en Control Salud:** integración CS, `lab_url`, `session_bridge`, puente web  
-- **Distinto contenido:** ~176 archivos (muchos por CRLF o versión base); priorizar los listados en CAMBIOS.md
+| Migration / seed | Local | Prod |
+|------------------|-------|------|
+| 024 | ✅ | ✅ |
+| 025–026 | ✅ | ✅ |
+| 003 + fixes CS | ✅ | ✅ |
+| 027 | ✅ | ✅ |
 
-## Orden recomendado
+Orden: ver `sql/APLICAR_EN_ORDEN.md`.
+
+---
+
+## Deploy Gesis2 (recordatorio)
+
+1. Backup BD.
+2. SQL migrations que falten.
+3. Subir solo `Laboratorio/...` (PHP, vistas, assets, `api/` nuevos).
+4. No pisar `.env` ni `vendor`.
+5. Ctrl+F5; revisar `?v=` en scripts.
+
+## Orden sugerido de merge
 
 ```text
-A → B → C → D (código listo; migration 024 en cada entorno)
+Confirmar A–D en prod ✅
+→ Sesión 2 ✅
+→ Sesión 3 ✅
+→ Sesión 4 (textos PDF config + UX modal)
 ```
+
+Cada bloque: diff → adaptar CS → probar local → SQL si aplica → FTP Gesis2.
