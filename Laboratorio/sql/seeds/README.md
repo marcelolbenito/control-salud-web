@@ -80,3 +80,20 @@ Rangos de **adulto** (`edad_min_dias` / `edad_max_dias` = NULL). Separados por s
 - **Catalogos secundarios**: tipos de tubo recomendado por determinacion, condiciones de extraccion, etc.
 
 Estas extensiones se agregan como `002_seed_*.sql`, `003_seed_*.sql`, sin tocar el `001`.
+
+---
+
+## Seed 003 — catálogo unidades y referencias (Sesión 2)
+
+Archivo: `003_catalogo_unidades_referencias.sql`
+
+**Requisito:** migration `026_texto_referencia_text.sql` aplicada antes.
+
+Orden completo: ver `sql/APLICAR_EN_ORDEN.md`.
+
+### Fixes Control Salud (obligatorios tras 003 en este entorno)
+
+| Archivo | Para qué |
+|---------|----------|
+| `003_fix_perfiles_control_salud.sql` | Perfiles en IDs 6–10; HMG con 14 determinaciones |
+| `003_fix_area_ids_control_salud.sql` | Remapea `area_id` huérfanos → catálogo visible en nuevo pedido |
