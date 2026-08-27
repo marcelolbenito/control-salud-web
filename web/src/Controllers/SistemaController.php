@@ -283,6 +283,68 @@ final class SistemaController
         layout_render($title, $body, $this->user);
     }
 
+    public function clinicaBrandingForm(): void
+    {
+        require_roles(['superadmin', 'admin_clinica']);
+        $isSuper = auth_is_superadmin($this->user);
+        $editClinicaId = user_clinica_id($this->user);
+        if ($isSuper && isset($_GET['clinica'])) {
+            $editClinicaId = max(1, (int) $_GET['clinica']);
+        }
+        if ($isSuper && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clinica'])) {
+            $editClinicaId = max(1, (int) $_POST['clinica']);
+        }
+
+        $error = '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_verify();
+            if (isset($_POST['quitar_logo'])) {
+                clinica_quitar_logo($this->pdo, $editClinicaId);
+                flash_set('Logo eliminado.');
+            } else {
+                $nombre = trim((string) ($_POST['nombre_clinica'] ?? ''));
+                $direccion = trim((string) ($_POST['direccion_clinica'] ?? ''));
+                $encabezado = trim((string) ($_POST['encabezado_impresion'] ?? ''));
+                if ($nombre === '') {
+                    $error = 'El nombre visible es obligatorio.';
+                } else {
+                    clinica_set_config($this->pdo, $editClinicaId, 'recordatorios.nombre_clinica', $nombre);
+                    clinica_set_config($this->pdo, $editClinicaId, 'recordatorios.direccion_clinica', $direccion);
+                    clinica_set_config($this->pdo, $editClinicaId, 'clinica.encabezado_clinica_texto', $encabezado);
+                    if (isset($_FILES['logo']) && is_array($_FILES['logo']) && (int) ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                        try {
+                            clinica_subir_logo($this->pdo, $editClinicaId, $_FILES['logo']);
+                        } catch (Throwable $e) {
+                            $error = $e->getMessage();
+                        }
+                    }
+                    if ($error === '') {
+                        flash_set('Identidad de la clínica guardada.');
+                        $q = $isSuper ? '?a=clinica_branding&clinica=' . $editClinicaId : '?a=clinica_branding';
+                        header('Location: /sistema.php' . $q);
+                        exit;
+                    }
+                }
+            }
+            if ($error === '' && isset($_POST['quitar_logo'])) {
+                $q = $isSuper ? '?a=clinica_branding&clinica=' . $editClinicaId : '?a=clinica_branding';
+                header('Location: /sistema.php' . $q);
+                exit;
+            }
+        }
+
+        $branding = clinica_branding($this->pdo, $editClinicaId);
+        $body = $this->renderView('sistema/clinica_branding', [
+            'branding' => $branding,
+            'error' => $error,
+            'clinicaNombreTabla' => clinica_nombre_tabla($this->pdo, $editClinicaId),
+            'isSuperadmin' => $isSuper,
+            'clinicasOpts' => $this->listClinicasActivas(),
+            'editClinicaId' => $editClinicaId,
+        ]);
+        layout_render('Identidad de la clínica', $body, $this->user);
+    }
+
     public function userDeletePost(): void
     {
         require_roles(['superadmin', 'admin_clinica']);
@@ -511,6 +573,19 @@ final class SistemaController
         $st->execute($params);
 
         return $st->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return list<array{id:int,nombre:string}>
+     */
+    private function listClinicasActivas(): array
+    {
+        if (!db_table_exists($this->pdo, 'clinicas')) {
+            return [['id' => 1, 'nombre' => 'Clínica principal']];
+        }
+        $st = $this->pdo->query('SELECT id, nombre FROM clinicas WHERE activo = 1 ORDER BY id ASC');
+
+        return $st ? $st->fetchAll(PDO::FETCH_ASSOC) : [];
     }
 
     private function renderView(string $view, array $data): string

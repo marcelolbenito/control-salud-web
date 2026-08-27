@@ -6,6 +6,14 @@ declare(strict_types=1);
 
 
     <section class="card-like">
+        <h2>Identidad de la clínica</h2>
+        <p class="muted">Logo, nombre y dirección que se muestran en el menú y en las impresiones.</p>
+        <p class="toolbar">
+            <a class="btn btn-primary" href="/sistema.php?a=clinica_branding"><i class="bi bi-image" aria-hidden="true"></i> Logo e identidad</a>
+        </p>
+    </section>
+
+    <section class="card-like">
         <h2>Usuarios y roles</h2>
         <?php if (!$rolesEnabled): ?>
             <p class="alert alert-error">Falta columna <code>rol</code> en <code>usuarios</code>. Ejecutá <code>sql/migration_028_usuarios_roles.sql</code>.</p>

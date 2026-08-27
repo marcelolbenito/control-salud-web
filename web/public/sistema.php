@@ -34,4 +34,9 @@ if ($a === 'user_form') {
     exit;
 }
 
+if ($a === 'clinica_branding') {
+    $ctrl->clinicaBrandingForm();
+    exit;
+}
+
 $ctrl->index();

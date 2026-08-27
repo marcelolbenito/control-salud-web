@@ -25,6 +25,7 @@ $mapaSuperficiesActivo = $mapaSuperficiesActivo ?? false;
 </div>
 
 <div class="container container-wide odontograma-print-sheet">
+    <?= clinica_render_print_header(db(), user_clinica_id(auth_user())) ?>
     <header class="odontograma-print-header">
         <h1>Odontograma — registro clínico</h1>
         <p class="odontograma-print-meta">
