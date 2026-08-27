@@ -285,6 +285,9 @@ SELECT
   `fechahoraasignado` AS `fechahora_asignado`
 FROM `Agenda Turnos`
 WHERE `Fecha` IS NOT NULL
+  -- El EXE usa HC negativas (especialmente -111) para horarios vacíos.
+  -- Solo se fusionan turnos que tengan un paciente efectivamente asignado.
+  AND COALESCE(`NroHC`, 0) > 0
 ON DUPLICATE KEY UPDATE
   `id_clinica` = VALUES(`id_clinica`),
   `Fecha` = VALUES(`Fecha`),

@@ -104,7 +104,9 @@ Objetivo: que **`/orden_form.php`** muestre desplegables (cobertura, plan, prác
 
 **Cubierto en web (alto / parcial):** Pacientes, Doctores, Agenda/Turnos, bloqueos de agenda, Órdenes, Odontograma, Tablas auxiliares, Caja (inicial), Pagos, Sesiones.
 
-**Brechas principales:** filtros de **Sesiones** dentro de Órdenes; liquidar/anular honorarios masivos; multi-estado A/F/P; informes (honorarios, caja por período, etc.) alineados al exe.
+**Brechas principales:** filtros de **Sesiones** dentro de Órdenes; liquidar/anular honorarios masivos; multi-estado A/F/P; informes (honorarios, caja por período, etc.) alineados al exe; **chat interno** entre usuarios (exe: `accesochat` + historial en `Lista Doctores.anuncio`).
+
+**Chat interno (RF-INT-01)** — integrado en el exe, no satélite. Coordinación secretaría ↔ médicos (y broadcast). Pendiente en web. Detalle: `REQUISITOS_Sistema_ControlSalud.md` §4.11. Prioridad media-baja; MVP ~3–5 días dev.
 
 ### Checklist por área
 

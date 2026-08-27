@@ -180,6 +180,9 @@ SELECT
   `altapaciweb` AS `alta_paci_web`,
   `fechahoraasignado` AS `fechahora_asignado`
 FROM `Agenda Turnos`
-WHERE `Fecha` IS NOT NULL;
+-- El EXE usa HC negativas (especialmente -111) para horarios vacíos.
+-- No son turnos de pacientes y no deben migrarse a la agenda operativa.
+WHERE `Fecha` IS NOT NULL
+  AND COALESCE(`NroHC`, 0) > 0;
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -205,6 +205,8 @@ Códigos: `RF-xxx` para trazabilidad. Estado: **C** confirmado por BD/exe, **I**
 | RF-AGE-01 | Gestión de turnos en **Agenda Turnos** (fecha, NroHC, doctor, vínculo **idorden** donde corresponda). | C |
 | RF-AGE-02 | Conceptos mencionados en material del producto: sobreturnos, plantilla de turnos, agenda telefónica, turnos web. | I / P |
 
+**Checklist de validación con el centro:** ver `CHECKLIST_AGENDA_PARIDAD.md` (marcar qué funciones del exe siguen en uso y priorizar pendientes web).
+
 ### 4.4 Órdenes, sesiones y pagos
 
 | ID | Descripción | Estado |
@@ -242,6 +244,7 @@ Códigos: `RF-xxx` para trazabilidad. Estado: **C** confirmado por BD/exe, **I**
 |----|-------------|--------|
 | RF-CAT-01 | Coberturas, prácticas, derivadores, planes — según tablas/listas en **Datos.mdb** y referencias en **Pacientes Ordenes**. | C |
 | RF-AUD-01 | Usuarios y login del **sistema web** (tabla **usuarios**); no equivale al login del .exe si existiera. | C (web) |
+| RF-INT-01 | **Chat interno** entre usuarios del sistema (secretarías, médicos, laboratorio): mensajes 1:1, broadcast «Todos los usuarios» y destinos especiales; permiso `accesochat` en `Lista Doctores`; historial legacy en campo `anuncio`; sonido `chat.wav`. Integrado en el **exe principal** (no es satélite). | C (exe/BD) / P (web) |
 
 ### 4.9 Módulos satélite (fuera o fase posterior en web)
 
@@ -626,6 +629,75 @@ CREATE TABLE IF NOT EXISTS agenda_recordatorios (
 3. Definicion de MVP por satelite (alcance minimo para primera version web).
 4. Confirmacion de datos obligatorios y tablas nuevas a crear.
 
+### 4.11 Chat interno entre usuarios (exe integrado, no satélite)
+
+**Evidencia en sistema original:**
+
+- Permiso por usuario: `Lista Doctores.accesochat` (junto a `accesored`, `accesocaja`, etc.).
+- Historial de mensajes acumulado en `Lista Doctores.anuncio` con formato:
+  `Enviado por ''REMITE'' a ''DESTINO'' (dd/mm/yyyy hh:mm:ss)` + texto.
+- Destinos observados en datos reales: usuario concreto (`SECRETARIAS MAÑANA`, `AYMAR GRACIELA`, …), **`<Todos los Usuarios>`** (broadcast) y alias de área (**`LABORATORIO`**).
+- Notificación sonora: `chat.wav` (ver `INVESTIGACION_ControlSalud.md`).
+
+**Uso operativo típico (centro de referencia):**
+
+- Coordinación recepción ↔ consultorios: paciente en sala, actualizar agenda, sobreturnos, autorizaciones OS.
+- Consultas rápidas entre personal (precios, turnos, materiales, WiFi).
+- No es mensajería a pacientes (eso es RF-SAT-02 Recordatorios / WhatsApp).
+
+**Hipótesis funcional para web (MVP):**
+
+- Bandeja o panel lateral accesible desde layout autenticado.
+- Enviar a: un usuario (`lista_doctores` / sesión), «Todos los usuarios conectados» o rol/área acordada (ej. laboratorio).
+- Respetar `accesochat` (o equivalente en matriz de permisos web).
+- Lista de conversaciones + mensajes con marca de tiempo; indicador de no leídos.
+- Sonido o badge opcional al recibir mensaje (sustituto de `chat.wav`).
+- Polling corto o WebSocket según complejidad de despliegue.
+
+**Datos y entidades candidatas:**
+
+| Campo | Tipo | Obl. | Notas |
+|-------|------|------|-------|
+| `id` | BIGINT PK | Sí | |
+| `id_clinica` | INT | Sí | Multi-clínica |
+| `de_id_usuario` | INT | Sí | FK usuario/doctor remitente |
+| `para_id_usuario` | INT | No | NULL = broadcast o destino grupal |
+| `para_tipo` | VARCHAR(24) | Sí | `usuario`, `todos`, `area` |
+| `para_clave` | VARCHAR(80) | No | Ej. `LABORATORIO` cuando `para_tipo=area` |
+| `texto` | TEXT | Sí | |
+| `creado_en` | DATETIME | Sí | |
+| `leido_en` | DATETIME | No | Por destinatario (tabla de lecturas si hay broadcast) |
+
+Tabla sugerida: `mensajes_internos` (+ opcional `mensajes_internos_lecturas` para broadcast).
+
+**Migración legacy (opcional):**
+
+- Parsear bloques de `Lista Doctores.anuncio` e importar a `mensajes_internos` (solo auditoría; no bloqueante para MVP).
+
+**Brechas / decisiones antes de implementar:**
+
+- [ ] Confirmar con el cliente si el chat sigue en uso diario en el exe actual.
+- [ ] Mapear usuarios web ↔ `lista_doctores` para remitente/destinatario.
+- [ ] Definir si «LABORATORIO» es rol, usuario ficticio o integración con módulo Laboratorio.
+- [ ] Tiempo real: polling 5–10 s vs WebSocket (segundo plano si el hosting lo permite).
+
+**Priorización sugerida:** media-baja (después de caja, órdenes avanzadas y recordatorios MVP).
+
+**Esfuerzo orientativo:**
+
+| Alcance | Días dev. aprox. |
+|---------|------------------|
+| MVP (enviar/recibir, lista usuarios, permiso, polling, sin migrar historial) | 3–5 |
+| + notificaciones sonido/badge, lecturas broadcast, UI móvil usable | +2–3 |
+| + migración historial `anuncio` + WebSocket | +2–4 |
+
+**Criterio de cierre MVP:**
+
+1. Usuario con `accesochat` puede enviar y recibir mensajes 1:1 y broadcast.
+2. Mensajes persisten y se listan por conversación con fecha/hora.
+3. Usuario sin permiso no ve el módulo.
+4. Al menos un caso de prueba recepción → médico documentado.
+
 ---
 
 ## Anexo A — «Órdenes de los Pacientes» (exe, captura 2026-04-08)
@@ -774,6 +846,7 @@ Estados sugeridos para gestion diaria: **[x] listo**, **[~] parcial**, **[ ] pen
 - [ ] **Consultas medicas:** tablas/modelo presentes, falta modulo web completo.
 - [ ] **Internacion/camas:** modelo presente, falta modulo web completo.
 - [~] **Satelites (Anunciador/Recordatorios/AgendaWeb):** Anunciador v1 y Agenda Web MVP operativos; pendiente Recordatorios y v2 de Agenda Web.
+- [ ] **Chat interno (RF-INT-01):** integrado en exe (`accesochat`, historial en `Lista Doctores.anuncio`, `chat.wav`); sin modulo web; ver seccion 4.11.
 
 ### B) Calidad tecnica minima (para avanzar sin deuda peligrosa)
 
@@ -853,3 +926,5 @@ Un item se considera cerrado cuando cumple todo lo siguiente:
 | 1.1 | 2026-04-30 | Se agrega para RF-SAT-02 el diccionario propuesto de `agenda_recordatorios`, indices minimos y borrador documental de `migration_031_agenda_recordatorios.sql` (sin implementacion aun). |
 | 1.2 | 2026-05-13 | Se incorporan procesos operativos reales del centro: recepcion particular/obra social, turnos, recordatorios, facturacion por obra social y caja diaria, con estado actual y priorizacion. |
 | 1.3 | 2026-05-14 | Se actualiza hoja de ruta tras recepcion guiada, Agenda Web MVP, cierre de caja inicial y mejoras de ordenes/aranceles/listado para facturacion. |
+| 1.4 | 2026-05-18 | Se documenta RF-INT-01 Chat interno (exe integrado): evidencia en BD, alcance MVP, tablas candidatas, priorizacion y esfuerzo orientativo. |
+| 1.5 | 2026-05-18 | Se agrega `CHECKLIST_AGENDA_PARIDAD.md` para validar con el centro que funciones de agenda del exe siguen en uso y priorizar brechas web. |
