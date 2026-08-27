@@ -133,15 +133,17 @@ final class CajaRepository
         $selCob = $joinCob ? ', lc.nombre AS cobertura_nombre' : ', NULL AS cobertura_nombre';
         $hasTurno = db_table_has_column($this->pdo, self::TABLE, 'turnocaja');
         $hasObs = db_table_has_column($this->pdo, self::TABLE, 'observaciones');
+        $hasModo = db_table_has_column($this->pdo, self::TABLE, 'modopago');
         $selTurno = $hasTurno ? 'c.turnocaja' : 'NULL AS turnocaja';
         $selObs = $hasObs ? 'c.observaciones' : 'NULL AS observaciones';
+        $selModo = $hasModo ? 'c.modopago' : 'NULL AS modopago';
 
         $joinDoc = 'd.id = c.doctor';
         if ($this->cajaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
             $joinDoc .= ' AND d.id_clinica = c.id_clinica';
         }
         $sql = 'SELECT c.id, c.doctor, c.fechacaja, c.importecaja, c.idcoberturacaja, '
-            . $selTurno . ', ' . $selObs . ',
+            . $selTurno . ', ' . $selObs . ', ' . $selModo . ',
             d.nombre AS doctor_nombre' . $selCob . '
             FROM ' . self::TABLE . ' c
             LEFT JOIN lista_doctores d ON ' . $joinDoc;
@@ -265,9 +267,14 @@ final class CajaRepository
         if ($this->cajaTieneClinica()) {
             $values['id_clinica'] = $this->idClinica;
         }
+        $fecha = trim((string) ($values['fechacaja'] ?? ''));
+        $turnoRaw = isset($values['turnocaja']) ? (string) $values['turnocaja'] : null;
+        if ($fecha !== '' && caja_turno_esta_cerrado($this->pdo, $this->idClinica, $fecha, $turnoRaw)) {
+            throw new RuntimeException(caja_mensaje_turno_cerrado($fecha, $turnoRaw));
+        }
         $cols = [];
         $vals = [];
-        foreach (['id_clinica', 'doctor', 'fechacaja', 'importecaja', 'idcoberturacaja', 'turnocaja', 'observaciones'] as $c) {
+        foreach (['id_clinica', 'doctor', 'fechacaja', 'importecaja', 'idcoberturacaja', 'modopago', 'turnocaja', 'observaciones'] as $c) {
             if (!db_table_has_column($this->pdo, self::TABLE, $c)) {
                 continue;
             }
@@ -298,7 +305,7 @@ final class CajaRepository
     {
         $sets = [];
         $params = [];
-        foreach (['doctor', 'fechacaja', 'importecaja', 'idcoberturacaja', 'turnocaja', 'observaciones'] as $c) {
+        foreach (['doctor', 'fechacaja', 'importecaja', 'idcoberturacaja', 'modopago', 'turnocaja', 'observaciones'] as $c) {
             if (!db_table_has_column($this->pdo, self::TABLE, $c)) {
                 continue;
             }

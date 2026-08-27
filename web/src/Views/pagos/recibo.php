@@ -10,11 +10,12 @@ $quien = (string) ($row['quien'] ?? 'P');
 $quienLabel = $quien === 'C' ? 'Cobertura' : ($quien === 'O' ? 'Otro' : 'Paciente');
 ?>
 <div class="container" style="max-width:780px;">
-    <div class="page-head">
+    <div class="page-head no-print">
         <h1>Recibo de pago #<?= (int) ($row['id'] ?? 0) ?></h1>
         <p class="muted">Comprobante simple para impresión</p>
     </div>
-    <div class="form-card">
+    <?= clinica_render_print_header(db(), user_clinica_id(auth_user())) ?>
+    <div class="form-card recibo-body">
         <p><strong>Fecha:</strong> <?= h((string) ($row['fecha'] ?? '')) ?></p>
         <p><strong>Quién paga:</strong> <?= h($quienLabel) ?></p>
         <p><strong>Nro HC:</strong> <?= (int) ($row['NroPaci'] ?? 0) ?></p>
@@ -23,9 +24,8 @@ $quienLabel = $quien === 'C' ? 'Cobertura' : ($quien === 'O' ? 'Otro' : 'Pacient
         <p><strong>Importe:</strong> $ <?= h($fmtMoney($row['importe'] ?? 0)) ?></p>
         <p><strong>Observaciones:</strong> <?= h((string) ($row['observaciones'] ?? '')) ?></p>
         <hr>
-        <p class="muted">Emitido desde Control Salud Web</p>
     </div>
-    <div class="page-actions">
+    <div class="page-actions no-print">
         <button type="button" class="btn btn-primary" onclick="window.print();">Imprimir</button>
         <a class="btn btn-ghost" href="/pagos.php"><i class="bi bi-x-lg" aria-hidden="true"></i> Cerrar</a>
     </div>

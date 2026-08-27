@@ -147,10 +147,10 @@ final class PagosController
                 $deltaCaja = (float) $vals['importe'] - $importePrev;
                 $fechaCaja = (string) $vals['fecha'];
                 if ($idPrevOrden > 0 && $idPrevOrden !== $idOrdenFinal) {
-                    self::registrarMovimientoCaja($this->pdo, $idPrevOrden, -$importePrev, $nroHc, 'Ajuste por cambio de orden en pago #' . $id, $fechaCaja);
-                    self::registrarMovimientoCaja($this->pdo, $idOrdenFinal, (float) $vals['importe'], $nroHc, 'Cobro registrado (pago #' . $id . ')', $fechaCaja);
+                    self::registrarMovimientoCaja($this->pdo, $idPrevOrden, -$importePrev, $nroHc, 'Ajuste por cambio de orden en pago #' . $id, $fechaCaja, $formaPago);
+                    self::registrarMovimientoCaja($this->pdo, $idOrdenFinal, (float) $vals['importe'], $nroHc, 'Cobro registrado (pago #' . $id . ')', $fechaCaja, $formaPago);
                 } else {
-                    self::registrarMovimientoCaja($this->pdo, $idOrdenFinal, $deltaCaja, $nroHc, 'Cobro/ajuste de pago #' . $id, $fechaCaja);
+                    self::registrarMovimientoCaja($this->pdo, $idOrdenFinal, $deltaCaja, $nroHc, 'Cobro/ajuste de pago #' . $id, $fechaCaja, $formaPago);
                 }
 
                 flash_set($msg);
@@ -209,7 +209,15 @@ final class PagosController
         if ($idOrden > 0) {
             self::sincronizarPagoOrden($repo, $idOrden);
             $fechaCaja = !empty($prev['fecha']) ? substr((string) $prev['fecha'], 0, 10) : date('Y-m-d');
-            self::registrarMovimientoCaja($this->pdo, $idOrden, -$importe, $nroHc, 'Anulación de pago #' . $id, $fechaCaja);
+            self::registrarMovimientoCaja(
+                $this->pdo,
+                $idOrden,
+                -$importe,
+                $nroHc,
+                'Anulación de pago #' . $id,
+                $fechaCaja,
+                (string) ($prev['forma_pago'] ?? 'efectivo')
+            );
         }
         flash_set('Pago eliminado.');
         header('Location: /pagos.php');
@@ -239,8 +247,15 @@ final class PagosController
         $repo->updatePagoOrden($idOrden, $sumPago);
     }
 
-    private static function registrarMovimientoCaja(PDO $pdo, int $idOrden, float $delta, int $nroHc, string $motivo, string $fechaYmd): void
-    {
+    private static function registrarMovimientoCaja(
+        PDO $pdo,
+        int $idOrden,
+        float $delta,
+        int $nroHc,
+        string $motivo,
+        string $fechaYmd,
+        string $formaPago = 'efectivo'
+    ): void {
         if ($idOrden < 1 || abs($delta) < 0.00001) {
             return;
         }
@@ -262,15 +277,20 @@ final class PagosController
             return;
         }
         $idCob = (int) ($ord['idobrasocial'] ?? 0);
-        $obs = $motivo . '. Orden #' . $idOrden . '. HC: ' . $nroHc . '.';
-        $cajaRepo->insertRow([
-            'doctor' => $doctor,
-            'fechacaja' => $fechaYmd,
-            'importecaja' => $delta,
-            'idcoberturacaja' => $idCob > 0 ? $idCob : null,
-            'turnocaja' => 'Orden #' . $idOrden,
-            'observaciones' => $obs,
-        ]);
+        $obs = $motivo . '. Orden #' . $idOrden . '. HC: ' . $nroHc . '. Medio: ' . $formaPago . '.';
+        try {
+            $cajaRepo->insertRow([
+                'doctor' => $doctor,
+                'fechacaja' => $fechaYmd,
+                'importecaja' => $delta,
+                'idcoberturacaja' => $idCob > 0 ? $idCob : null,
+                'modopago' => caja_modopago_from_forma_pago($formaPago),
+                'turnocaja' => caja_turno_default_por_hora(),
+                'observaciones' => $obs,
+            ]);
+        } catch (RuntimeException $e) {
+            error_log('[control-salud] movimiento caja bloqueado: ' . $e->getMessage());
+        }
     }
 
     /**

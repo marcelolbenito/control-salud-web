@@ -121,7 +121,7 @@ $fmtMoney = static function ($v): string {
                         <?php
                         $imp = (float) ($r['importecaja'] ?? 0);
                         $totalImporte += $imp;
-                        $turno = trim((string) ($r['turnocaja'] ?? ''));
+                        $turno = caja_turno_label((string) ($r['turnocaja'] ?? ''));
                         $obs = trim((string) ($r['observaciones'] ?? ''));
                         $cob = trim((string) ($r['cobertura_nombre'] ?? ''));
                         if ($cob === '') {

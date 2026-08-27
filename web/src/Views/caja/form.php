@@ -53,8 +53,24 @@ declare(strict_types=1);
                         <?php catalogo_select_options($cobOpts, $row['idcoberturacaja'] ?? '', 'Sin especificar') ?>
                     </select>
                 </label>
-                <label class="span-2">Turno / detalle corto
-                    <input type="text" name="turnocaja" maxlength="255" value="<?= h((string) ($row['turnocaja'] ?? '')) ?>">
+                <label>Turno caja
+                    <?php $turnoVal = (string) ($row['turnocaja'] ?? ''); ?>
+                    <select name="turnocaja">
+                        <option value="1"<?= in_array($turnoVal, ['1', 'mañana', 'manana'], true) ? ' selected' : '' ?>>Mañana</option>
+                        <option value="2"<?= in_array($turnoVal, ['2', 'tarde'], true) ? ' selected' : '' ?>>Tarde</option>
+                        <option value="0"<?= $turnoVal === '0' ? ' selected' : '' ?>>Sin turno / día</option>
+                    </select>
+                </label>
+                <label>Forma de pago
+                    <?php $fp = trim((string) ($row['forma_pago'] ?? 'efectivo')); ?>
+                    <select name="forma_pago">
+                        <option value="efectivo"<?= $fp === '' || $fp === 'efectivo' ? ' selected' : '' ?>>Efectivo</option>
+                        <option value="debito"<?= $fp === 'debito' ? ' selected' : '' ?>>Tarjeta débito</option>
+                        <option value="credito"<?= $fp === 'credito' ? ' selected' : '' ?>>Tarjeta crédito</option>
+                        <option value="transferencia"<?= $fp === 'transferencia' ? ' selected' : '' ?>>Transferencia</option>
+                        <option value="electronico"<?= $fp === 'electronico' ? ' selected' : '' ?>>Electrónico</option>
+                        <option value="otro"<?= $fp === 'otro' ? ' selected' : '' ?>>Otro</option>
+                    </select>
                 </label>
                 <label class="span-2">Observaciones
                     <textarea name="observaciones" rows="4"><?= h((string) ($row['observaciones'] ?? '')) ?></textarea>

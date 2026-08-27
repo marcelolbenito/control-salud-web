@@ -22,6 +22,7 @@ final class CajaCierreController
         $repo = new CajaCierreRepository($this->pdo, user_clinica_id($this->user));
         $fecha = self::fechaParam();
         $turno = self::turnoParam();
+        $doctorDetalle = max(0, (int) ($_GET['doctor'] ?? 0));
         $error = '';
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -38,6 +39,14 @@ final class CajaCierreController
                 $error = 'La caja ya está cerrada para esa fecha y turno. El cierre queda como registro histórico.';
             } else {
                 $res = $repo->resumenMovimientos($fecha, $turno);
+                $medios = $repo->resumenPorMedioPago($fecha, $turno);
+                $efectivoSistema = 0.0;
+                foreach ($medios as $m) {
+                    if (($m['modopago'] ?? -1) === 0) {
+                        $efectivoSistema = (float) ($m['total'] ?? 0);
+                        break;
+                    }
+                }
                 $efectivo = (float) $efectivoTxt;
                 $repo->guardarCierre([
                     'fecha' => $fecha,
@@ -46,7 +55,7 @@ final class CajaCierreController
                     'total_egresos' => $res['egresos'],
                     'total_sistema' => $res['total'],
                     'efectivo_declarado' => $efectivo,
-                    'diferencia' => $efectivo - $res['total'],
+                    'diferencia' => $efectivo - $efectivoSistema,
                     'estado' => 'cerrada',
                     'observaciones' => $observaciones !== '' ? $observaciones : null,
                     'id_usuario_cierre' => (int) ($this->user['id'] ?? 0),
@@ -58,14 +67,19 @@ final class CajaCierreController
         }
 
         $resumen = $repo->resumenMovimientos($fecha, $turno);
-        $movimientos = $repo->listMovimientos($fecha, $turno);
+        $resumenMedios = $repo->resumenPorMedioPago($fecha, $turno);
+        $resumenProfesionales = $repo->resumenPorProfesional($fecha, $turno);
+        $movimientos = $repo->listMovimientos($fecha, $turno, $doctorDetalle);
         $cierre = $repo->findCierre($fecha, $turno);
         $cierres = $repo->ultimosCierres();
         $body = $this->renderView('caja/cierre', [
             'fecha' => $fecha,
             'turno' => $turno,
             'resumen' => $resumen,
+            'resumenMedios' => $resumenMedios,
+            'resumenProfesionales' => $resumenProfesionales,
             'movimientos' => $movimientos,
+            'doctorDetalle' => $doctorDetalle,
             'cierre' => $cierre,
             'cierres' => $cierres,
             'error' => $error,

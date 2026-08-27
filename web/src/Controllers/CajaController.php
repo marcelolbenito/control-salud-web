@@ -82,7 +82,8 @@ final class CajaController
             'importecaja' => '',
             'tipo_movimiento' => 'ingreso',
             'idcoberturacaja' => '',
-            'turnocaja' => '',
+            'turnocaja' => caja_turno_default_por_hora(),
+            'forma_pago' => 'efectivo',
             'observaciones' => '',
         ];
         if ($contraId > 0) {
@@ -102,6 +103,9 @@ final class CajaController
                 'tipo_movimiento' => $importeOriginal >= 0 ? 'egreso' : 'ingreso',
                 'idcoberturacaja' => $loaded['idcoberturacaja'] ?? '',
                 'turnocaja' => 'Contra movimiento #' . $contraId,
+                'forma_pago' => caja_forma_pago_from_modopago(
+                    isset($loaded['modopago']) && $loaded['modopago'] !== '' ? (int) $loaded['modopago'] : null
+                ),
                 'observaciones' => 'Corrección del movimiento de caja #' . $contraId . '. Movimiento original: '
                     . ($importeOriginal >= 0 ? 'ingreso' : 'egreso') . ' '
                     . number_format(abs($importeOriginal), 2, ',', '.') . '.',
@@ -124,6 +128,7 @@ final class CajaController
             $idCobTxt = trim((string) ($_POST['idcoberturacaja'] ?? ''));
             $idCob = $idCobTxt === '' ? null : (int) $idCobTxt;
             $turno = trim((string) ($_POST['turnocaja'] ?? ''));
+            $formaPago = trim((string) ($_POST['forma_pago'] ?? 'efectivo'));
             $obs = trim((string) ($_POST['observaciones'] ?? ''));
 
             if ($doctor < 1) {
@@ -149,28 +154,36 @@ final class CajaController
                     'fechacaja' => $fecha,
                     'importecaja' => $importeSigned,
                     'idcoberturacaja' => ($idCob !== null && $idCob > 0) ? $idCob : null,
-                    'turnocaja' => $turno !== '' ? $turno : null,
+                    'modopago' => caja_modopago_from_forma_pago($formaPago),
+                    'turnocaja' => caja_turno_store_value($turno) ?? ($turno !== '' ? $turno : null),
                     'observaciones' => $obs !== '' ? $obs : null,
                 ];
-                $repo->insertRow($vals);
-                flash_set('Movimiento de caja creado.');
-                $retQs = trim((string) ($_POST['caja_return_qs'] ?? $queryString));
-                header('Location: /caja.php' . ($retQs !== '' ? '?' . $retQs : ''));
-                exit;
+                try {
+                    $repo->insertRow($vals);
+                    flash_set('Movimiento de caja creado.');
+                    $retQs = trim((string) ($_POST['caja_return_qs'] ?? $queryString));
+                    header('Location: /caja.php' . ($retQs !== '' ? '?' . $retQs : ''));
+                    exit;
+                } catch (RuntimeException $e) {
+                    $error = $e->getMessage();
+                }
             }
 
-            $row = array_merge($row, [
-                'id' => $id,
-                'doctor' => $doctor,
-                'fechacaja' => $fecha,
-                'importecaja' => $importeTxt,
-                'tipo_movimiento' => $tipoMov,
-                'idcoberturacaja' => $idCobTxt,
-                'turnocaja' => $turno,
-                'observaciones' => $obs,
-            ]);
-            $queryString = trim((string) ($_POST['caja_return_qs'] ?? $queryString));
-            $volver = '/caja.php' . ($queryString !== '' ? '?' . $queryString : '');
+            if ($error !== '') {
+                $row = array_merge($row, [
+                    'id' => $id,
+                    'doctor' => $doctor,
+                    'fechacaja' => $fecha,
+                    'importecaja' => $importeTxt,
+                    'tipo_movimiento' => $tipoMov,
+                    'idcoberturacaja' => $idCobTxt,
+                    'turnocaja' => $turno,
+                    'forma_pago' => $formaPago,
+                    'observaciones' => $obs,
+                ]);
+                $queryString = trim((string) ($_POST['caja_return_qs'] ?? $queryString));
+                $volver = '/caja.php' . ($queryString !== '' ? '?' . $queryString : '');
+            }
         }
 
         $doctores = $docRepo->listActivos();
