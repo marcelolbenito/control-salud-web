@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/includes/catalogos.php';
 require_once dirname(__DIR__) . '/Repositories/ListaPreciosRepository.php';
+require_once dirname(__DIR__) . '/Repositories/OrdenesRepository.php';
 
 final class ListaPreciosController
 {
@@ -131,11 +132,18 @@ final class ListaPreciosController
             if ($error === '') {
                 if ($id > 0) {
                     $repo->update($id, $parsed);
-                    flash_set('Arancel actualizado.');
+                    $msg = 'Arancel actualizado.';
                 } else {
                     $id = $repo->insert($parsed);
-                    flash_set('Arancel creado.');
+                    $msg = 'Arancel creado.';
                 }
+
+                $propagadas = $this->propagarCostosOrdenesSiCorresponde($parsed);
+                if ($propagadas > 0) {
+                    $msg .= ' Se actualizaron los costos de ' . $propagadas . ' orden(es) pendientes de facturar (A).';
+                }
+
+                flash_set($msg);
                 $back = '/aranceles.php?cobertura=' . (int) $parsed['idobrasocial'];
                 header('Location: ' . $back);
                 exit;
@@ -149,6 +157,8 @@ final class ListaPreciosController
             'practicaOpts' => $practicaOpts,
             'planes' => $planes,
             'error' => $error,
+            'propagarDesde' => date('Y-m-01'),
+            'propagarHasta' => date('Y-m-d'),
         ]);
         $sub = ((int) ($row['id'] ?? 0)) > 0 ? 'Editar arancel' : 'Nuevo arancel';
         layout_render($sub, $body, $this->user);
@@ -193,8 +203,11 @@ final class ListaPreciosController
             $idCobertura = catalogo_resolver_id($cobOpts, trim((string) ($_POST['idobrasocial_txt'] ?? '')));
         }
         $idPractica = (int) ($_POST['idpractica'] ?? 0);
-        if ($idPractica < 1) {
-            $idPractica = catalogo_resolver_id($practicaOpts, trim((string) ($_POST['idpractica_txt'] ?? '')));
+        $practicaTxt = trim((string) ($_POST['idpractica_txt'] ?? ''));
+        if ($practicaOpts !== [] && $practicaTxt !== '') {
+            $idPractica = catalogo_resolver_id_practica($practicaOpts, $practicaTxt);
+        } elseif ($idPractica < 1 && $practicaTxt !== '') {
+            $idPractica = 0;
         }
         $idPlan = (int) ($_POST['idplan'] ?? 0);
         if ($idCobertura < 1) {
@@ -223,6 +236,37 @@ final class ListaPreciosController
             'costoporcentaje' => 0,
             'cobradr' => 0,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $parsed
+     */
+    private function propagarCostosOrdenesSiCorresponde(array $parsed): int
+    {
+        if (empty($_POST['actualizar_ordenes'])) {
+            return 0;
+        }
+        if (!db_table_exists($this->pdo, OrdenesRepository::tableSqlName())) {
+            return 0;
+        }
+
+        $fechaDesde = trim((string) ($_POST['propagar_desde'] ?? ''));
+        $fechaHasta = trim((string) ($_POST['propagar_hasta'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+            return 0;
+        }
+
+        $ordRepo = new OrdenesRepository($this->pdo, user_clinica_id($this->user));
+
+        return $ordRepo->actualizarCostosPendientesPorArancel(
+            (int) $parsed['idobrasocial'],
+            (int) $parsed['idpractica'],
+            (int) ($parsed['idplan'] ?? 0),
+            $fechaDesde,
+            $fechaHasta,
+            (float) ($parsed['costopaciente'] ?? 0),
+            (float) ($parsed['costocobertura'] ?? 0)
+        );
     }
 
     private function renderView(string $view, array $data): string

@@ -181,7 +181,10 @@ final class OrdenesRepository
         $joinCob = db_table_exists($this->pdo, 'lista_coberturas');
         $selCob = $joinCob ? ', lc.nombre AS cobertura_nombre' : ', NULL AS cobertura_nombre';
         $joinPr = db_table_exists($this->pdo, 'lista_practicas');
-        $selPr = $joinPr ? ', lp.nombre AS practica_nombre' : ', NULL AS practica_nombre';
+        $hasPrCodigo = $joinPr && db_table_has_column($this->pdo, 'lista_practicas', 'codigo');
+        $selPr = $joinPr
+            ? ', lp.nombre AS practica_nombre' . ($hasPrCodigo ? ', lp.codigo AS practica_codigo' : ', NULL AS practica_codigo')
+            : ', NULL AS practica_nombre, NULL AS practica_codigo';
         $joinDer = db_table_exists($this->pdo, 'lista_derivaciones');
         $selDer = $joinDer ? ', ld.nombre AS derivacion_nombre' : ', NULL AS derivacion_nombre';
         $joinSuc = db_table_exists($this->pdo, 'lista_sucursales');
@@ -520,7 +523,9 @@ final class OrdenesRepository
             return [];
         }
         try {
-            return $this->pdo->query("SELECT id, nombre FROM `$tabla` ORDER BY nombre, id")->fetchAll(PDO::FETCH_ASSOC);
+            $codigoSql = db_table_has_column($this->pdo, $tabla, 'codigo') ? ', codigo' : '';
+
+            return $this->pdo->query("SELECT id, nombre$codigoSql FROM `$tabla` ORDER BY nombre, id")->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
             return [];
         }
@@ -603,5 +608,245 @@ final class OrdenesRepository
         }
 
         return $fechaYmd;
+    }
+
+    /**
+     * Órdenes para reporte de facturación OS (P-FAC-01).
+     * $estadoOs: 'A' = a facturar, 'F' = ya facturadas (reimpresión).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function listFacturacionOs(int $idObraSocial, string $fechaDesde, string $fechaHasta, string $estadoOs = 'A'): array
+    {
+        if ($idObraSocial < 1) {
+            return [];
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+            return [];
+        }
+        $estadoOs = strtoupper(substr(trim($estadoOs), 0, 1));
+        if (!in_array($estadoOs, ['A', 'F'], true)) {
+            $estadoOs = 'A';
+        }
+
+        $hasApellido = db_table_has_column($this->pdo, 'pacientes', 'apellido');
+        $colApellido = $hasApellido ? 'p.apellido AS paciente_apellido' : 'NULL AS paciente_apellido';
+        $hasNroOs = db_table_has_column($this->pdo, 'pacientes', 'nro_os');
+        $colNroOs = $hasNroOs ? 'p.nro_os AS paciente_nro_os' : 'NULL AS paciente_nro_os';
+        $joinPr = db_table_exists($this->pdo, 'lista_practicas');
+        $hasPrCodigo = $joinPr && db_table_has_column($this->pdo, 'lista_practicas', 'codigo');
+        $selPr = $joinPr
+            ? ', lp.nombre AS practica_nombre' . ($hasPrCodigo ? ', lp.codigo AS practica_codigo' : ', NULL AS practica_codigo')
+            : ', NULL AS practica_nombre, NULL AS practica_codigo';
+
+        $joinPac = 'p.NroHC = o.NroPaci';
+        if ($this->ordenesTieneClinica() && db_table_has_column($this->pdo, 'pacientes', 'id_clinica')) {
+            $joinPac .= ' AND p.id_clinica = o.id_clinica';
+        }
+
+        $sql = 'SELECT o.id, o.NroPaci, o.numero,
+            DATE(o.fecha) AS fecha_orden,
+            o.idpractica, o.idobrasocial, o.idplan, o.costo_os, o.sesiones, o.estado_os,
+            p.Nombres AS paciente_nombres, ' . $colApellido . ', ' . $colNroOs . $selPr . '
+            FROM ' . self::TABLE . ' o
+            LEFT JOIN pacientes p ON ' . $joinPac;
+        if ($joinPr) {
+            $sql .= ' LEFT JOIN lista_practicas lp ON lp.id = o.idpractica';
+        }
+        $sql .= ' WHERE o.idobrasocial = ?
+                  AND o.estado_os = ?
+                  AND o.fecha >= ?
+                  AND o.fecha <= ?';
+        $params = [$idObraSocial, $estadoOs, $fechaDesde . ' 00:00:00', $fechaHasta . ' 23:59:59'];
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND o.id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+        $sql .= ' ORDER BY o.fecha ASC, o.id ASC';
+
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function listPendientesFacturacionOs(int $idObraSocial, string $fechaDesde, string $fechaHasta): array
+    {
+        return $this->listFacturacionOs($idObraSocial, $fechaDesde, $fechaHasta, 'A');
+    }
+
+    /**
+     * Marca órdenes como facturadas a obra social (estado_os = 'F').
+     * Solo actualiza filas que siguen en 'A' y pertenecen a la OS indicada.
+     *
+     * @param list<int> $ids
+     */
+    public function marcarFacturadasOs(array $ids, int $idObraSocial): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        if ($ids === [] || $idObraSocial < 1) {
+            return 0;
+        }
+        if (!db_table_has_column($this->pdo, self::tableSqlName(), 'estado_os')) {
+            return 0;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+        $sql = "UPDATE " . self::TABLE . " SET estado_os = 'F'
+                WHERE id IN ($placeholders)
+                  AND idobrasocial = ?
+                  AND estado_os = 'A'";
+        $params = $ids;
+        $params[] = $idObraSocial;
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return $st->rowCount();
+    }
+
+    /**
+     * Propaga importes de un arancel a órdenes pendientes de facturar OS (estado_os = A).
+     */
+    public function actualizarCostosPendientesPorArancel(
+        int $idObraSocial,
+        int $idPractica,
+        int $idPlan,
+        string $fechaDesde,
+        string $fechaHasta,
+        float $costoPaciente,
+        float $costoCobertura
+    ): int {
+        if ($idObraSocial < 1 || $idPractica < 1) {
+            return 0;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+            return 0;
+        }
+        if ($fechaDesde > $fechaHasta) {
+            [$fechaDesde, $fechaHasta] = [$fechaHasta, $fechaDesde];
+        }
+        if (!db_table_has_column($this->pdo, self::tableSqlName(), 'estado_os')) {
+            return 0;
+        }
+
+        $planVal = $idPlan > 0 ? $idPlan : 0;
+        $sql = 'UPDATE ' . self::TABLE . ' SET costo = ?, costo_os = ?
+                WHERE idobrasocial = ?
+                  AND idpractica = ?
+                  AND (idplan <=> ?)
+                  AND estado_os = ?
+                  AND fecha >= ?
+                  AND fecha <= ?';
+        $params = [
+            $costoPaciente,
+            $costoCobertura,
+            $idObraSocial,
+            $idPractica,
+            $planVal,
+            'A',
+            $fechaDesde . ' 00:00:00',
+            $fechaHasta . ' 23:59:59',
+        ];
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return $st->rowCount();
+    }
+
+    /**
+     * Recalcula costo y costo_os desde lista_precios para órdenes a facturar (estado_os = A).
+     *
+     * @param list<int>|null $soloIds Si se indica, solo esas órdenes (deben seguir en A y en el período).
+     */
+    public function actualizarCostosPendientesDesdeAranceles(
+        int $idObraSocial,
+        string $fechaDesde,
+        string $fechaHasta,
+        ?array $soloIds = null
+    ): int {
+        if ($idObraSocial < 1) {
+            return 0;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+            return 0;
+        }
+
+        $ordenes = $this->listPendientesFacturacionOs($idObraSocial, $fechaDesde, $fechaHasta);
+        if ($ordenes === []) {
+            return 0;
+        }
+
+        if ($soloIds !== null) {
+            $permitidos = array_flip(array_values(array_unique(array_filter(array_map('intval', $soloIds), static fn (int $id): bool => $id > 0))));
+            if ($permitidos === []) {
+                return 0;
+            }
+            $ordenes = array_values(array_filter(
+                $ordenes,
+                static fn (array $o): bool => isset($permitidos[(int) ($o['id'] ?? 0)])
+            ));
+        }
+
+        $actualizadas = 0;
+        foreach ($ordenes as $orden) {
+            $idOrden = (int) ($orden['id'] ?? 0);
+            $idPractica = (int) ($orden['idpractica'] ?? 0);
+            if ($idOrden < 1 || $idPractica < 1) {
+                continue;
+            }
+            $idPlan = (int) ($orden['idplan'] ?? 0);
+            $precio = $this->findPrecioOrden($idObraSocial, $idPractica, $idPlan);
+            if ($precio === null) {
+                continue;
+            }
+            if ($this->actualizarCostosOrdenSiPendiente(
+                $idOrden,
+                (float) ($precio['costopaciente'] ?? 0),
+                (float) ($precio['costocobertura'] ?? 0)
+            )) {
+                ++$actualizadas;
+            }
+        }
+
+        return $actualizadas;
+    }
+
+    /**
+     * Actualiza importes solo si la orden sigue pendiente de facturar OS (estado_os = A).
+     */
+    public function actualizarCostosOrdenSiPendiente(int $idOrden, float $costoPaciente, float $costoCobertura): bool
+    {
+        if ($idOrden < 1) {
+            return false;
+        }
+        if (!db_table_has_column($this->pdo, self::tableSqlName(), 'estado_os')) {
+            return false;
+        }
+
+        $sql = "UPDATE " . self::TABLE . " SET costo = ?, costo_os = ?
+                WHERE id = ? AND estado_os = 'A'";
+        $params = [$costoPaciente, $costoCobertura, $idOrden];
+        if ($this->ordenesTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $params[] = $this->idClinica;
+        }
+
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return $st->rowCount() > 0;
     }
 }
