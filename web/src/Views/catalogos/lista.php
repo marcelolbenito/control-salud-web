@@ -7,8 +7,9 @@ declare(strict_types=1);
         <a class="btn btn-ghost" href="/catalogos.php"><i class="bi bi-journals" aria-hidden="true"></i> Catálogos</a>
     </p>
     <h1><?= h($titulo) ?></h1>
-    <div class="table-wrap">
-        <table class="table data-table">
+    <p class="muted small">Usá el buscador para filtrar por código o nombre.</p>
+    <div class="table-wrap table-wrap-datatable">
+        <table class="table" id="tbl-catalogo">
             <thead>
             <tr>
                 <th>ID</th>

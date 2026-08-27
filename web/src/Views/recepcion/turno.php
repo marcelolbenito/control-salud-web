@@ -80,8 +80,8 @@ $ordenVinculadaUrl = '/orden_form.php?id=' . $idOrdenVinculada . '&turno=' . (in
                     </label>
                     <label>Turno caja
                         <select name="turno_caja">
-                            <option value="mañana"<?= $turnoCajaDefault === 'mañana' ? ' selected' : '' ?>>Mañana</option>
-                            <option value="tarde"<?= $turnoCajaDefault === 'tarde' ? ' selected' : '' ?>>Tarde</option>
+                            <option value="1"<?= in_array($turnoCajaDefault, ['1', 'mañana', 'manana'], true) ? ' selected' : '' ?>>Mañana</option>
+                            <option value="2"<?= in_array($turnoCajaDefault, ['2', 'tarde'], true) ? ' selected' : '' ?>>Tarde</option>
                         </select>
                     </label>
                 </div>

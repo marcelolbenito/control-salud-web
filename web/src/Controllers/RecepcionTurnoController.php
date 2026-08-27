@@ -110,13 +110,18 @@ final class RecepcionTurnoController
                 'fechacaja' => $fecha,
                 'importecaja' => $importe,
                 'idcoberturacaja' => null,
-                'turnocaja' => $turnoCaja,
+                'modopago' => caja_modopago_from_forma_pago($formaPago),
+                'turnocaja' => caja_turno_store_value($turnoCaja) ?? caja_turno_default_por_hora((string) ($turno['hora'] ?? '')),
                 'observaciones' => $obs . ' Pago #' . $idPago . '. Medio: ' . $formaPago . '.',
             ]);
             if ($marcarLlegada) {
                 $agendaRepo->updateQuickStatus((int) $turno['id'], 'llego', $extAgenda);
             }
             $this->pdo->commit();
+        } catch (RuntimeException $e) {
+            $this->pdo->rollBack();
+
+            return $e->getMessage();
         } catch (Throwable $e) {
             $this->pdo->rollBack();
             error_log('[control-salud] recepcion particular error: ' . $e->getMessage());
@@ -204,8 +209,7 @@ final class RecepcionTurnoController
 
     private static function turnoCajaDefault(string $hora): string
     {
-        $h = (int) substr($hora, 0, 2);
-        return $h > 0 && $h < 13 ? 'mañana' : 'tarde';
+        return caja_turno_default_por_hora($hora);
     }
 
     private function renderView(string $view, array $data): string

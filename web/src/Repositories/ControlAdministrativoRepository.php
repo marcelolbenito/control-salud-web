@@ -108,7 +108,8 @@ final class ControlAdministrativoRepository
             FROM agenda_turnos t
             LEFT JOIN pacientes p ON {$joinPaciente}
             LEFT JOIN lista_doctores d ON {$joinDoc}
-            WHERE t.Fecha = ?";
+            WHERE t.Fecha = ?
+              AND t.NroHC <> -111";
         $params = [$fecha];
         if ($this->agendaTieneClinica()) {
             $sql .= ' AND (t.id_clinica = ? OR t.id_clinica IS NULL)';

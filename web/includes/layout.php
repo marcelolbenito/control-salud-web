@@ -17,9 +17,21 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
     $extraFooter = (string) ($layout['extra_footer_html'] ?? '');
     $extraHead = (string) ($layout['extra_head_html'] ?? '');
     $bodyClass = trim((string) ($layout['body_class'] ?? ''));
+    $idClinicaPublica = max(0, (int) ($layout['id_clinica'] ?? 0));
     $cfg = require dirname(__DIR__) . '/config/config.php';
     $appName = $cfg['app']['name'] ?? 'Control Salud Web';
-    $fullTitle = $title === '' ? $appName : $title . ' · ' . $appName;
+    $brandName = $appName;
+    $brandLogoUrl = null;
+    if ($user !== null) {
+        $branding = clinica_branding(db(), user_clinica_id($user));
+        $brandName = (string) ($branding['nombre'] ?? $appName);
+        $brandLogoUrl = $branding['logo_url'] ?? null;
+    } elseif ($idClinicaPublica > 0) {
+        $branding = clinica_branding(db(), $idClinicaPublica);
+        $brandName = (string) ($branding['nombre'] ?? $appName);
+        $brandLogoUrl = $branding['logo_url'] ?? null;
+    }
+    $fullTitle = $title === '' ? $brandName : $title . ' · ' . $brandName;
     $currentPath = request_path();
     $isPath = static function (string $p) use ($currentPath): bool {
         return $currentPath === strtolower($p);
@@ -47,7 +59,16 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
             <button type="button" class="sidebar-collapse-arrow" id="sidebarCompactToggle" aria-label="Contraer menú lateral" title="Contraer/expandir menú">
                 <i class="bi bi-chevron-left" aria-hidden="true"></i>
             </button>
-            <a class="brand" href="/index.php"><i class="bi bi-heart-pulse-fill" aria-hidden="true"></i><span><?= h($appName) ?></span></a>
+            <div class="brand<?= $brandLogoUrl !== null ? ' brand-has-logo' : '' ?>">
+                <?php if ($brandLogoUrl !== null): ?>
+                    <img src="<?= h($brandLogoUrl) ?>" alt="<?= h($brandName) ?>" class="brand-logo">
+                <?php else: ?>
+                    <a class="brand-fallback" href="/index.php">
+                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                        <span><?= h($brandName) ?></span>
+                    </a>
+                <?php endif; ?>
+            </div>
             <nav class="side-nav">
                 <a class="side-link<?= $isPath('/index.php') || $isPath('/') ? ' is-active' : '' ?>" href="/index.php"><i class="bi bi-house-door" aria-hidden="true"></i><span class="side-label">Inicio</span></a>
                 <a class="side-link<?= $isPath('/pacientes.php') ? ' is-active' : '' ?>" href="/pacientes.php"><i class="bi bi-people" aria-hidden="true"></i><span class="side-label">Pacientes</span></a>
@@ -56,21 +77,26 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                         <summary><i class="bi bi-calendar3-event" aria-hidden="true"></i><span class="side-label">Agenda</span></summary>
                         <a class="side-sublink<?= $isPath('/agenda.php') ? ' is-active' : '' ?>" href="/agenda.php">Agenda diaria</a>
                         <a class="side-sublink<?= $isPath('/anunciador.php') ? ' is-active' : '' ?>" href="/anunciador.php">Anunciador</a>
+                        <a class="side-sublink" href="<?= h(portal_paciente_url(user_clinica_id($user))) ?>" target="_blank" rel="noopener">Portal pacientes</a>
                     </details>
                 <?php else: ?>
-                    <details class="side-group"<?= $isPath('/agenda.php') || $isPath('/agenda_bloqueos.php') || $isPath('/anunciador.php') || $isPath('/control_administrativo.php') ? ' open' : '' ?>>
+                    <details class="side-group"<?= $isPath('/agenda.php') || $isPath('/agenda_bloqueos.php') || $isPath('/anunciador.php') || $isPath('/recordatorios.php') || $isPath('/recordatorios_plantillas.php') || $isPath('/control_administrativo.php') ? ' open' : '' ?>>
                         <summary><i class="bi bi-calendar3-event" aria-hidden="true"></i><span class="side-label">Agenda</span></summary>
                         <a class="side-sublink<?= $isPath('/agenda.php') ? ' is-active' : '' ?>" href="/agenda.php">Agenda diaria</a>
                         <a class="side-sublink<?= $isPath('/control_administrativo.php') ? ' is-active' : '' ?>" href="/control_administrativo.php">Control diario</a>
                         <a class="side-sublink<?= $isPath('/anunciador.php') ? ' is-active' : '' ?>" href="/anunciador.php">Anunciador</a>
+                        <a class="side-sublink<?= $isPath('/recordatorios.php') ? ' is-active' : '' ?>" href="/recordatorios.php">Recordatorios</a>
+                        <a class="side-sublink<?= $isPath('/recordatorios_plantillas.php') ? ' is-active' : '' ?>" href="/recordatorios_plantillas.php">Plantillas WhatsApp</a>
                         <a class="side-sublink<?= $isPath('/agenda_bloqueos.php') ? ' is-active' : '' ?>" href="/agenda_bloqueos.php">Bloqueos</a>
+                        <a class="side-sublink" href="<?= h(portal_paciente_url(user_clinica_id($user))) ?>" target="_blank" rel="noopener">Portal pacientes</a>
                     </details>
                 <?php endif; ?>
                 <?php if ($rol !== 'doctor'): ?>
                     <a class="side-link<?= $isPath('/doctores.php') ? ' is-active' : '' ?>" href="/doctores.php"><i class="bi bi-person-badge" aria-hidden="true"></i><span class="side-label">Doctores</span></a>
-                    <details class="side-group"<?= $isPath('/ordenes.php') || $isPath('/orden_form.php') || $isPath('/sesiones.php') || $isPath('/sesion_form.php') ? ' open' : '' ?>>
+                    <details class="side-group"<?= $isPath('/ordenes.php') || $isPath('/orden_form.php') || $isPath('/facturacion_ordenes.php') || $isPath('/sesiones.php') || $isPath('/sesion_form.php') ? ' open' : '' ?>>
                         <summary><i class="bi bi-file-earmark-medical" aria-hidden="true"></i><span class="side-label">Prestaciones</span></summary>
                         <a class="side-sublink<?= $isPath('/ordenes.php') || $isPath('/orden_form.php') ? ' is-active' : '' ?>" href="/ordenes.php">Órdenes</a>
+                        <a class="side-sublink<?= $isPath('/facturacion_ordenes.php') ? ' is-active' : '' ?>" href="/facturacion_ordenes.php">Facturación OS</a>
                         <a class="side-sublink<?= $isPath('/sesiones.php') || $isPath('/sesion_form.php') ? ' is-active' : '' ?>" href="/sesiones.php">Sesiones</a>
                     </details>
                     <details class="side-group"<?= $isPath('/caja.php') || $isPath('/caja_form.php') || $isPath('/caja_cierre.php') || $isPath('/pagos.php') || $isPath('/pagos_form.php') ? ' open' : '' ?>>
@@ -99,14 +125,31 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
         </aside>
         <?php endif; ?>
         <div class="app-main">
-            <header class="topbar">
+            <header class="topbar<?= $user === null && $idClinicaPublica > 0 ? ' topbar-public' : '' ?>">
                 <?php if ($user !== null): ?>
-                    <div class="topbar-actions">
+                    <div class="topbar-start">
                         <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle"><i class="bi bi-list" aria-hidden="true"></i> Menú</button>
+                        <?php if ($brandLogoUrl !== null): ?>
+                            <div class="topbar-logo-wrap">
+                                <img src="<?= h($brandLogoUrl) ?>" alt="<?= h($brandName) ?>" class="topbar-logo">
+                            </div>
+                        <?php elseif ($brandName !== $appName): ?>
+                            <span class="topbar-fallback-name"><?= h($brandName) ?></span>
+                        <?php endif; ?>
                     </div>
                     <div class="user">
                         <span class="user-name"><i class="bi bi-person-circle" aria-hidden="true"></i> <?= h($user['nombre'] ?: $user['usuario']) ?> <small class="muted">(<?= h((string) $rol) ?>)</small></span>
                         <a class="btn btn-ghost btn-sm" href="/logout.php"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir</a>
+                    </div>
+                <?php elseif ($idClinicaPublica > 0 && ($brandLogoUrl !== null || $brandName !== $appName)): ?>
+                    <div class="topbar-start topbar-start-public">
+                        <?php if ($brandLogoUrl !== null): ?>
+                            <div class="topbar-logo-wrap">
+                                <img src="<?= h($brandLogoUrl) ?>" alt="<?= h($brandName) ?>" class="topbar-logo">
+                            </div>
+                        <?php else: ?>
+                            <span class="topbar-fallback-name"><?= h($brandName) ?></span>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </header>

@@ -55,5 +55,30 @@ services:
     ports:
       - "${CONTROL_SALUD_PMA_PUBLISH:-8081:80}"
 
+  # WhatsApp WAHA — OPCIONAL (profile waha). Por defecto NO se levanta con "docker compose up".
+  # Activar: docker compose --profile waha up -d  |  Apagar: docker stop control-salud-waha
+  # Requiere config.local.php whatsapp_web.enabled=true y recordatorios.modo=whatsapp_web en MySQL.
+  # Sin WAHA: recordatorios en modo manual (wa.me) — ver web/config/config.example.php
+  waha:
+    # NOWEB evita bug WEBJS "Cannot read properties of undefined (reading 'Cmd')" al vincular QR.
+    image: devlikeapro/waha:latest
+    container_name: control-salud-waha
+    restart: unless-stopped
+    profiles: ["waha"]
+    depends_on:
+      - webapp
+    ports:
+      - "${CONTROL_SALUD_WAHA_PUBLISH:-3000:3000}"
+    environment:
+      WAHA_API_KEY: ${WAHA_API_KEY:-dev_waha_local_key}
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME:-admin}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:-admin}
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WHATSAPP_HOOK_URL: ${WAHA_WEBHOOK_URL:-http://webapp/recordatorios_webhook.php?api_key=dev_waha_local_key}
+      WHATSAPP_HOOK_EVENTS: message
+    volumes:
+      - control_salud_waha_sessions:/app/.sessions
+
 volumes:
   control_salud_mysql_data:
+  control_salud_waha_sessions:

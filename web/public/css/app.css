@@ -11,6 +11,7 @@
   --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
   --header-border: rgba(15, 23, 42, 0.06);
+  --topbar-height: 7rem;
   font-family: "DM Sans", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -32,7 +33,7 @@ body {
 
 .app-shell.is-auth {
   display: grid;
-  grid-template-columns: 255px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -76,6 +77,8 @@ body {
   text-decoration: none;
   letter-spacing: -0.02em;
   margin: 0 0 1rem 0.15rem;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .brand i {
@@ -148,14 +151,68 @@ body {
 }
 
 .topbar {
-  height: 56px;
+  min-height: var(--topbar-height);
+  height: var(--topbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.45rem 1rem;
+  padding: 0.75rem 1.25rem;
   background: var(--surface);
   border-bottom: 1px solid var(--header-border);
   box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+}
+
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  max-width: calc(100% - 12rem);
+}
+
+.topbar-logo-wrap {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: min(32rem, 55vw);
+}
+
+.topbar-logo {
+  display: block;
+  height: calc(var(--topbar-height) - 1.5rem);
+  max-height: 100%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.topbar-fallback-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar.topbar-public {
+  justify-content: center;
+}
+
+.topbar-start-public {
+  justify-content: center;
+  max-width: 100%;
+}
+
+.topbar-start-public .topbar-logo {
+  object-position: center center;
 }
 
 .topbar-actions {
@@ -230,7 +287,7 @@ body.sidebar-compact .sidebar .side-group summary {
     top: 0;
     left: 0;
     bottom: 0;
-    width: 255px;
+    width: 280px;
     transform: translateX(-100%);
     transition: transform 0.16s ease;
     z-index: 80;
@@ -244,6 +301,24 @@ body.sidebar-compact .sidebar .side-group summary {
   .sidebar-collapse-arrow { display: none; }
   body.sidebar-compact .app-shell.is-auth {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  :root {
+    --topbar-height: 5.5rem;
+  }
+
+  .topbar {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .topbar-logo-wrap {
+    max-width: min(14rem, 48vw);
+  }
+
+  .topbar-start {
+    max-width: calc(100% - 6.5rem);
   }
 }
 
@@ -1813,6 +1888,21 @@ code {
   border-color: #60a5fa;
 }
 
+.turno-slot.is-free:hover:not(:disabled) {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+
+.turno-leyenda-libre { color: #166534; font-weight: 600; }
+.turno-leyenda-ocupado { color: #991b1b; font-weight: 600; }
+.turno-leyenda-bloq { color: #475569; font-weight: 600; }
+.turno-leyenda-sel { color: #1e3a8a; font-weight: 600; }
+
+#turno-hora-input.turno-hora-pulse {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  border-color: #3b82f6;
+}
+
 /* Rango elegido en formulario de bloqueos (mantiene verde/rojo debajo) */
 .turno-slot.is-range {
   outline: 2px solid #2563eb;
@@ -1960,6 +2050,40 @@ code {
 .turno-proximo-item-dia.is-selected {
   border-color: #60a5fa;
   background: #dbeafe;
+}
+
+.turno-proximo-dia-wrap {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.turno-proximo-horas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0 0 0.15rem 0.35rem;
+}
+
+.turno-proximo-horas[hidden] {
+  display: none !important;
+}
+
+.turno-proximo-hora {
+  border: 1px solid #86efac;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font: inherit;
+}
+
+.turno-proximo-hora:hover,
+.turno-proximo-hora.is-selected {
+  border-color: #22c55e;
+  background: #bbf7d0;
 }
 
 .turno-proximo-item-hora {
@@ -2398,4 +2522,423 @@ button.odonto-tooth-pick-fdi:hover {
   border-radius: 4px;
   border: 1px dashed #94a3b8;
   background: #fff;
+}
+
+.brand-has-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem 0.35rem 1.15rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.brand-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: #e2e8f0;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  margin: 0 0 1rem 0.15rem;
+}
+
+.brand-fallback i {
+  font-size: 1.25rem;
+  color: #2dd4bf;
+}
+
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 4.75rem;
+  object-fit: contain;
+  object-position: center center;
+  border-radius: 4px;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+body.sidebar-compact .sidebar .brand-has-logo {
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+}
+
+body.sidebar-compact .sidebar .brand-logo {
+  max-height: 2.75rem;
+  width: auto;
+  max-width: 100%;
+}
+
+.clinica-branding-preview {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.clinica-branding-logo-preview {
+  max-width: 140px;
+  max-height: 56px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.35rem;
+  background: #fff;
+}
+
+.clinica-print-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.clinica-print-logo {
+  width: auto;
+  max-width: 96px;
+  max-height: 40px;
+  height: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.clinica-print-nombre {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.clinica-print-direccion,
+.clinica-print-encabezado {
+  font-size: 0.85rem;
+  color: #475569;
+  margin-top: 0.15rem;
+  line-height: 1.3;
+}
+
+@media print {
+  .clinica-print-header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 0.75rem;
+  }
+  .clinica-print-logo {
+    max-width: 80px;
+    max-height: 36px;
+  }
+}
+
+.ayuda-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.ayuda-nav {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - var(--topbar-height) - 2.5rem);
+  overflow: auto;
+  padding: 1rem 1.1rem;
+}
+
+.ayuda-nav-group + .ayuda-nav-group {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--header-border);
+}
+
+.ayuda-nav-cat {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.ayuda-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ayuda-nav-link {
+  display: block;
+  padding: 0.38rem 0.55rem;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.ayuda-nav-link:hover {
+  background: var(--accent-soft);
+}
+
+.ayuda-nav-link.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.ayuda-article {
+  padding: 1.25rem 1.35rem;
+}
+
+.ayuda-article-head {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--header-border);
+}
+
+.ayuda-article-head h2 {
+  margin: 0.15rem 0 0.5rem;
+  font-size: 1.45rem;
+}
+
+.ayuda-article-cat {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.ayuda-article-resumen {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.ayuda-section + .ayuda-section {
+  margin-top: 1.35rem;
+}
+
+.ayuda-section h3 {
+  margin: 0 0 0.55rem;
+  font-size: 1.05rem;
+}
+
+.ayuda-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  line-height: 1.45;
+}
+
+.ayuda-enlaces {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--header-border);
+}
+
+.ayuda-enlaces-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+}
+
+.ayuda-enlaces-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+@media (max-width: 900px) {
+  .ayuda-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ayuda-nav {
+    position: static;
+    max-height: none;
+  }
+}
+
+.ayuda-capturas {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--header-border);
+}
+
+.ayuda-capturas-title,
+.ayuda-faq-title {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ayuda-capturas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.ayuda-captura {
+  margin: 0;
+  border: 1px solid var(--header-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.ayuda-captura a {
+  display: block;
+  background: #fff;
+}
+
+.ayuda-captura img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.ayuda-captura figcaption {
+  padding: 0.65rem 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ayuda-captura figcaption span {
+  color: var(--muted);
+}
+
+.ayuda-faq {
+  margin-bottom: 1.35rem;
+}
+
+.ayuda-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ayuda-faq-item {
+  border: 1px solid var(--header-border);
+  border-radius: 10px;
+  background: #fafbfc;
+  overflow: hidden;
+}
+
+.ayuda-faq-item summary {
+  cursor: pointer;
+  padding: 0.75rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.94rem;
+  list-style: none;
+}
+
+.ayuda-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.ayuda-faq-item summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.45rem;
+  color: var(--accent);
+  transition: transform 0.15s ease;
+}
+
+.ayuda-faq-item[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.ayuda-faq-answer {
+  padding: 0 0.9rem 0.85rem;
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.ayuda-faq-answer p {
+  margin: 0;
+}
+
+.ayuda-faq-hint {
+  margin-top: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.portal-paciente-aviso {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.08), rgba(13, 148, 136, 0.03));
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-page .portal-paciente-aviso {
+  margin-bottom: 1.5rem;
+}
+
+.portal-paciente-aviso-icon {
+  font-size: 1.75rem;
+  color: var(--accent-dark);
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.portal-paciente-aviso-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.portal-paciente-aviso-text {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.portal-paciente-aviso-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.portal-paciente-aviso-url {
+  display: block;
+  width: 100%;
+  flex: 1 1 100%;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--header-border);
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+@media (min-width: 720px) {
+  .portal-paciente-aviso-url {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 12rem;
+  }
 }

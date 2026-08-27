@@ -29,20 +29,71 @@ $dashboard = [
 
 try {
     $pdo = db();
-    $pacientes = (int) $pdo->query('SELECT COUNT(*) c FROM pacientes')->fetch()['c'];
-    $pacientesActivos = (int) $pdo->query('SELECT COUNT(*) c FROM pacientes WHERE activo = 1')->fetch()['c'];
-    $doctores = (int) $pdo->query('SELECT COUNT(*) c FROM lista_doctores')->fetch()['c'];
-    $turnosHoy = (int) $pdo->query('SELECT COUNT(*) c FROM agenda_turnos WHERE Fecha = CURDATE()')->fetch()['c'];
-    $turnosProx7 = (int) $pdo->query(
-        'SELECT COUNT(*) c FROM agenda_turnos WHERE Fecha > CURDATE() AND Fecha <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)'
-    )->fetch()['c'];
+    $cid = user_clinica_id($user);
+    $hasPacClin = db_table_has_column($pdo, 'pacientes', 'id_clinica');
+    $hasDocClin = db_table_has_column($pdo, 'lista_doctores', 'id_clinica');
+    $hasAgClin = db_table_has_column($pdo, 'agenda_turnos', 'id_clinica');
+
+    $clinicaNombre = '';
+    if (db_table_exists($pdo, 'clinicas')) {
+        $stClin = $pdo->prepare('SELECT nombre FROM clinicas WHERE id = ? LIMIT 1');
+        $stClin->execute([$cid]);
+        $clinicaNombre = trim((string) ($stClin->fetch()['nombre'] ?? ''));
+    }
+
+    $countSql = static function (PDO $pdo, string $sql, array $params): int {
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+
+        return (int) $st->fetch()['c'];
+    };
+
+    $sqlPac = 'SELECT COUNT(*) c FROM pacientes WHERE 1=1';
+    $parPac = [];
+    if ($hasPacClin) {
+        $sqlPac .= ' AND id_clinica = ?';
+        $parPac[] = $cid;
+    }
+    $pacientes = $countSql($pdo, $sqlPac, $parPac);
+
+    $sqlPacAct = $sqlPac . ' AND activo = 1';
+    $pacientesActivos = $countSql($pdo, $sqlPacAct, $parPac);
+
+    $sqlDoc = 'SELECT COUNT(*) c FROM lista_doctores WHERE 1=1';
+    $parDoc = [];
+    if ($hasDocClin) {
+        $sqlDoc .= ' AND id_clinica = ?';
+        $parDoc[] = $cid;
+    }
+    $doctores = $countSql($pdo, $sqlDoc, $parDoc);
+
+    $sqlHoy = 'SELECT COUNT(*) c FROM agenda_turnos WHERE Fecha = CURDATE() AND NroHC > 0';
+    $parAg = [];
+    if ($hasAgClin) {
+        $sqlHoy .= ' AND id_clinica = ?';
+        $parAg[] = $cid;
+    }
+    $turnosHoy = $countSql($pdo, $sqlHoy, $parAg);
+
+    $sqlProx = 'SELECT COUNT(*) c FROM agenda_turnos WHERE Fecha > CURDATE() AND Fecha <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND NroHC > 0';
+    $parProx = [];
+    if ($hasAgClin) {
+        $sqlProx .= ' AND id_clinica = ?';
+        $parProx[] = $cid;
+    }
+    $turnosProx7 = $countSql($pdo, $sqlProx, $parProx);
 
     $byDay = [];
-    $stDay = $pdo->query(
-        'SELECT Fecha, COUNT(*) AS c FROM agenda_turnos
-         WHERE Fecha >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND Fecha <= CURDATE()
-         GROUP BY Fecha'
-    );
+    $sqlDay = 'SELECT Fecha, COUNT(*) AS c FROM agenda_turnos
+         WHERE Fecha >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND Fecha <= CURDATE() AND NroHC > 0';
+    $parDay = [];
+    if ($hasAgClin) {
+        $sqlDay .= ' AND id_clinica = ?';
+        $parDay[] = $cid;
+    }
+    $sqlDay .= ' GROUP BY Fecha';
+    $stDay = $pdo->prepare($sqlDay);
+    $stDay->execute($parDay);
     while ($row = $stDay->fetch(PDO::FETCH_ASSOC)) {
         $byDay[(string) $row['Fecha']] = (int) $row['c'];
     }
@@ -54,10 +105,16 @@ try {
         $dashboard['turnos14'][] = $byDay[$key] ?? 0;
     }
 
-    $stEst = $pdo->query(
-        "SELECT COALESCE(NULLIF(TRIM(estado), ''), 'pendiente') AS estado, COUNT(*) AS c
-         FROM agenda_turnos WHERE Fecha = CURDATE() GROUP BY estado ORDER BY c DESC"
-    );
+    $sqlEst = "SELECT COALESCE(NULLIF(TRIM(estado), ''), 'pendiente') AS estado, COUNT(*) AS c
+         FROM agenda_turnos WHERE Fecha = CURDATE() AND NroHC > 0";
+    $parEst = [];
+    if ($hasAgClin) {
+        $sqlEst .= ' AND id_clinica = ?';
+        $parEst[] = $cid;
+    }
+    $sqlEst .= ' GROUP BY estado ORDER BY c DESC';
+    $stEst = $pdo->prepare($sqlEst);
+    $stEst->execute($parEst);
     while ($row = $stEst->fetch(PDO::FETCH_ASSOC)) {
         $dashboard['estadoLabels'][] = $row['estado'];
         $dashboard['estadoCounts'][] = (int) $row['c'];
@@ -66,15 +123,25 @@ try {
         $dashboard['estadoTotal'] += $n;
     }
 
-    $stDoc = $pdo->query(
-        'SELECT d.nombre AS nombre, COUNT(*) AS c
+    $sqlDocChart = 'SELECT d.nombre AS nombre, COUNT(*) AS c
          FROM agenda_turnos t
-         INNER JOIN lista_doctores d ON d.id = t.Doctor
-         WHERE t.Fecha >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
-         GROUP BY t.Doctor, d.nombre
-         ORDER BY c DESC
-         LIMIT 8'
-    );
+         INNER JOIN lista_doctores d ON d.id = t.Doctor';
+    $parDocChart = [];
+    if ($hasAgClin && $hasDocClin) {
+        $sqlDocChart .= ' AND d.id_clinica = t.id_clinica';
+    }
+    $sqlDocChart .= ' WHERE t.Fecha >= DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND t.NroHC > 0';
+    if ($hasAgClin) {
+        $sqlDocChart .= ' AND t.id_clinica = ?';
+        $parDocChart[] = $cid;
+    }
+    if ($hasDocClin) {
+        $sqlDocChart .= ' AND d.id_clinica = ?';
+        $parDocChart[] = $cid;
+    }
+    $sqlDocChart .= ' GROUP BY t.Doctor, d.nombre ORDER BY c DESC LIMIT 8';
+    $stDoc = $pdo->prepare($sqlDocChart);
+    $stDoc->execute($parDocChart);
     while ($row = $stDoc->fetch(PDO::FETCH_ASSOC)) {
         $nombre = (string) $row['nombre'];
         if (function_exists('mb_strimwidth')) {
@@ -84,7 +151,7 @@ try {
         }
         $dashboard['doctorLabels'][] = $nombre ?: '—';
         $dashboard['doctorCounts'][] = (int) $row['c'];
-}
+    }
 } catch (Throwable $e) {
     $dbError = true;
     error_log('[control-salud] dashboard DB error: ' . $e->getMessage());
@@ -111,13 +178,15 @@ if (!isset($dbError)) {
             <div class="dashboard-head-text">
                 <p class="dashboard-eyebrow"><i class="bi bi-speedometer2" aria-hidden="true"></i> Panel</p>
                 <h1>Bienvenido<?= $user['nombre'] !== '' && $user['nombre'] !== null ? ', ' . h($user['nombre']) : '' ?></h1>
-                <p class="dashboard-subtitle">Resumen de actividad y turnos — Control Salud</p>
+                <p class="dashboard-subtitle">Resumen de actividad y turnos<?= isset($clinicaNombre) && $clinicaNombre !== '' ? ' — ' . h($clinicaNombre) : '' ?></p>
             </div>
             <div class="dashboard-head-actions">
                 <a class="btn btn-primary" href="/agenda.php"><i class="bi bi-calendar3-event" aria-hidden="true"></i> Agenda</a>
                 <a class="btn btn-ghost" href="/pacientes.php"><i class="bi bi-people" aria-hidden="true"></i> Pacientes</a>
             </div>
         </header>
+
+        <?= portal_paciente_render_aviso($cid) ?>
 
         <div class="dashboard-stat-grid">
             <a class="stat-card stat-card-kpi stat-card-kpi--pacientes" href="/pacientes.php">

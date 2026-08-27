@@ -43,6 +43,10 @@ require_once __DIR__ . '/flash.php';
 require_once __DIR__ . '/url.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/layout.php';
+require_once __DIR__ . '/caja_helpers.php';
+require_once __DIR__ . '/recordatorio_helpers.php';
+require_once __DIR__ . '/clinica_helpers.php';
+require_once __DIR__ . '/portal_paciente_helpers.php';
 
 // Reescribe links root-relative en HTML para despliegues en subcarpeta.
 ob_start(static function (string $buffer): string {
@@ -101,6 +105,7 @@ if (auth_user() !== null) {
             '/odontograma.php',
             '/odontograma_imprimir.php',
             '/odontograma_superficies_api.php',
+            '/clinica_logo.php',
             '/logout.php',
         ],
     ];

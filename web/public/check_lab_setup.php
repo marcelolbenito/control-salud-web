@@ -68,6 +68,66 @@ $checks[] = ['.env → DB_HOST no es "mysql" (Docker)', $dbHost !== '' && strtol
 $nginxMode = !$queryRouter ? 'Nginx recomendado (LAB_QUERY_ROUTER=false)' : 'Modo degradado (?r= en URLs)';
 $checks[] = ['Modo rutas: ' . $nginxMode, true];
 
+// --- Diagnóstico Control Salud Web (login 500, archivos mal subidos) ---
+$appRoot = dirname($publicDir);
+$csFiles = [
+    'includes/bootstrap.php' => 4254,
+    'includes/flash.php' => 334,
+    'includes/layout.php' => 11515,
+    'includes/recordatorio_helpers.php' => 0,
+    'includes/caja_helpers.php' => 0,
+    'includes/gesis_whatsapp_helpers.php' => 0,
+    'config/config.local.php' => 0,
+    'public/login.php' => 2859,
+];
+$csChecks = [];
+foreach ($csFiles as $rel => $expectedBytes) {
+    $abs = $appRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+    $exists = is_file($abs);
+    $size = $exists ? (int) filesize($abs) : 0;
+    $label = $rel;
+    if ($exists && $expectedBytes > 0 && $size < (int) ($expectedBytes * 0.85)) {
+        $csChecks[] = [$label . ' (' . $size . ' bytes; esperado ~' . $expectedBytes . ' — ¿subida incompleta?)', false];
+    } else {
+        $csChecks[] = [$label . ($exists ? ' (' . $size . ' bytes)' : ''), $exists];
+    }
+}
+$csChecks[] = ['función flash_take() disponible', function_exists('flash_take')];
+$wrongWebTree = is_dir($appRoot . '/web/public');
+$csChecks[] = ['Carpeta web/public/ en servidor (ruta equivocada de deploy)', !$wrongWebTree];
+
+$csDiagError = '';
+$csDiagOk = '';
+try {
+    require_once $appRoot . '/includes/bootstrap.php';
+    $pdoCs = db();
+    ob_start();
+    ?>
+<div class="container"><h1>Diag</h1><?= csrf_field() ?></div>
+    <?php
+    $bodyCs = ob_get_clean();
+    if (!is_string($bodyCs)) {
+        throw new RuntimeException('login body: ob_get_clean falló');
+    }
+    ob_start();
+    layout_render('Diag CS', $bodyCs, null);
+    $htmlCs = ob_get_clean();
+    if (!is_string($htmlCs) || strlen($htmlCs) < 2000) {
+        throw new RuntimeException('layout_render devolvió solo ' . (is_string($htmlCs) ? strlen($htmlCs) : 0) . ' bytes');
+    }
+    $csDiagOk = 'bootstrap + db + layout_render OK (' . strlen($htmlCs) . ' bytes)';
+} catch (Throwable $e) {
+    $csDiagError = $e->getMessage() . ' [' . $e->getFile() . ':' . $e->getLine() . ']';
+}
+$configLint = '';
+$configPath = $appRoot . '/config/config.local.php';
+if (is_file($configPath) && function_exists('shell_exec')) {
+    $out = @shell_exec('php -l ' . escapeshellarg($configPath) . ' 2>&1');
+    if (is_string($out) && $out !== '') {
+        $configLint = trim($out);
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -82,12 +142,15 @@ $checks[] = ['Modo rutas: ' . $nginxMode, true];
         th { background: #f4f4f4; }
         .steps { background: #f9f9f6; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
         .warn { background: #fff8e6; border: 1px solid #e6c200; padding: 1rem; border-radius: 8px; }
+        .err { background: #fde8e8; border: 1px solid #c00; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+        .okbox { background: #e8f5e9; border: 1px solid #2e7d32; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
         code { background: #eee; padding: 0.1em 0.35em; border-radius: 4px; }
     </style>
 </head>
 <body>
     <h1>Checklist — Laboratorio en el servidor</h1>
     <p>DocumentRoot: <code><?= htmlspecialchars($publicDir, ENT_QUOTES, 'UTF-8') ?></code></p>
+    <p>Raíz app CS: <code><?= htmlspecialchars($appRoot, ENT_QUOTES, 'UTF-8') ?></code></p>
     <?php if ($labRoot !== null): ?>
     <p>Módulo: <code><?= htmlspecialchars($labRoot, ENT_QUOTES, 'UTF-8') ?></code></p>
     <?php endif; ?>
@@ -98,6 +161,23 @@ $checks[] = ['Modo rutas: ' . $nginxMode, true];
         <tr><td><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></td><td><?= ok($pass) ?></td></tr>
         <?php endforeach; ?>
     </table>
+
+    <h2>Control Salud Web — diagnóstico login</h2>
+    <p>Subí los PHP a <code>public/</code> y <code>includes/</code> (no a <code>web/public/</code>).</p>
+    <table>
+        <tr><th>Archivo / prueba</th><th>Estado</th></tr>
+        <?php foreach ($csChecks as [$label, $pass]): ?>
+        <tr><td><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></td><td><?= ok($pass) ?></td></tr>
+        <?php endforeach; ?>
+    </table>
+    <?php if ($configLint !== ''): ?>
+    <p><strong>php -l config.local.php:</strong> <code><?= htmlspecialchars($configLint, ENT_QUOTES, 'UTF-8') ?></code></p>
+    <?php endif; ?>
+    <?php if ($csDiagError !== ''): ?>
+    <div class="err"><strong>Error al probar layout (misma causa que login 500):</strong><br><?= htmlspecialchars($csDiagError, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php elseif ($csDiagOk !== ''): ?>
+    <div class="okbox"><?= htmlspecialchars($csDiagOk, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
 
     <div class="warn">
         <strong>Para que funcione como en local</strong>, el hosting debe aplicar el bloque Nginx de
