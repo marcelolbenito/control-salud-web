@@ -45,7 +45,8 @@ declare(strict_types=1);
                     <input type="date" name="Fecha" required value="<?= h((string) $row['Fecha']) ?>">
                 </label>
                 <label>Hora
-                    <input type="time" name="hora" value="<?= h((string) $row['hora']) ?>">
+                    <input type="time" name="hora" id="turno-hora-input" value="<?= h((string) $row['hora']) ?>" title="También puede elegir un horario en la grilla de abajo">
+                    <small class="muted">Clic en un horario <span class="turno-leyenda-libre">verde</span> de la grilla para completar automáticamente.</small>
                 </label>
                 <label>Nro HC *
                     <input type="number" name="NroHC" required min="1" value="<?= $row['NroHC'] === '' ? '' : (int) $row['NroHC'] ?>">
@@ -116,7 +117,7 @@ declare(strict_types=1);
                  data-slots-url="/agenda_slots.php"
                  data-exclude-id="<?= $turnoExcludeId ?>"
                  style="">
-                <p class="muted small" id="turno-disp-lead"><strong>Disponibilidad por profesional:</strong> la grilla usa la planilla de horarios. Verde = libre, rojo = ocupado (clic para ver/anular), gris = bloqueado (no asignable), azul = seleccionada.</p>
+                <p class="muted small" id="turno-disp-lead"><strong>Grilla de horarios:</strong> clic en <span class="turno-leyenda-libre">verde</span> = elegir hora · <span class="turno-leyenda-ocupado">rojo</span> = ver/anular ocupados · <span class="turno-leyenda-bloq">gris</span> = bloqueado · <span class="turno-leyenda-sel">azul</span> = seleccionado.</p>
                 <p class="muted small" id="turno-disp-dia"></p>
                 <p class="muted small" id="turno-disp-hint"><?= h($dispHintIni) ?></p>
                 <div class="turno-slots" id="turno-slots-grid">
@@ -131,6 +132,9 @@ declare(strict_types=1);
                             <button type="button"
                                     class="turno-slot <?= h($cls) ?>"
                                     data-slot="<?= h($slot) ?>"
+                                    data-ocup="<?= $ocup ?>"
+                                    data-bloq="<?= $bloq ?>"
+                                    title="<?= $bloq > 0 ? 'Horario bloqueado' : ($ocup > 0 ? 'Ver turnos en este horario' : 'Clic para elegir ' . $slot) ?>"
                                     <?= $bloq > 0 ? ' disabled' : '' ?>>
                                 <span><?= h($slot) ?></span>
                                 <?php if ($ocup > 0): ?><small><?= $ocup ?></small><?php endif; ?>
@@ -200,17 +204,88 @@ declare(strict_types=1);
                         return '';
                     }
 
+                    function normalizarHora(val) {
+                        const s = String(val || '').trim();
+                        const m = s.match(/^(\d{1,2}):(\d{2})/);
+                        if (!m) return '';
+                        return String(parseInt(m[1], 10)).padStart(2, '0') + ':' + String(parseInt(m[2], 10)).padStart(2, '0');
+                    }
+
+                    function seleccionarHora(slot, opts) {
+                        const options = opts || {};
+                        const hora = normalizarHora(slot);
+                        if (!hora) return;
+                        horaInput.value = hora;
+                        horaInput.classList.add('turno-hora-pulse');
+                        setTimeout(() => horaInput.classList.remove('turno-hora-pulse'), 700);
+                        grid.querySelectorAll('.turno-slot').forEach((b) => {
+                            const s = normalizarHora(b.getAttribute('data-slot') || '');
+                            b.classList.toggle('is-selected', s === hora);
+                        });
+                        if (ocupadosDetalle) {
+                            ocupadosDetalle.hidden = true;
+                            ocupadosDetalle.innerHTML = '';
+                        }
+                        if (options.focusPaciente !== false && pacienteBuscarInput) {
+                            pacienteBuscarInput.focus();
+                        }
+                    }
+
+                    function syncGridDesdeInput() {
+                        const sel = normalizarHora(horaInput.value);
+                        grid.querySelectorAll('.turno-slot').forEach((b) => {
+                            const s = normalizarHora(b.getAttribute('data-slot') || '');
+                            b.classList.toggle('is-selected', sel !== '' && s === sel);
+                        });
+                    }
+
+                    function bindSlotButton(btn, slot, ocup, bloq) {
+                        btn.addEventListener('click', () => {
+                            if (bloq > 0) return;
+                            if (ocup > 0) {
+                                verTurnosEnHora(slot);
+                                return;
+                            }
+                            seleccionarHora(slot, { focusPaciente: true });
+                        });
+                        btn.addEventListener('dblclick', (ev) => {
+                            ev.preventDefault();
+                            if (bloq > 0 || ocup > 0) return;
+                            seleccionarHora(slot, { focusPaciente: true });
+                            if (nroHcInput) {
+                                nroHcInput.focus();
+                            }
+                        });
+                    }
+
+                    function bindSlotsEnGrilla() {
+                        grid.querySelectorAll('.turno-slot').forEach((btn) => {
+                            const slot = String(btn.getAttribute('data-slot') || '');
+                            const ocup = parseInt(String(btn.getAttribute('data-ocup') || '0'), 10) || 0;
+                            const bloq = parseInt(String(btn.getAttribute('data-bloq') || '0'), 10) || 0;
+                            if (!btn.dataset.bound) {
+                                bindSlotButton(btn, slot, ocup, bloq);
+                                btn.dataset.bound = '1';
+                            }
+                        });
+                        syncGridDesdeInput();
+                    }
+
                     function renderSlots(slots, occupied, blocked, selectedHora) {
                         grid.innerHTML = '';
+                        const sel = normalizarHora(selectedHora);
                         slots.forEach((slot) => {
                             const ocup = parseInt(String(occupied[slot] || 0), 10) || 0;
                             const bloq = parseInt(String((blocked || {})[slot] || 0), 10) || 0;
-                            const isSel = selectedHora === slot;
+                            const isSel = sel === normalizarHora(slot);
                             const cls = isSel ? 'is-selected' : (bloq > 0 ? 'is-blocked' : (ocup > 0 ? 'is-occupied' : 'is-free'));
                             const btn = document.createElement('button');
                             btn.type = 'button';
                             btn.className = 'turno-slot ' + cls;
                             btn.setAttribute('data-slot', slot);
+                            btn.setAttribute('data-ocup', String(ocup));
+                            btn.setAttribute('data-bloq', String(bloq));
+                            btn.title = bloq > 0 ? 'Horario bloqueado' : (ocup > 0 ? 'Ver turnos en este horario' : 'Clic para elegir ' + slot);
                             if (bloq > 0) {
                                 btn.disabled = true;
                             }
@@ -222,22 +297,8 @@ declare(strict_types=1);
                                 sm.textContent = String(ocup);
                                 btn.appendChild(sm);
                             }
-                            btn.addEventListener('click', () => {
-                                if (bloq > 0) {
-                                    return;
-                                }
-                                if (ocup > 0) {
-                                    verTurnosEnHora(slot);
-                                    return;
-                                }
-                                horaInput.value = slot;
-                                grid.querySelectorAll('.turno-slot').forEach((b) => b.classList.remove('is-selected'));
-                                btn.classList.add('is-selected');
-                                if (ocupadosDetalle) {
-                                    ocupadosDetalle.hidden = true;
-                                    ocupadosDetalle.innerHTML = '';
-                                }
-                            });
+                            bindSlotButton(btn, slot, ocup, bloq);
+                            btn.dataset.bound = '1';
                             grid.appendChild(btn);
                         });
                     }
@@ -293,26 +354,50 @@ declare(strict_types=1);
                         }
                         let html = '';
                         fechas.forEach((f) => {
+                            const horas = grouped[f] || [];
+                            html += '<div class="turno-proximo-dia-wrap">';
                             html += '<button type="button" class="turno-proximo-item turno-proximo-item-dia" data-fecha="' + f + '">'
-                                + '<strong>' + fechaHumana(f) + '</strong> · ' + grouped[f].length + ' turnos libres'
+                                + '<strong>' + fechaHumana(f) + '</strong> · ' + horas.length + ' turnos libres'
                                 + '</button>';
+                            html += '<div class="turno-proximo-horas" data-fecha-horas="' + f + '" hidden>';
+                            horas.forEach((h) => {
+                                html += '<button type="button" class="turno-proximo-hora" data-fecha="' + f + '" data-hora="' + h + '">' + h + '</button>';
+                            });
+                            html += '</div></div>';
                         });
                         proximosDias.hidden = false;
                         proximosDias.innerHTML = html;
-                        proximosDias.querySelectorAll('.turno-proximo-item').forEach((btn) => {
+                        proximosDias.querySelectorAll('.turno-proximo-item-dia').forEach((btn) => {
                             btn.addEventListener('click', () => {
                                 const f = String(btn.getAttribute('data-fecha') || '');
-                                if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
-                                    fechaInp.value = f;
-                                    actualizarDiaInfo();
-                                    refreshDisp();
-                                }
+                                if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) return;
+                                const horasBox = btn.parentElement ? btn.parentElement.querySelector('.turno-proximo-horas') : null;
+                                proximosDias.querySelectorAll('.turno-proximo-horas').forEach((el) => {
+                                    if (el !== horasBox) el.hidden = true;
+                                });
                                 proximosDias.querySelectorAll('.turno-proximo-item-dia').forEach((el) => el.classList.remove('is-selected'));
                                 btn.classList.add('is-selected');
-                                proximosDias.hidden = true;
-                                if (proximosActions) {
-                                    proximosActions.hidden = true;
-                                }
+                                fechaInp.value = f;
+                                actualizarDiaInfo();
+                                refreshDisp().then(() => {
+                                    if (horasBox) {
+                                        horasBox.hidden = !horasBox.hidden;
+                                    }
+                                });
+                            });
+                        });
+                        proximosDias.querySelectorAll('.turno-proximo-hora').forEach((btn) => {
+                            btn.addEventListener('click', () => {
+                                const f = String(btn.getAttribute('data-fecha') || '');
+                                const h = String(btn.getAttribute('data-hora') || '');
+                                if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{2}:\d{2}$/.test(h)) return;
+                                fechaInp.value = f;
+                                actualizarDiaInfo();
+                                refreshDisp().then(() => {
+                                    seleccionarHora(h, { focusPaciente: true });
+                                });
+                                proximosDias.querySelectorAll('.turno-proximo-hora').forEach((el) => el.classList.remove('is-selected'));
+                                btn.classList.add('is-selected');
                             });
                         });
                         if (proximosActions && proximosToggle) {
@@ -456,7 +541,7 @@ declare(strict_types=1);
                             const data = await res.json();
                             if (!data || !data.ok) throw new Error('bad');
                             if (hint) hint.textContent = hintText(data);
-                            const sel = (horaInput.value || '').trim().substring(0, 5);
+                            const sel = normalizarHora(horaInput.value);
                             if (data.slots && data.slots.length) {
                                 renderSlots(data.slots, data.occupied || {}, data.blocked || {}, sel);
                             } else {
@@ -474,7 +559,9 @@ declare(strict_types=1);
                     fechaInp.addEventListener('change', refreshDisp);
                     fechaInp.addEventListener('change', actualizarDiaInfo);
                     doctorSel.addEventListener('change', refreshDisp);
-                    // Asegura que la grilla inicial también quede clickeable al abrir el formulario.
+                    horaInput.addEventListener('change', syncGridDesdeInput);
+                    horaInput.addEventListener('input', syncGridDesdeInput);
+                    bindSlotsEnGrilla();
                     actualizarDiaInfo();
                     refreshDisp();
 

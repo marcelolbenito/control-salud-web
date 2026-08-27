@@ -99,6 +99,8 @@ declare(strict_types=1);
                         $obsOut = function_exists('mb_strimwidth')
                             ? mb_strimwidth($obs, 0, 40, '…', 'UTF-8')
                             : (strlen($obs) > 40 ? substr($obs, 0, 37) . '...' : $obs);
+                        $nroHc = (int) ($r['NroHC'] ?? 0);
+                        $esDisponible = $nroHc === -111;
                         $estadoUi = (string) ($r['estado'] ?? 'pendiente');
                         if ($extAgenda) {
                             if (!empty($r['atendido'])) {
@@ -108,6 +110,9 @@ declare(strict_types=1);
                             } elseif (!empty($r['llegado'])) {
                                 $estadoUi = 'llego';
                             }
+                        }
+                        if ($esDisponible) {
+                            $estadoUi = 'disponible';
                         }
                         $estadoSlug = preg_replace('/[^a-z_]/i', '', $estadoUi) ?: 'pendiente';
                         $turnoLink = '/agenda.php?fecha=' . rawurlencode($fecha)
@@ -125,7 +130,6 @@ declare(strict_types=1);
                             $trClass .= ' is-selected';
                         }
                         $pacienteId = (int) ($r['paciente_id'] ?? 0);
-                        $nroHc = (int) ($r['NroHC'] ?? 0);
                         $puedeEditarPaciente = auth_user_role(auth_user()) !== 'doctor';
                         $pacienteUrl = $puedeEditarPaciente && $pacienteId > 0
                             ? '/paciente_form.php?id=' . $pacienteId
@@ -134,13 +138,20 @@ declare(strict_types=1);
                         <tr
                             class="<?= h($trClass) ?> agenda-row-selectable"
                             data-turno-link="<?= h($turnoLink) ?>"
+                            <?= $esDisponible ? ' data-asignar-link="/turno_form.php?id=' . (int) $r['id'] . '"' : '' ?>
                             tabindex="0"
                             role="link"
-                            aria-label="Ver detalle del turno de <?= h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
+                            aria-label="<?= $esDisponible ? 'Horario disponible. Doble clic para asignar paciente.' : 'Ver detalle del turno de ' . h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
                         >
                             <td><?= $r['hora'] ? h(substr((string) $r['hora'], 0, 5)) : '—' ?></td>
-                            <td><a class="agenda-paciente-link" href="<?= h($pacienteUrl) ?>" target="_blank" rel="noopener" title="Abrir ficha del paciente"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a></td>
-                            <td><?= $nroHc ?></td>
+                            <td>
+                                <?php if ($esDisponible): ?>
+                                    <span class="muted"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Disponible</span>
+                                <?php else: ?>
+                                    <a class="agenda-paciente-link" href="<?= h($pacienteUrl) ?>" target="_blank" rel="noopener" title="Abrir ficha del paciente"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= $esDisponible ? '—' : $nroHc ?></td>
                             <td><?= h($r['doctor_nombre'] ?? '—') ?></td>
                             <td><span class="badge-estado estado-<?= h($estadoSlug) ?>"><?= h((string) $estadoUi) ?></span></td>
                             <?php if ($extAgenda): ?>
@@ -151,16 +162,23 @@ declare(strict_types=1);
                             <?php endif; ?>
                             <td><?= $r['idorden'] !== null ? (int) $r['idorden'] : '—' ?></td>
                             <td class="cell-clip" title="<?= h($obs) ?>">
-                                <button
-                                    type="button"
-                                    class="agenda-obs-btn"
-                                    data-turno-id="<?= (int) $r['id'] ?>"
-                                    data-paciente="<?= h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
-                                    data-observaciones="<?= h($obs) ?>"
-                                    title="Editar observaciones"
-                                ><?= $obsOut !== '' ? h($obsOut) : '<span class="muted">Agregar obs.</span>' ?></button>
+                                <?php if ($esDisponible): ?>
+                                    <span class="muted">—</span>
+                                <?php else: ?>
+                                    <button
+                                        type="button"
+                                        class="agenda-obs-btn"
+                                        data-turno-id="<?= (int) $r['id'] ?>"
+                                        data-paciente="<?= h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
+                                        data-observaciones="<?= h($obs) ?>"
+                                        title="Editar observaciones"
+                                    ><?= $obsOut !== '' ? h($obsOut) : '<span class="muted">Agregar obs.</span>' ?></button>
+                                <?php endif; ?>
                             </td>
                             <td class="table-actions">
+                                <?php if ($esDisponible): ?>
+                                    <a class="btn btn-sm btn-primary" title="Asignar paciente a este horario" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Asignar turno</a>
+                                <?php else: ?>
                                 <?php
                                 $isLlegado = $extAgenda && !empty($r['llegado']);
                                 $isAtendido = !empty($r['atendido']) || ((string) ($r['estado'] ?? '') === 'atendido');
@@ -231,6 +249,7 @@ declare(strict_types=1);
                                         </form>
                                     <?php endif; ?>
                                 <?php endif; ?>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -243,22 +262,30 @@ declare(strict_types=1);
         <aside class="agenda-side card-like">
             <h2>Detalle del turno</h2>
             <?php if ($turnoSel): ?>
+                <?php $turnoDisponible = (int) ($turnoSel['NroHC'] ?? 0) === -111; ?>
                 <p><strong>Hora:</strong> <?= $turnoSel['hora'] ? h(substr((string) $turnoSel['hora'], 0, 5)) : '—' ?></p>
-                <p><strong>Paciente:</strong> <?= h((string) ($turnoSel['paciente_nombre'] ?? '—')) ?></p>
-                <p><strong>Nro HC:</strong> <?= (int) ($turnoSel['NroHC'] ?? 0) ?></p>
                 <p><strong>Profesional:</strong> <?= h((string) ($turnoSel['doctor_nombre'] ?? '—')) ?></p>
-                <p><strong>Estado:</strong> <?= h((string) ($turnoSel['estado'] ?? '—')) ?></p>
-                <?php if ($extAgenda): ?>
-                    <p class="muted small">
-                        Llegó: <?= !empty($turnoSel['llegado']) ? 'Sí' : 'No' ?> ·
-                        Confirmado: <?= !empty($turnoSel['confirmado']) ? 'Sí' : 'No' ?> ·
-                        Atendido: <?= !empty($turnoSel['atendido']) ? 'Sí' : 'No' ?>
+                <?php if ($turnoDisponible): ?>
+                    <p class="alert alert-info">Horario disponible. Todavía no tiene paciente asignado. <strong>Doble clic</strong> en la fila para asignar.</p>
+                    <p class="agenda-side-actions">
+                        <a class="btn btn-sm btn-primary" href="/turno_form.php?id=<?= (int) $turnoSel['id'] ?>"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Asignar turno</a>
+                    </p>
+                <?php else: ?>
+                    <p><strong>Paciente:</strong> <?= h((string) ($turnoSel['paciente_nombre'] ?? '—')) ?></p>
+                    <p><strong>Nro HC:</strong> <?= (int) ($turnoSel['NroHC'] ?? 0) ?></p>
+                    <p><strong>Estado:</strong> <?= h((string) ($turnoSel['estado'] ?? '—')) ?></p>
+                    <?php if ($extAgenda): ?>
+                        <p class="muted small">
+                            Llegó: <?= !empty($turnoSel['llegado']) ? 'Sí' : 'No' ?> ·
+                            Confirmado: <?= !empty($turnoSel['confirmado']) ? 'Sí' : 'No' ?> ·
+                            Atendido: <?= !empty($turnoSel['atendido']) ? 'Sí' : 'No' ?>
+                        </p>
+                    <?php endif; ?>
+                    <p><strong>Obs.:</strong><br><?= h((string) ($turnoSel['observaciones'] ?? '—')) ?></p>
+                    <p class="agenda-side-actions">
+                        <a class="btn btn-sm btn-primary" href="/turno_form.php?id=<?= (int) $turnoSel['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar turno</a>
                     </p>
                 <?php endif; ?>
-                <p><strong>Obs.:</strong><br><?= h((string) ($turnoSel['observaciones'] ?? '—')) ?></p>
-                <p class="agenda-side-actions">
-                    <a class="btn btn-sm btn-primary" href="/turno_form.php?id=<?= (int) $turnoSel['id'] ?>"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar turno</a>
-                </p>
             <?php else: ?>
                 <p class="muted">Seleccioná un turno con click en la fila (o Enter desde teclado) para ver el detalle rápido, como en la pantalla del exe.</p>
             <?php endif; ?>

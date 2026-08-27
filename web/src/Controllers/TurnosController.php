@@ -29,11 +29,16 @@ final class TurnosController
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         $defaultsFecha = trim((string) ($_GET['fecha'] ?? ''));
         $defaultsDoctor = (int) ($_GET['doctor'] ?? 0);
+        $defaultsHora = trim((string) ($_GET['hora'] ?? ''));
+        $horaDefault = '';
+        if (preg_match('/^(\d{1,2}):(\d{2})$/', $defaultsHora, $hm)) {
+            $horaDefault = sprintf('%02d:%02d', (int) $hm[1], (int) $hm[2]);
+        }
 
         $row = [
             'id' => 0,
             'Fecha' => $defaultsFecha !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $defaultsFecha) ? $defaultsFecha : date('Y-m-d'),
-            'hora' => '',
+            'hora' => $horaDefault,
             'NroHC' => '',
             'Doctor' => $defaultsDoctor > 0 ? $defaultsDoctor : '',
             'idorden' => '',
@@ -174,6 +179,7 @@ final class TurnosController
             }
 
             if ($error === '') {
+                $idTurnoNuevo = 0;
                 if ($ext) {
                     if ($estado === 'atendido') {
                         $ex['atendido'] = 1;
@@ -191,7 +197,7 @@ final class TurnosController
                             $ex
                         );
                     } else {
-                        $repo->insertExtended(
+                        $idTurnoNuevo = $repo->insertExtended(
                             $Fecha,
                             $hora,
                             $NroHC,
@@ -206,8 +212,12 @@ final class TurnosController
                     if ($id > 0) {
                         $repo->updateBase($id, $Fecha, $hora, $NroHC, $Doctor, $idorden, $estado, $observaciones);
                     } else {
-                        $repo->insertBase($Fecha, $hora, $NroHC, $Doctor, $idorden, $estado, $observaciones);
+                        $idTurnoNuevo = $repo->insertBase($Fecha, $hora, $NroHC, $Doctor, $idorden, $estado, $observaciones);
                     }
+                }
+                if ($idTurnoNuevo > 0) {
+                    require_once dirname(__DIR__) . '/Services/RecordatorioService.php';
+                    (new RecordatorioService($this->pdo, user_clinica_id($this->user)))->encolarYProcesarConfirmacion($idTurnoNuevo);
                 }
                 flash_set($id > 0 ? 'Turno actualizado.' : 'Turno creado.');
                 header('Location: /agenda.php?fecha=' . urlencode($Fecha) . ($Doctor > 0 ? '&doctor=' . $Doctor : ''));
@@ -278,6 +288,10 @@ final class TurnosController
             exit;
         }
         $repo = new TurnosRepository($this->pdo, user_clinica_id($this->user));
+        $cid = user_clinica_id($this->user);
+        require_once dirname(__DIR__) . '/Services/RecordatorioService.php';
+        $svc = new RecordatorioService($this->pdo, $cid);
+        $svc->encolarYProcesarAnulacion($id);
         $repo->deleteById($id);
         flash_set('Turno eliminado.');
         header('Location: /agenda.php');

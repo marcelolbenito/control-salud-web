@@ -350,6 +350,11 @@
 
     if (event.detail >= 2) {
       clearAgendaNavTimer();
+      var asignar = row.getAttribute('data-asignar-link');
+      if (asignar) {
+        window.location.href = asignar;
+        return;
+      }
       var llegoInput = row.querySelector('input[name="accion"][value="llego"]');
       var form = llegoInput && llegoInput.closest('form');
       if (form) {
@@ -379,6 +384,11 @@
 
     event.preventDefault();
     clearAgendaNavTimer();
+    var asignar = row.getAttribute('data-asignar-link');
+    if (asignar) {
+      window.location.href = asignar;
+      return;
+    }
     var href = row.getAttribute('data-turno-link');
     if (href) {
       window.location.href = href;
