@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 200" role="img" aria-label="Flujo de recepcion">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .box { fill: #f8fafc; stroke: #0d9488; stroke-width: 2; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#m); }
+      .lbl { font-family: Segoe UI, system-ui, sans-serif; font-size: 14px; fill: #0f172a; }
+      .sub { font-family: Segoe UI, system-ui, sans-serif; font-size: 11px; fill: #64748b; }
+    ]]></style>
+    <marker id="m" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect class="box" x="10" y="55" width="130" height="70" rx="10"/>
+  <text class="lbl" x="75" y="88" text-anchor="middle">Turno</text>
+  <text class="sub" x="75" y="108" text-anchor="middle">Agenda</text>
+
+  <line class="arrow" x1="140" y1="90" x2="175" y2="90"/>
+  <rect class="box" x="180" y="55" width="130" height="70" rx="10"/>
+  <text class="lbl" x="245" y="88" text-anchor="middle">Lleg&#243;</text>
+  <text class="sub" x="245" y="108" text-anchor="middle">Recepci&#243;n</text>
+
+  <line class="arrow" x1="310" y1="90" x2="345" y2="90"/>
+  <rect class="box" x="350" y="45" width="150" height="90" rx="10"/>
+  <text class="lbl" x="425" y="82" text-anchor="middle">Cobro / Orden</text>
+  <text class="sub" x="425" y="102" text-anchor="middle">Particular u OS</text>
+
+  <line class="arrow" x1="500" y1="90" x2="535" y2="90"/>
+  <rect class="box" x="540" y="55" width="130" height="70" rx="10"/>
+  <text class="lbl" x="605" y="88" text-anchor="middle">Llamar</text>
+  <text class="sub" x="605" y="108" text-anchor="middle">Anunciador</text>
+
+  <line class="arrow" x1="670" y1="90" x2="705" y2="90"/>
+  <rect class="box" x="710" y="55" width="130" height="70" rx="10"/>
+  <text class="lbl" x="775" y="88" text-anchor="middle">Atendido</text>
+  <text class="sub" x="775" y="108" text-anchor="middle">Profesional</text>
+
+  <text class="sub" x="460" y="175" text-anchor="middle">Al cierre del d&#237;a: Control diario &#8594; Cierre de caja</text>
+</svg>
