@@ -270,7 +270,7 @@ final class TurnosRepository
         string $estado,
         string $observaciones,
         array $ex
-    ): void {
+    ): int {
         if ($this->agendaTieneClinica()) {
             $st = $this->pdo->prepare(
                 'INSERT INTO agenda_turnos (id_clinica, Fecha, hora, NroHC, Doctor, idorden, estado, observaciones,
@@ -285,7 +285,7 @@ final class TurnosRepository
                 $ex['num_sesion'], $ex['id_sesion'], $ex['id_caja'], $ex['usuario_asignado'], $ex['fechahora_asignado'], $ex['alta_paci_web'],
             ]);
 
-            return;
+            return (int) $this->pdo->lastInsertId();
         }
         $st = $this->pdo->prepare(
             'INSERT INTO agenda_turnos (Fecha, hora, NroHC, Doctor, idorden, estado, observaciones,
@@ -299,6 +299,8 @@ final class TurnosRepository
             $ex['confirmado'], $ex['falta_turno'], $ex['reingresar'], $ex['primera_vez'],
             $ex['num_sesion'], $ex['id_sesion'], $ex['id_caja'], $ex['usuario_asignado'], $ex['fechahora_asignado'], $ex['alta_paci_web'],
         ]);
+
+        return (int) $this->pdo->lastInsertId();
     }
 
     /**
@@ -342,19 +344,21 @@ final class TurnosRepository
         $idorden,
         string $estado,
         string $observaciones
-    ): void {
+    ): int {
         if ($this->agendaTieneClinica()) {
             $st = $this->pdo->prepare(
                 'INSERT INTO agenda_turnos (id_clinica, Fecha, hora, NroHC, Doctor, idorden, estado, observaciones) VALUES (?,?,?,?,?,?,?,?)'
             );
             $st->execute([$this->idClinica, $fecha, $hora, $nroHC, $doctor, $idorden, $estado, $observaciones]);
 
-            return;
+            return (int) $this->pdo->lastInsertId();
         }
         $st = $this->pdo->prepare(
             'INSERT INTO agenda_turnos (Fecha, hora, NroHC, Doctor, idorden, estado, observaciones) VALUES (?,?,?,?,?,?,?)'
         );
         $st->execute([$fecha, $hora, $nroHC, $doctor, $idorden, $estado, $observaciones]);
+
+        return (int) $this->pdo->lastInsertId();
     }
 
     public function updateBase(

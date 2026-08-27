@@ -48,8 +48,8 @@ final class AgendaRepository
     public function listByFechaYDoctor(string $fecha, int $doctorFiltro, bool $extAgenda): array
     {
         $pacienteExpr = $extAgenda
-            ? "COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre"
-            : "COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre";
+            ? "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre"
+            : "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre";
         $extraSel = $extAgenda
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno'
             : '';
@@ -82,7 +82,8 @@ final class AgendaRepository
             FROM agenda_turnos t
             LEFT JOIN pacientes p ON " . $this->joinPacienteTurno() . '
             LEFT JOIN lista_doctores d ON ' . $joinDoc . '
-            WHERE t.Fecha = ?';
+            WHERE t.Fecha = ?
+              AND t.NroHC > 0';
         $params = [$fecha];
         if ($this->agendaTieneClinica()) {
             $sql .= ' AND t.id_clinica = ?';
@@ -104,8 +105,8 @@ final class AgendaRepository
     public function findById(int $id, bool $extAgenda): ?array
     {
         $pacienteExpr = $extAgenda
-            ? "COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre"
-            : "COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) AS paciente_nombre";
+            ? "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre"
+            : "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre";
         $extraSel = $extAgenda
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno, t.pagado, t.motivo'
             : '';
@@ -157,7 +158,7 @@ final class AgendaRepository
      */
     public function resumenDia(string $fecha, int $doctorFiltro, bool $extAgenda): array
     {
-        $where = ' WHERE Fecha = ?';
+        $where = ' WHERE Fecha = ? AND NroHC > 0';
         $params = [$fecha];
         if ($this->agendaTieneClinica()) {
             $where .= ' AND id_clinica = ?';

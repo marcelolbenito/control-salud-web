@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once dirname(__DIR__) . '/src/Repositories/TurnosRepository.php';
+require_once dirname(__DIR__) . '/src/Services/RecordatorioService.php';
 require_auth();
 
 header('Content-Type: application/json; charset=utf-8');
@@ -22,6 +23,9 @@ if ($id < 1) {
 }
 
 $repo = new TurnosRepository(db(), user_clinica_id(auth_user()));
+$cid = user_clinica_id(auth_user());
+$svc = new RecordatorioService(db(), $cid);
+$svc->encolarYProcesarAnulacion($id);
 $repo->deleteById($id);
 
 echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);

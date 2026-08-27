@@ -75,7 +75,11 @@ final class AgendaWebController
             'disp' => $disp,
             'turnosPaciente' => $turnosPaciente,
         ]);
-        layout_render('Agenda web', $body, null, ['skip_datatables' => true, 'body_class' => 'public-page']);
+        layout_render('Agenda web', $body, null, [
+            'skip_datatables' => true,
+            'body_class' => 'public-page',
+            'id_clinica' => $idClinica,
+        ]);
     }
 
     private function reservar(TurnosRepository $repo, array $paciente): string
@@ -107,7 +111,7 @@ final class AgendaWebController
         $nombre = trim((string) ($paciente['nombre'] ?? ''));
         $obs = 'Turno confirmado desde Agenda Web.';
         if ($repo->hasExtendedAgendaColumns()) {
-            $repo->insertExtended($fecha, $hora, $nroHC, $doctor, null, 'pendiente', $obs, [
+            $idTurno = $repo->insertExtended($fecha, $hora, $nroHC, $doctor, null, 'pendiente', $obs, [
                 'paciente_nombre' => $nombre,
                 'motivo' => null,
                 'atendido' => 0,
@@ -126,7 +130,11 @@ final class AgendaWebController
                 'alta_paci_web' => 1,
             ]);
         } else {
-            $repo->insertBase($fecha, $hora, $nroHC, $doctor, null, 'pendiente', $obs);
+            $idTurno = $repo->insertBase($fecha, $hora, $nroHC, $doctor, null, 'pendiente', $obs);
+        }
+        if ($idTurno > 0) {
+            require_once dirname(__DIR__) . '/Services/RecordatorioService.php';
+            (new RecordatorioService($this->pdo, $this->clinicaDesdeRequest()))->encolarYProcesarConfirmacion($idTurno);
         }
 
         return '';
