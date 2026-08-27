@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Integration\ControlSaludIntegration;
 use App\Models\Pago;
 use PDO;
 
@@ -76,6 +77,7 @@ final class PagoRepository
      */
     public function ordenesPendientesSeguro(int $limite = 200): array
     {
+        $joinOs = ControlSaludIntegration::obraSocialJoinSql('ped.obra_social_id', 'os');
         $sql = "SELECT ped.id, ped.numero, ped.fecha_solicitud, ped.monto_seguro,
                        ped.estado_seguro, ped.obra_social_id,
                        pac.nro_hc AS paciente_nro_hc,
@@ -84,7 +86,7 @@ final class PagoRepository
                        os.nombre AS obra_social_nombre
                 FROM lab_pedidos ped
                 LEFT JOIN pacientes pac ON pac.id = ped.paciente_id
-                LEFT JOIN obras_sociales os ON os.id = ped.obra_social_id
+                {$joinOs}
                 WHERE ped.deleted_at IS NULL
                   AND ped.estado_seguro IN ('A','F')
                   AND ped.monto_seguro > 0

@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\ValidationException;
 use App\Helpers\PdfRenderer;
+use App\Integration\ControlSaludIntegration;
 use App\Repositories\LoteOsRepository;
 use PDO;
 
@@ -118,8 +119,9 @@ final class LoteOsPdfRenderer
 
     private function buscarNombreOs(int $obraSocialId): string
     {
+        $table = ControlSaludIntegration::obraSocialTable();
         $stmt = $this->db->prepare(
-            'SELECT nombre FROM obras_sociales WHERE id = :id LIMIT 1'
+            "SELECT nombre FROM {$table} WHERE id = :id LIMIT 1"
         );
         $stmt->execute([':id' => $obraSocialId]);
         $row = $stmt->fetch();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Integration\ControlSaludIntegration;
 use App\Models\LoteOs;
 use PDO;
 
@@ -401,8 +402,9 @@ final class LoteOsRepository
     {
         [$where, $params] = $this->construirWhereBuscar($filtros);
 
+        $joinOs = ControlSaludIntegration::obraSocialJoinSql('l.obra_social_id', 'os');
         $sqlBase = "FROM lab_lotes_os l
-                    LEFT JOIN obras_sociales os ON os.id = l.obra_social_id
+                    {$joinOs}
                     WHERE l.deleted_at IS NULL"
                   . ($where !== '' ? " AND $where" : '');
 

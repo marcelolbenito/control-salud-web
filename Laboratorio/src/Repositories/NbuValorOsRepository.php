@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Integration\ControlSaludIntegration;
 use PDO;
 
 /**
@@ -51,17 +52,20 @@ final class NbuValorOsRepository
      */
     public function listAllVigentes(): array
     {
+        $table = ControlSaludIntegration::obraSocialTable();
+        $whereActivos = ControlSaludIntegration::obraSocialWhereActivosSql('os');
+
         $sql = "SELECT os.id AS obra_social_id,
                        os.nombre,
                        v.valor_unitario,
                        v.fecha_desde,
                        v.updated_at
-                FROM obras_sociales os
+                FROM {$table} os
                 LEFT JOIN lab_nbu_valores_os v
                        ON v.obra_social_id = os.id
                       AND v.deleted_at IS NULL
                       AND v.fecha_hasta IS NULL
-                WHERE os.activo = 1
+                WHERE {$whereActivos}
                 ORDER BY os.nombre ASC";
 
         $rows = $this->db->query($sql)->fetchAll();

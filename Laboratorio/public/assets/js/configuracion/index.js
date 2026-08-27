@@ -25,6 +25,12 @@ const CLAVES = [
     'firmante_nombres',
     'firmante_matricula',
     'firmante_titulo',
+    'informe_legal_prefijo',
+    'informe_label_determinacion',
+    'informe_label_resultado',
+    'informe_label_valores_referencia',
+    'informe_label_critico',
+    'informe_nota_pie',
 ];
 
 async function cargar() {

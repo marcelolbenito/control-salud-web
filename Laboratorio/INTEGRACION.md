@@ -61,14 +61,19 @@ Las **lee** en runtime; nunca las modifica.
 | `updated_at` | DATETIME ON UPDATE CURRENT_TIMESTAMP | no | |
 | `deleted_at` | DATETIME | sí | soft delete |
 
-### `obras_sociales`
+### Obras sociales / coberturas
+
+**Lab standalone:** tabla `obras_sociales` (`id`, `nombre`, `activo`, …).
+
+**Control Salud Web:** tabla `lista_coberturas` (`id`, `nombre`, `prioridad`, …).
+Sin columna `activo`. El módulo la usa cuando `LAB_INTEGRATION=control_salud`
+(vía `ControlSaludIntegration::obraSocialTable()`).
 
 | columna | tipo | notas |
 |---|---|---|
-| `id` | BIGINT UNSIGNED PK | |
-| `nombre` | VARCHAR(150) UNIQUE | |
-| `activo` | TINYINT(1) DEFAULT 1 | |
-| `created_at`, `updated_at` | DATETIME | |
+| `id` | INT o BIGINT PK | |
+| `nombre` | VARCHAR | |
+| `activo` | TINYINT(1) | solo en `obras_sociales` del lab standalone |
 
 ### `medicos`
 
@@ -313,6 +318,66 @@ composer test
 
 ---
 
+## Multi-clínica
+
+### Control Salud Web (sistema principal)
+
+El núcleo operativo de la web **sí está pensado para multi-clínica**:
+
+- Cada usuario tiene `id_clinica` en sesión (login → `$_SESSION['user']['id_clinica']`).
+- Tablas operativas con `id_clinica`: pacientes, doctores, agenda, órdenes,
+  sesiones, pagos, caja, consultas, camas, odontograma, config por clínica, etc.
+- Los repositorios principales filtran por `user_clinica_id()` al listar y guardar.
+- **Catálogos globales** (como en el exe): `lista_coberturas`, `lista_planes`,
+  `lista_practicas`, `lista_precios` — compartidos entre clínicas, sin `id_clinica`.
+
+Estado en `REQUISITOS_Sistema_ControlSalud.md` §6.1.C: multi-clínica **implementada
+en código**, pero **aún no validada** con dos clínicas reales en producción
+(checklist: “`id_clinica` coherente en usuarios y datos operativos”).
+
+### Módulo Laboratorio — limitación actual
+
+El lab fue desarrollado como **mono-clínica por base de datos**. Las tablas
+`lab_*` **no tienen** columna `id_clinica`.
+
+| Qué | ¿Filtra por clínica? |
+|-----|----------------------|
+| Búsqueda / alta de pacientes (lectura CS) | Sí — `pacientes.id_clinica` |
+| Listado de médicos (lectura CS) | Sí — `lista_doctores.id_clinica` |
+| Pedidos, resultados, informes (`lab_pedidos`, …) | **No** — listan toda la BD |
+| Acceso a pedido por ID (`/pedidos/ver?id=…`) | **No** — sin chequeo de clínica |
+| Nomenclador, perfiles, NBU, aranceles lab | **No** — catálogo global |
+| `lab_config` (logo, textos PDF) | **No** — una sola config |
+| Lotes OS, reportes, `lab_pagos` | **No** |
+
+La integración CS copia la clínica del usuario logueado:
+
+```php
+// config/session_bridge.php
+$_SESSION['lab_id_clinica'] = (int) ($user['id_clinica'] ?? 1);
+```
+
+Eso alimenta `ControlSaludIntegration::clinicaId()`, usado hoy solo al leer
+**pacientes** y **médicos** del host. El JOIN de pedidos con paciente incluye
+`pac.id_clinica = {clínica}`, pero **no excluye** pedidos de otra clínica del
+listado (solo puede ocultar datos del paciente en el JOIN).
+
+**Impacto hoy:** con **una sola clínica** (`id_clinica = 1`) no hay problema
+visible. Con **dos o más clínicas en la misma BD** el lab mezclaría pedidos,
+reportes y configuración.
+
+### Opciones para el futuro (decisión pendiente)
+
+| Opción | Alcance | Cuándo elegirla |
+|--------|---------|-----------------|
+| **A — Parche mínimo** | Agregar `id_clinica` a `lab_pedidos`, `lab_lotes_os`, `lab_pagos`; filtrar listados; validar paciente al crear pedido | Varias clínicas, mismo nomenclador y config de lab |
+| **B — Completa** | Opción A + `id_clinica` en catálogos lab (`lab_determinaciones`, `lab_config`, NBU, …) | Cada sede con catálogo / aranceles distintos |
+| **C — Mono-instancia** | No cambiar código; un despliegue (o BD) de lab por clínica | Pocas sedes, aislamiento operativo simple |
+
+Hasta decidir: tratar el módulo lab como **single-tenant por BD**.
+
+---
+
 ## Troubleshooting
 
 - **"Tabla `lab_X` ya existe"** — el módulo ya fue aplicado antes. Para
@@ -331,7 +396,7 @@ composer test
 ## Estado del acuerdo
 
 - [ ] Contrato `pacientes` confirmado.
-- [ ] Contrato `obras_sociales` confirmado.
+- [x] Contrato coberturas confirmado (CS: `lista_coberturas`; standalone: `obras_sociales`).
 - [ ] Contrato `medicos` confirmado.
 - [ ] Contrato `usuarios` confirmado.
 - [ ] Mecanismo de sesión acordado (claves en `$_SESSION`).

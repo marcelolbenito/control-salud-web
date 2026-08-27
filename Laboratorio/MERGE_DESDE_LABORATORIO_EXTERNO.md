@@ -74,14 +74,17 @@ paciente, nomenclador, acto bioquímico, NBU por perfil, API valores-referencia.
 
 ---
 
-## Pendiente — Sesión 4 (2026-06-01)
+## Integrado — Sesión 4 (2026-06-01) ✅
 
-| # | Tema | Notas |
-|---|------|-------|
-| 1 | Checkbox acto en nomenclador | ✅ ya en S3 |
-| 2 | ABM rangos referencia | ✅ ya en S3 (`valores-referencia`) |
-| 3 | Textos informe PDF en config | pendiente |
-| 4 | UX modal nomenclador | pendiente |
+| # | Tema | Estado |
+|---|------|--------|
+| 1 | Checkbox acto en nomenclador | ✅ (S3) |
+| 2 | ABM rangos referencia | ✅ (S3) |
+| 3 | Textos informe PDF en config | ✅ |
+| 4 | UX modal nomenclador | ✅ (S3) |
+
+Archivos: `public/views/configuracion/index.php`, `public/assets/js/configuracion/index.js`,
+`public/views/informes/template.php`.
 
 ---
 
@@ -112,7 +115,8 @@ Orden: ver `sql/APLICAR_EN_ORDEN.md`.
 Confirmar A–D en prod ✅
 → Sesión 2 ✅
 → Sesión 3 ✅
-→ Sesión 4 (textos PDF config + UX modal)
+→ Sesión 4 ✅
+→ Siguiente: validación cliente facturación web (P-FAC-01) / Seguridad P0 web / Caja v2
 ```
 
 Cada bloque: diff → adaptar CS → probar local → SQL si aplica → FTP Gesis2.

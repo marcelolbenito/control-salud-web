@@ -31,7 +31,8 @@ La aplicación **no es .NET**; está compilada con VB6 y depende del runtime de 
 - **fondoanunciador** / **fondoaplicacion** — Fondos de pantalla para anunciador y app.
 
 ### Recursos
-- **Audio**: `anunciador.wav`, `anunciador25.wav`, `anunciador50.wav`, `anunciador75.wav`, `chat.wav` (anunciador y notificaciones).
+- **Audio**: `anunciador.wav`, `anunciador25.wav`, `anunciador50.wav`, `anunciador75.wav`, `chat.wav` (anunciador y notificaciones de **chat interno** entre usuarios).
+- **Chat interno (exe):** permiso `Lista Doctores.accesochat`; historial en `Lista Doctores.anuncio` (`Enviado por … a …`); destinos 1:1, `<Todos los Usuarios>` y áreas (ej. `LABORATORIO`). Ver `REQUISITOS_Sistema_ControlSalud.md` RF-INT-01 / §4.11.
 - **Configuración**: `ruta.dat`, `setup.dat` (binarios; probablemente rutas y opciones del programa).
 - **Base de datos**: `Datos.mdb` (datos actuales), `Datos_Vacio.mdb` (plantilla vacía).
 

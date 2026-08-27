@@ -142,7 +142,7 @@ $bqTitulo = (string) ($firmante['titulo'] ?? 'Bioquimica');
         table.deters .resultado { width: 22%; font-family: DejaVu Sans Mono, monospace; }
         table.deters .resultado.anormal { font-weight: bold; }
         table.deters .resultado.critico { font-weight: bold; color: #b42318; }
-        table.deters .resultado.critico:after { content: " CRITICO"; font-size: 7.5pt; background: #b42318; color: white; padding: 0 3px; margin-left: 2px; border-radius: 2px; }
+        table.deters .resultado.critico:after { content: " <?= str_replace(['"', '\\'], '', (string) ($lab['informe_label_critico'] ?? '') ?: 'CRITICO') ?>"; font-size: 7.5pt; background: #b42318; color: white; padding: 0 3px; margin-left: 2px; border-radius: 2px; }
         table.deters .referencia { width: 38%; font-size: 8.5pt; line-height: 1.3; }
         table.deters .referencia.multiline { white-space: pre-line; }
 
@@ -197,19 +197,21 @@ $bqTitulo = (string) ($firmante['titulo'] ?? 'Bioquimica');
     </div>
 
     <div class="legal">
-        LABORATORIO AUTORIZADO POR EL COLEGIO DE BIOQU&Iacute;MICOS DE LA PROVINCIA DE C&Oacute;RDOBA SEG&Uacute;N
+        <?= $esc((string) ($lab['informe_legal_prefijo'] ?? '') ?: 'LABORATORIO AUTORIZADO POR EL COLEGIO DE BIOQUÍMICOS DE LA PROVINCIA DE CÓRDOBA SEGÚN') ?>
         <?= $esc((string) ($lab['laboratorio_resolucion_colegio'] ?? '')) ?> CON VENCIMIENTO
         <?= $esc((string) ($lab['laboratorio_resolucion_vencimiento'] ?? '')) ?> DIRECTOR T&Eacute;CNICO:
         <?= $esc(strtoupper(trim($bqApellido . ' ' . $bqNombres))) ?>
         MP:<?= $esc($bqMatricula) ?><br>
         Registro SISA: <?= $esc((string) ($lab['laboratorio_registro_sisa_razon_social'] ?? '')) ?>
         bajo el c&oacute;digo <?= $esc((string) ($lab['laboratorio_registro_sisa_codigo'] ?? '')) ?>
+        <?php $notaPie = trim((string) ($lab['informe_nota_pie'] ?? '')); ?>
+        <?php if ($notaPie !== ''): ?><br><?= $esc($notaPie) ?><?php endif; ?>
     </div>
 
     <div class="header-tabla">
-        <span class="col c1">DETERMINACI&Oacute;N</span>
-        <span class="col c2">RESULTADO</span>
-        <span class="col c3">VALORES DE REFERENCIA</span>
+        <span class="col c1"><?= $esc((string) ($lab['informe_label_determinacion'] ?? '') ?: 'DETERMINACIÓN') ?></span>
+        <span class="col c2"><?= $esc((string) ($lab['informe_label_resultado'] ?? '') ?: 'RESULTADO') ?></span>
+        <span class="col c3"><?= $esc((string) ($lab['informe_label_valores_referencia'] ?? '') ?: 'VALORES DE REFERENCIA') ?></span>
     </div>
 
     <?php foreach ($resultados_por_area as $areaNombre => $resultados): ?>

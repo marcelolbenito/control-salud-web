@@ -175,10 +175,12 @@ final class ControlSaludIntegration
     /** JOINs para listado de lab_pedidos (paciente + cobertura). */
     public static function pedidoListJoinsSql(): string
     {
+        $joinOs = self::obraSocialJoinSql('p.obra_social_id', 'os');
+
         if (!self::enabled()) {
-            return <<<'SQL'
+            return <<<SQL
                 LEFT JOIN pacientes pac ON pac.id = p.paciente_id
-                LEFT JOIN obras_sociales os ON os.id = p.obra_social_id
+                {$joinOs}
                 SQL;
         }
 
@@ -186,7 +188,7 @@ final class ControlSaludIntegration
 
         return <<<SQL
             LEFT JOIN pacientes pac ON pac.id = p.paciente_id AND pac.id_clinica = {$cid}
-            LEFT JOIN lista_coberturas os ON os.id = p.obra_social_id
+            {$joinOs}
             SQL;
     }
 
@@ -245,7 +247,31 @@ final class ControlSaludIntegration
     /** Nombre de obra social en JOIN de pedidos. */
     public static function pedidoObraSocialNombreSql(): string
     {
-        return self::enabled() ? 'os.nombre' : 'os.nombre';
+        return 'os.nombre';
+    }
+
+    /** Tabla de obras sociales del sistema host. */
+    public static function obraSocialTable(): string
+    {
+        return self::enabled() ? 'lista_coberturas' : 'obras_sociales';
+    }
+
+    /** JOIN estándar obra social por id (FK en lab_pedidos, lab_lotes_os, etc.). */
+    public static function obraSocialJoinSql(string $fkExpr, string $alias = 'os'): string
+    {
+        $table = self::obraSocialTable();
+
+        return "LEFT JOIN {$table} {$alias} ON {$alias}.id = {$fkExpr}";
+    }
+
+    /** Filtro para listar solo coberturas utilizables (sin columna activo en CS). */
+    public static function obraSocialWhereActivosSql(string $alias = 'os'): string
+    {
+        if (self::enabled()) {
+            return "{$alias}.nombre IS NOT NULL AND TRIM({$alias}.nombre) <> ''";
+        }
+
+        return "{$alias}.activo = 1";
     }
 
     private static function loadPacienteColumns(): void
