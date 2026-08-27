@@ -15,6 +15,8 @@ if (!isset($cbValor)) {
 $cbSubmitTextName = isset($cbSubmitTextName) ? trim((string) $cbSubmitTextName) : '';
 $cbGrowClass = trim((string) ($cbGrowClass ?? ''));
 $cbAutoSubmitFormId = isset($cbAutoSubmitFormId) ? trim((string) $cbAutoSubmitFormId) : '';
+$cbHint = isset($cbHint) ? trim((string) $cbHint) : 'Código o nombre (ej. 11 u OSDE).';
+$cbSoloCodigo = !empty($cbSoloCodigo);
 ?>
 <label<?= $cbGrowClass !== '' ? ' class="' . h($cbGrowClass) . '"' : '' ?>>
     <?= h((string) $cbLabel) ?>
@@ -23,6 +25,7 @@ $cbAutoSubmitFormId = isset($cbAutoSubmitFormId) ? trim((string) $cbAutoSubmitFo
         data-catalogo-list="<?= h((string) $cbListId) ?>"
         <?= $cbAutoSubmitFormId !== '' ? ' data-catalogo-auto-submit="' . h($cbAutoSubmitFormId) . '"' : '' ?>
         <?= !empty($cbRequired) ? ' data-catalogo-required="1"' : '' ?>
+        <?= $cbSoloCodigo ? ' data-catalogo-solo-codigo="1"' : '' ?>
     >
         <input
             type="text"
@@ -43,6 +46,6 @@ $cbAutoSubmitFormId = isset($cbAutoSubmitFormId) ? trim((string) $cbAutoSubmitFo
             value="<?= (int) ($cbSelected ?? 0) > 0 ? (int) $cbSelected : '' ?>"
         >
     </span>
-    <span class="hint">Código o nombre (ej. <strong>11</strong> u <strong>OSDE</strong>).</span>
+    <span class="hint"><?= h($cbHint) ?></span>
 </label>
 <?php catalogo_imprimir_datalist($cbOpts, (string) $cbListId); ?>

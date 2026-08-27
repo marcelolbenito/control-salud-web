@@ -91,7 +91,9 @@ CREATE TABLE IF NOT EXISTS lista_planes (
 CREATE TABLE IF NOT EXISTS lista_practicas (
   id INT NOT NULL PRIMARY KEY,
   prioridad SMALLINT NULL,
-  nombre VARCHAR(255) NULL
+  codigo VARCHAR(15) NULL,
+  nombre VARCHAR(255) NULL,
+  KEY idx_lista_practicas_codigo (codigo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS lista_precios (
@@ -292,6 +294,7 @@ CREATE TABLE IF NOT EXISTS caja (
   fechacaja DATE NOT NULL,
   importecaja DECIMAL(12,2) DEFAULT 0,
   idcoberturacaja INT DEFAULT NULL,
+  modopago SMALLINT DEFAULT NULL COMMENT '0=efectivo,1=otro,3=débito,4=crédito,5=electrónico',
   turnocaja TEXT,
   observaciones TEXT,
   creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,

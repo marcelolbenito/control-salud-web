@@ -60,12 +60,13 @@ final class ListaPreciosRepository
         $joinPractica = db_table_exists($this->pdo, 'lista_practicas')
             ? ' LEFT JOIN `lista_practicas` pr ON pr.id = lp.idpractica '
             : '';
+        $hasPracticaCodigo = $joinPractica !== '' && db_table_has_column($this->pdo, 'lista_practicas', 'codigo');
         $joinPlan = db_table_exists($this->pdo, 'lista_planes')
             ? ' LEFT JOIN `lista_planes` pl ON pl.id = lp.idplan AND lp.idplan > 0 '
             : '';
 
         $sql = 'SELECT lp.*'
-            . ($joinPractica !== '' ? ', pr.nombre AS practica_nombre' : '')
+            . ($joinPractica !== '' ? ', pr.nombre AS practica_nombre' . ($hasPracticaCodigo ? ', pr.codigo AS practica_codigo' : '') : '')
             . ($joinPlan !== '' ? ', pl.nombre AS plan_nombre' : '')
             . ' FROM ' . $t['sql'] . ' lp'
             . $joinPractica
@@ -75,17 +76,14 @@ final class ListaPreciosRepository
         $params = [$idCobertura];
         $q = $q !== null ? trim($q) : '';
         if ($q !== '') {
-            if (preg_match('/^\d+$/', $q)) {
-                $sql .= ' AND (lp.idpractica = ?';
-                $params[] = (int) $q;
-                if ($joinPractica !== '') {
-                    $sql .= ' OR pr.nombre LIKE ?';
+            if ($joinPractica !== '') {
+                $sql .= ' AND (pr.nombre LIKE ?';
+                $params[] = '%' . $q . '%';
+                if ($hasPracticaCodigo) {
+                    $sql .= ' OR pr.codigo LIKE ?';
                     $params[] = '%' . $q . '%';
                 }
                 $sql .= ')';
-            } elseif ($joinPractica !== '') {
-                $sql .= ' AND pr.nombre LIKE ?';
-                $params[] = '%' . $q . '%';
             } else {
                 $sql .= ' AND lp.idpractica LIKE ?';
                 $params[] = '%' . $q . '%';
@@ -93,7 +91,7 @@ final class ListaPreciosRepository
         }
 
         $sql .= ' ORDER BY'
-            . ($joinPractica !== '' ? ' pr.nombre IS NULL, pr.nombre,' : '')
+            . ($joinPractica !== '' ? ' pr.nombre IS NULL,' . ($hasPracticaCodigo ? ' pr.codigo,' : '') . ' pr.nombre,' : '')
             . ' lp.idpractica, lp.idplan, lp.id'
             . ' LIMIT ' . (int) $limit . ' OFFSET ' . (int) $offset;
 
@@ -113,22 +111,20 @@ final class ListaPreciosRepository
         $joinPractica = db_table_exists($this->pdo, 'lista_practicas')
             ? ' LEFT JOIN `lista_practicas` pr ON pr.id = lp.idpractica '
             : '';
+        $hasPracticaCodigo = $joinPractica !== '' && db_table_has_column($this->pdo, 'lista_practicas', 'codigo');
 
         $sql = 'SELECT COUNT(*) AS c FROM ' . $t['sql'] . ' lp' . $joinPractica . ' WHERE lp.idobrasocial = ?';
         $params = [$idCobertura];
         $q = $q !== null ? trim($q) : '';
         if ($q !== '') {
-            if (preg_match('/^\d+$/', $q)) {
-                $sql .= ' AND (lp.idpractica = ?';
-                $params[] = (int) $q;
-                if ($joinPractica !== '') {
-                    $sql .= ' OR pr.nombre LIKE ?';
+            if ($joinPractica !== '') {
+                $sql .= ' AND (pr.nombre LIKE ?';
+                $params[] = '%' . $q . '%';
+                if ($hasPracticaCodigo) {
+                    $sql .= ' OR pr.codigo LIKE ?';
                     $params[] = '%' . $q . '%';
                 }
                 $sql .= ')';
-            } elseif ($joinPractica !== '') {
-                $sql .= ' AND pr.nombre LIKE ?';
-                $params[] = '%' . $q . '%';
             } else {
                 $sql .= ' AND CAST(lp.idpractica AS CHAR) LIKE ?';
                 $params[] = '%' . $q . '%';

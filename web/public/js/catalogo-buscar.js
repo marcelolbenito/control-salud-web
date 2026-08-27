@@ -3,7 +3,7 @@
     return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
   }
 
-  function findMatch(raw, options, strict) {
+  function findMatch(raw, options, strict, soloCodigo) {
     var q = normalize(raw);
     if (!q) {
       return null;
@@ -16,10 +16,19 @@
       }
     }
 
-    var idNombre = q.match(/^(\d+)\s*-\s*/);
-    if (idNombre) {
+    for (i = 0; i < options.length; i++) {
+      if (normalize(options[i].getAttribute('data-codigo') || '') === q) {
+        return options[i];
+      }
+    }
+
+    var codigoNombre = q.match(/^(.+?)\s*-\s*/);
+    if (codigoNombre) {
       for (i = 0; i < options.length; i++) {
-        if (String(options[i].getAttribute('data-id') || '') === idNombre[1]) {
+        if (normalize(options[i].getAttribute('data-codigo') || '') === codigoNombre[1]) {
+          return options[i];
+        }
+        if (!soloCodigo && String(options[i].getAttribute('data-id') || '') === codigoNombre[1]) {
           return options[i];
         }
       }
@@ -27,7 +36,10 @@
 
     if (/^\d+$/.test(q)) {
       for (i = 0; i < options.length; i++) {
-        if (String(options[i].getAttribute('data-id') || '') === q) {
+        if (normalize(options[i].getAttribute('data-codigo') || '') === q) {
+          return options[i];
+        }
+        if (!soloCodigo && String(options[i].getAttribute('data-id') || '') === q) {
           return options[i];
         }
       }
@@ -55,6 +67,7 @@
       return;
     }
 
+    var soloCodigo = root.hasAttribute('data-catalogo-solo-codigo');
     var options = Array.from(list.querySelectorAll('option'));
     var autoSubmitId = root.getAttribute('data-catalogo-auto-submit');
     var autoForm = autoSubmitId ? document.getElementById(autoSubmitId) : null;
@@ -66,13 +79,10 @@
     }
 
     function sync(strict, triggerSubmit) {
-      var match = findMatch(input.value, options, strict);
+      var match = findMatch(input.value, options, strict, soloCodigo);
       var next = match ? String(match.getAttribute('data-id') || '') : '';
-      if (match && isFullSelection(match) && input.value !== match.value) {
+      if (match && !strict && input.value !== match.value) {
         input.value = match.value;
-      }
-      if (!strict && match && !isFullSelection(match) && /^\d+$/.test(normalize(input.value))) {
-        next = '';
       }
       var changed = hidden.value !== next;
       hidden.value = next;

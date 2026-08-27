@@ -7,7 +7,7 @@ declare(strict_types=1);
         <h1>Aranceles por obra social</h1>
         <p class="muted">
             Cada fila define cuánto paga el <strong>paciente</strong> y cuánto factura la <strong>obra social</strong>
-            para una práctica. No se edita en «Prácticas / estudios» (ahí solo está el nombre del estudio).
+            para una práctica. El código y nombre del nomenclador se administran en «Prácticas / estudios».
         </p>
         <?php if ($tabla !== null): ?>
             <p class="muted small">Tabla en uso: <code><?= h((string) $tabla) ?></code></p>
@@ -42,6 +42,7 @@ declare(strict_types=1);
                 $cbGrowClass = 'filter-grow';
                 $cbSubmitTextName = 'cobertura_txt';
                 $cbSelected = $idCobertura;
+                $cbHint = 'Código interno o nombre de la cobertura.';
                 $cbValor = trim((string) ($coberturaTxt ?? ''));
                 if ($cbValor === '' && $idCobertura > 0) {
                     $cbValor = catalogo_valor_datalist($cobOpts, $idCobertura);
@@ -50,7 +51,7 @@ declare(strict_types=1);
                 ?>
                 <label>
                     Buscar práctica en la lista
-                    <input type="search" name="q" value="<?= h($q) ?>" placeholder="Nombre o ID de práctica"<?= $idCobertura < 1 ? ' disabled' : '' ?>>
+                    <input type="search" name="q" value="<?= h($q) ?>" placeholder="Código o nombre de práctica"<?= $idCobertura < 1 ? ' disabled' : '' ?>>
                 </label>
                 <label class="filter-actions-label">
                     &nbsp;
@@ -96,10 +97,12 @@ declare(strict_types=1);
                             <td><?= (int) $r['id'] ?></td>
                             <td>
                                 <?php if (!empty($r['practica_nombre'])): ?>
+                                    <?php if (trim((string) ($r['practica_codigo'] ?? '')) !== ''): ?>
+                                        <strong><?= h((string) $r['practica_codigo']) ?></strong> —
+                                    <?php endif; ?>
                                     <?= h((string) $r['practica_nombre']) ?>
-                                    <span class="muted small">(#<?= (int) $r['idpractica'] ?>)</span>
                                 <?php else: ?>
-                                    #<?= (int) $r['idpractica'] ?>
+                                    <span class="muted">Práctica sin catálogo</span>
                                 <?php endif; ?>
                             </td>
                             <td>

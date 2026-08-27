@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * @param string $orderBy 'nombre' (alfabético) o 'prioridad_id' (prioridad, id; apropiado para códigos).
- * @return list<array{id:int|string,nombre:?string}>
+ * @return list<array{id:int|string,nombre:?string,codigo?:?string}>
  */
 function catalogo_lista(PDO $pdo, string $tabla, string $orderBy = 'nombre'): array
 {
@@ -15,7 +15,9 @@ function catalogo_lista(PDO $pdo, string $tabla, string $orderBy = 'nombre'): ar
         ? 'prioridad IS NULL, prioridad, id'
         : 'nombre';
     try {
-        return $pdo->query("SELECT id, nombre FROM `$tabla` ORDER BY $orderSql")->fetchAll();
+        $codigoSql = db_table_has_column($pdo, $tabla, 'codigo') ? ', codigo' : '';
+
+        return $pdo->query("SELECT id, nombre$codigoSql FROM `$tabla` ORDER BY $orderSql")->fetchAll();
     } catch (Throwable $e) {
         return [];
     }
@@ -110,39 +112,51 @@ function post_datetime_local_mysql_null(string $key): ?string
     return null;
 }
 
-/** Etiqueta unificada para buscador con datalist: «123 - Nombre». */
-function catalogo_etiqueta_lista(int $id, ?string $nombre): string
+/** Etiqueta unificada para buscador con datalist: «código - Nombre». */
+function catalogo_etiqueta_lista(int $id, ?string $nombre, ?string $codigo = null): string
 {
     if ($id < 1) {
         return '';
     }
+    $referencia = trim((string) $codigo);
+    if ($referencia === '') {
+        $referencia = (string) $id;
+    }
     $nombre = trim((string) $nombre);
     if ($nombre === '') {
-        return (string) $id;
+        return $referencia;
     }
 
-    return $id . ' - ' . $nombre;
+    return $referencia . ' - ' . $nombre;
 }
 
 /**
  * Resuelve id de catálogo desde texto (código, «id - nombre» o nombre).
  * Evita confundir «1» con id 1 cuando el usuario aún escribe «11».
  */
-function catalogo_resolver_id(array $opts, string $texto): int
+function catalogo_resolver_id(array $opts, string $texto, bool $numericComoCodigo = false): int
 {
     $texto = trim($texto);
     if ($texto === '') {
         return 0;
     }
 
-    if (preg_match('/^(\d+)\s*-\s*/u', $texto, $m)) {
-        $id = (int) $m[1];
-
-        return catalogo_id_existe_en_opts($opts, $id) ? $id : 0;
+    $referencia = $texto;
+    if (preg_match('/^(.+?)\s+-\s+/u', $texto, $m)) {
+        $referencia = trim($m[1]);
+    }
+    foreach ($opts as $o) {
+        $codigo = trim((string) ($o['codigo'] ?? ''));
+        if ($codigo !== '' && mb_strtolower($codigo) === mb_strtolower($referencia)) {
+            return (int) ($o['id'] ?? 0);
+        }
     }
 
-    if (preg_match('/^\d+$/', $texto)) {
-        $id = (int) $texto;
+    if (preg_match('/^\d+$/', $referencia)) {
+        if ($numericComoCodigo) {
+            return 0;
+        }
+        $id = (int) $referencia;
 
         return catalogo_id_existe_en_opts($opts, $id) ? $id : 0;
     }
@@ -172,6 +186,12 @@ function catalogo_resolver_id(array $opts, string $texto): int
     return 0;
 }
 
+/** Resuelve práctica por código nomenclador o nombre; nunca por id interno. */
+function catalogo_resolver_id_practica(array $opts, string $texto): int
+{
+    return catalogo_resolver_id($opts, $texto, true);
+}
+
 /** @param list<array{id:int|string,nombre:?string}> $opts */
 function catalogo_id_existe_en_opts(array $opts, int $id): bool
 {
@@ -196,7 +216,11 @@ function catalogo_valor_datalist(array $opts, $selectedId): string
     }
     foreach ($opts as $o) {
         if ((int) ($o['id'] ?? 0) === $sid) {
-            return catalogo_etiqueta_lista($sid, (string) ($o['nombre'] ?? ''));
+            return catalogo_etiqueta_lista(
+                $sid,
+                (string) ($o['nombre'] ?? ''),
+                (string) ($o['codigo'] ?? '')
+            );
         }
     }
 
@@ -215,8 +239,9 @@ function catalogo_imprimir_datalist(array $opts, string $listId): void
         if ($oid < 1) {
             continue;
         }
-        $val = catalogo_etiqueta_lista($oid, (string) ($o['nombre'] ?? ''));
-        echo '<option value="' . $e($val) . '" data-id="' . $oid . '"></option>';
+        $codigo = trim((string) ($o['codigo'] ?? ''));
+        $val = catalogo_etiqueta_lista($oid, (string) ($o['nombre'] ?? ''), $codigo);
+        echo '<option value="' . $e($val) . '" data-id="' . $oid . '" data-codigo="' . $e($codigo) . '"></option>';
     }
     echo '</datalist>';
 }

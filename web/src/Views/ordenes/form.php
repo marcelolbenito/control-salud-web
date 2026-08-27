@@ -7,7 +7,6 @@ declare(strict_types=1);
 /** @var list<array{id:int|string,nombre:?string}> $cobOpts */
 /** @var list<array<string, mixed>> $planesOpts */
 /** @var list<array{id:int|string,nombre:?string}> $practicaOpts */
-/** @var list<array{id:int|string,nombre:?string}> $derivacionOpts */
 /** @var list<array{id:int|string,nombre:?string}> $sucursalOpts */
 /** @var string $error */
 /** @var string $titulo */
@@ -47,12 +46,7 @@ $pacienteCoberturaLabel = static function (?array $p, string $idKey, string $nam
 };
 $practicaActualTexto = '';
 if ($practicaOpts !== [] && (int) ($row['idpractica'] ?? 0) > 0) {
-    foreach ($practicaOpts as $pr) {
-        if ((int) ($pr['id'] ?? 0) === (int) ($row['idpractica'] ?? 0)) {
-            $practicaActualTexto = (int) $pr['id'] . ' - ' . trim((string) ($pr['nombre'] ?? ''));
-            break;
-        }
-    }
+    $practicaActualTexto = catalogo_valor_datalist($practicaOpts, (int) ($row['idpractica'] ?? 0));
 }
 $pacienteActualOrden = '—';
 if ($pacienteOrden !== null) {
@@ -93,13 +87,16 @@ if ($pacienteOrden !== null) {
     <form method="post" class="form-paciente" id="form-orden">
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+        <input type="hidden" name="formato_orden" value="compacto">
         <input type="hidden" name="ordenes_return_qs" value="<?= h((string) ($ordenesReturnQs ?? '')) ?>">
+        <input type="hidden" name="idplan" id="orden_idplan" value="<?= h((string) ($row['idplan'] ?? '')) ?>">
         <?php if (($turnoVinculadoId ?? 0) > 0): ?>
             <input type="hidden" name="turno" value="<?= (int) $turnoVinculadoId ?>">
         <?php endif; ?>
 
         <section class="form-section">
-            <h2 class="form-section-title">Datos principales</h2>
+            <h2 class="form-section-title">Paciente y fecha</h2>
+            <p class="muted small">Estos datos identifican la orden. Los campos de uso diario están en la sección siguiente.</p>
             <div class="form-grid-ext">
                 <?php if (($turnoVinculadoId ?? 0) < 1): ?>
                     <label class="span-2 turno-paciente-busqueda">Buscar paciente (DNI y/o nombre)
@@ -117,7 +114,16 @@ if ($pacienteOrden !== null) {
                 <label>Fecha orden
                     <input type="date" name="fecha_orden" value="<?= h((string) ($row['fecha_orden'] ?? '')) ?>">
                 </label>
-                <label>Profesional *
+            </div>
+        </section>
+
+        <p class="alert alert-info" id="orden_paciente_msg"<?= $pacienteOrden !== null ? ' style="display:none;"' : '' ?>>Ingresá un Nro. HC válido para cargar los datos del paciente.</p>
+
+        <section class="form-section">
+            <h2 class="form-section-title">Datos de la orden</h2>
+            <p class="muted small">Formulario reducido según los campos utilizados en Control Salud.</p>
+            <div class="form-grid-ext">
+                <label>Médico *
                     <select name="iddoctor" required>
                         <option value="">— Elegí —</option>
                         <?php foreach ($doctores as $d): ?>
@@ -125,39 +131,9 @@ if ($pacienteOrden !== null) {
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <label>Nº orden (interno)
-                    <input type="number" name="numero" min="0" placeholder="Opcional" value="<?= h((string) ($row['numero'] ?? '')) ?>">
-                </label>
-                <label class="form-check span-2"><input type="checkbox" name="autorizada" value="1" <?= !empty($row['autorizada']) ? ' checked' : '' ?>> Autorizada</label>
-                <label class="form-check span-2"><input type="checkbox" name="entregada" value="1" <?= !empty($row['entregada']) ? ' checked' : '' ?>> Entregada</label>
-                <label class="form-check span-2"><input type="checkbox" name="liquidada" value="1" <?= !empty($row['liquidada']) ? ' checked' : '' ?>> Liquidada (honorarios)</label>
-                <label class="span-2">Observaciones
-                    <textarea name="observaciones" rows="3" placeholder="Notas de la orden"><?= h((string) ($row['observaciones'] ?? '')) ?></textarea>
-                </label>
-            </div>
-        </section>
 
-        <section class="form-section" id="orden_paciente_box"<?= $pacienteOrden === null ? ' style="display:none;"' : '' ?>>
-            <h2 class="form-section-title">Datos cargados del paciente</h2>
-            <p class="muted small">Estos datos vienen de la ficha del paciente y ayudan a cargar la orden. Si la orden es nueva, cobertura y plan se proponen automáticamente cuando están vacíos.</p>
-            <div class="form-grid-ext">
-                <p><strong>Paciente</strong><br><span id="orden_paciente_nombre"><?= h($pacienteDato($pacienteOrden, 'nombre')) ?></span></p>
-                <p><strong>DNI</strong><br><span id="orden_paciente_dni"><?= h($pacienteDato($pacienteOrden, 'dni')) ?></span></p>
-                <p><strong>Cobertura principal</strong><br><span id="orden_paciente_cobertura"><?= h($pacienteCoberturaLabel($pacienteOrden, 'id_cobertura', 'cobertura_nombre')) ?></span></p>
-                <p><strong>Plan</strong><br><span id="orden_paciente_plan"><?= h($pacienteCoberturaLabel($pacienteOrden, 'id_plan', 'plan_nombre')) ?></span></p>
-                <p><strong>Nº afiliado / OS</strong><br><span id="orden_paciente_nro_os"><?= h($pacienteDato($pacienteOrden, 'nro_os')) ?></span></p>
-                <p><strong>Segunda cobertura</strong><br><span id="orden_paciente_cobertura2"><?= h($pacienteCoberturaLabel($pacienteOrden, 'id_cobertura2', 'cobertura2_nombre')) ?></span></p>
-                <p><strong>Nº afiliado (2)</strong><br><span id="orden_paciente_afiliado2"><?= h($pacienteDato($pacienteOrden, 'nu_afiliado2')) ?></span></p>
-                <p><strong>Paga IVA</strong><br><span id="orden_paciente_iva"><?= !empty($pacienteOrden['paga_iva'] ?? 0) ? 'Sí' : 'No' ?></span></p>
-            </div>
-        </section>
-        <p class="alert alert-info" id="orden_paciente_msg"<?= $pacienteOrden !== null ? ' style="display:none;"' : '' ?>>Ingresá un Nro. HC válido para ver cobertura, plan y afiliado del paciente.</p>
-
-        <section class="form-section">
-            <h2 class="form-section-title">Cobertura, práctica y sucursal</h2>
-            <div class="form-grid-ext">
                 <?php if ($cobOpts !== []): ?>
-                    <label>Cobertura / obra social
+                    <label>Cobertura médica
                         <select name="idobrasocial" id="orden_idobrasocial">
                             <?php catalogo_select_options($cobOpts, $row['idobrasocial'] ?? '', 'Sin especificar'); ?>
                         </select>
@@ -168,118 +144,41 @@ if ($pacienteOrden !== null) {
                     </label>
                 <?php endif; ?>
 
-                <?php if ($planesOpts !== []): ?>
-                    <label>Plan
-                        <select name="idplan" id="orden_idplan">
-                            <option value="">— Sin plan —</option>
-                            <?php foreach ($planesOpts as $pl): ?>
-                                <?php
-                                $idc = $pl['id_cobertura'] ?? null;
-                                $idcAttr = ($idc === null || $idc === '') ? '' : (string) (int) $idc;
-                                ?>
-                                <option value="<?= (int) $pl['id'] ?>" data-id-cobertura="<?= h($idcAttr) ?>"<?= (int) ($row['idplan'] ?? 0) === (int) $pl['id'] ? ' selected' : '' ?>><?= h((string) ($pl['nombre'] ?? '')) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                <?php else: ?>
-                    <label>Id plan
-                        <input type="number" name="idplan" id="orden_idplan" min="0" value="<?= h((string) ($row['idplan'] ?? '')) ?>">
-                    </label>
-                <?php endif; ?>
-
                 <?php if ($practicaOpts !== []): ?>
-                    <label class="span-2">Práctica / estudio
-                        <input type="hidden" name="idpractica" id="orden_idpractica" value="<?= h((string) ($row['idpractica'] ?? '')) ?>">
-                        <input type="text" id="orden_practica_buscar" list="orden_practicas_lista" placeholder="Buscar por código o nombre de práctica" value="<?= h($practicaActualTexto) ?>" autocomplete="off">
-                        <datalist id="orden_practicas_lista">
-                            <?php foreach ($practicaOpts as $pr): ?>
-                                <?php
-                                $pid = (int) ($pr['id'] ?? 0);
-                                $pnombre = trim((string) ($pr['nombre'] ?? ''));
-                                ?>
-                                <option value="<?= h($pid . ' - ' . $pnombre) ?>" data-id="<?= $pid ?>"></option>
-                            <?php endforeach; ?>
-                        </datalist>
-                        <span class="hint">Ejemplo: escribí el código <strong>1674</strong> o parte del nombre.</span>
-                    </label>
+                    <?php
+                    $cbLabel = 'Práctica / estudio';
+                    $cbPlaceholder = 'Buscar por código o nombre de práctica';
+                    $cbName = 'idpractica';
+                    $cbHiddenId = 'orden_idpractica';
+                    $cbInputId = 'orden_practica_buscar';
+                    $cbListId = 'orden_practicas_lista';
+                    $cbOpts = $practicaOpts;
+                    $cbSelected = $row['idpractica'] ?? 0;
+                    $cbRequired = false;
+                    $cbAutoSubmitFormId = null;
+                    $cbGrowClass = 'span-2';
+                    $cbSubmitTextName = null;
+                    $cbValor = $practicaActualTexto;
+                    $cbHint = 'Código de nomenclador (ej. 420101) o parte del nombre.';
+                    $cbSoloCodigo = true;
+                    require dirname(__DIR__) . '/_partials/catalogo_buscar.php';
+                    ?>
                 <?php else: ?>
                     <label>Id práctica
                         <input type="number" name="idpractica" id="orden_idpractica" min="0" value="<?= h((string) ($row['idpractica'] ?? '')) ?>">
                     </label>
                 <?php endif; ?>
 
-                <?php if ($derivacionOpts !== []): ?>
-                    <label>Derivación
-                        <select name="idderivado">
-                            <?php catalogo_select_options($derivacionOpts, $row['idderivado'] ?? '', 'Sin especificar'); ?>
-                        </select>
-                    </label>
-                <?php else: ?>
-                    <label>Id derivado
-                        <input type="number" name="idderivado" min="0" value="<?= h((string) ($row['idderivado'] ?? '')) ?>">
-                    </label>
-                <?php endif; ?>
-
-                <?php if ($sucursalOpts !== []): ?>
-                    <label>Sucursal
-                        <select name="sucursal">
-                            <?php catalogo_select_options($sucursalOpts, $row['sucursal'] ?? '', 'Sin especificar'); ?>
-                        </select>
-                    </label>
-                <?php else: ?>
-                    <label>Sucursal (código)
-                        <input type="number" name="sucursal" min="0" placeholder="Nº sucursal" value="<?= h((string) ($row['sucursal'] ?? '')) ?>">
-                    </label>
-                <?php endif; ?>
-            </div>
-        </section>
-
-        <section class="form-section">
-            <h2 class="form-section-title">Montos y sesiones</h2>
-            <p class="muted small" id="orden_precio_msg">Al elegir cobertura y práctica, se buscará el arancel cargado para completar los importes.</p>
-            <div class="form-grid-ext">
                 <label>Costo paciente
-                    <input type="text" name="costo" id="orden_costo" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['costo'] ?? '')) ?>">
-                </label>
-                <label>Pago paciente
-                    <input type="text" name="pago" id="orden_pago" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['pago'] ?? '')) ?>">
+                    <input type="text" name="costo" id="orden_costo" inputmode="decimal" placeholder="0,00" value="<?= h((string) ($row['costo'] ?? '')) ?>">
                 </label>
                 <label>Costo obra social
-                    <input type="text" name="costo_os" id="orden_costo_os" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['costo_os'] ?? '')) ?>">
+                    <input type="text" name="costo_os" id="orden_costo_os" inputmode="decimal" placeholder="0,00" value="<?= h((string) ($row['costo_os'] ?? '')) ?>">
                 </label>
-                <label>Honorario extra
-                    <input type="text" name="honorarioextra" inputmode="decimal" placeholder="0 o vacío" value="<?= h((string) ($row['honorarioextra'] ?? '')) ?>">
-                </label>
-                <label>Sesiones (prescriptas)
-                    <input type="number" name="sesiones" min="0" value="<?= h((string) ($row['sesiones'] ?? '')) ?>">
-                </label>
-                <label>Sesiones realizadas
-                    <input type="number" name="sesionesreali" min="0" value="<?= h((string) ($row['sesionesreali'] ?? '')) ?>">
-                </label>
-                <label>Nº autorización (numérico)
-                    <input type="number" name="numeautorizacion" min="0" value="<?= h((string) ($row['numeautorizacion'] ?? '')) ?>">
-                </label>
-            </div>
-        </section>
+                <p class="muted small span-2" id="orden_precio_msg">Los importes se proponen desde Aranceles al elegir cobertura y práctica. Podés ajustarlos antes de guardar.</p>
 
-        <section class="form-section">
-            <h2 class="form-section-title">Estados (facturación / OS)</h2>
-            <p class="muted small" style="margin-top:-0.5rem;">En el sistema de escritorio suelen usarse códigos de una letra (p. ej. A / F / P según cobertura).</p>
-            <div class="form-grid-ext">
-                <label>Estado (paciente / orden)
-                    <input type="text" name="estado" id="orden_estado" maxlength="1" style="max-width:4rem" placeholder="Ej. A, F, P" value="<?= h((string) ($row['estado'] ?? '')) ?>" list="lista-estado-orden" autocomplete="off">
-                    <datalist id="lista-estado-orden">
-                        <option value="A"><option value="F"><option value="P">
-                    </datalist>
-                </label>
-                <label>Estado obra social
-                    <input type="text" name="estado_os" id="orden_estado_os" maxlength="1" style="max-width:4rem" placeholder="Ej. A, F, P" value="<?= h((string) ($row['estado_os'] ?? '')) ?>" list="lista-estado-os" autocomplete="off">
-                    <datalist id="lista-estado-os">
-                        <option value="A"><option value="F"><option value="P">
-                    </datalist>
-                </label>
                 <label>Paga IVA
-                    <select name="pagaiva">
+                    <select name="pagaiva" id="orden_pagaiva">
                         <option value=""<?= $triSel($row['pagaiva'] ?? '', '') ?>>—</option>
                         <option value="0"<?= $triSel($row['pagaiva'] ?? '', '0') ?>>No</option>
                         <option value="1"<?= $triSel($row['pagaiva'] ?? '', '1') ?>>Sí</option>
@@ -292,42 +191,6 @@ if ($pacienteOrden !== null) {
                         <option value="1"<?= $triSel($row['cerrada'] ?? '', '1') ?>>Sí</option>
                     </select>
                 </label>
-                <label>Tipo asistencia (código numérico)
-                    <input type="number" name="tipoasistencia" placeholder="Opcional" value="<?= h((string) ($row['tipoasistencia'] ?? '')) ?>">
-                </label>
-            </div>
-        </section>
-
-        <section class="form-section">
-            <h2 class="form-section-title">Fechas adicionales</h2>
-            <div class="form-grid-ext">
-                <label>Derivación
-                    <input type="date" name="fechaderivacion" value="<?= h((string) ($row['fechaderivacion'] ?? '')) ?>">
-                </label>
-                <label>Autorización
-                    <input type="date" name="fechaautorizacion" value="<?= h((string) ($row['fechaautorizacion'] ?? '')) ?>">
-                </label>
-                <label>Entrega
-                    <input type="date" name="fechaentrega" value="<?= h((string) ($row['fechaentrega'] ?? '')) ?>">
-                </label>
-                <label>Honorario (fecha)
-                    <input type="date" name="honorariofecha" value="<?= h((string) ($row['honorariofecha'] ?? '')) ?>">
-                </label>
-            </div>
-        </section>
-
-        <section class="form-section">
-            <h2 class="form-section-title">Odontología / siniestro</h2>
-            <div class="form-grid-ext">
-                <label>Diente
-                    <input type="text" name="diente" maxlength="2" value="<?= h((string) ($row['diente'] ?? '')) ?>">
-                </label>
-                <label>Cara
-                    <input type="text" name="cara" maxlength="5" value="<?= h((string) ($row['cara'] ?? '')) ?>">
-                </label>
-                <label class="span-2">Nº siniestro
-                    <input type="text" name="nusiniestro" maxlength="30" value="<?= h((string) ($row['nusiniestro'] ?? '')) ?>">
-                </label>
             </div>
         </section>
 
@@ -337,88 +200,93 @@ if ($pacienteOrden !== null) {
         </div>
     </form>
 </div>
-<?php if ($planesOpts !== [] && $cobOpts !== []): ?>
-<script>
-(function () {
-    var cob = document.getElementById('orden_idobrasocial');
-    var plan = document.getElementById('orden_idplan');
-    if (!cob || !plan) return;
-    function sync() {
-        var cid = String(cob.value || '');
-        var opts = plan.querySelectorAll('option');
-        opts.forEach(function (o) {
-            if (!o.value) {
-                o.hidden = false;
-                return;
-            }
-            var oc = o.getAttribute('data-id-cobertura') || '';
-            // Si hay cobertura elegida, solo se muestran planes vinculados a esa cobertura.
-            o.hidden = cid !== '' && oc !== cid;
-        });
-        var sel = plan.options[plan.selectedIndex];
-        if (sel && sel.hidden) {
-            plan.value = '';
-        }
-    }
-    cob.addEventListener('change', sync);
-    sync();
-})();
-</script>
+<?php if (($practicaOpts ?? []) !== []): ?>
+    <?php catalogo_buscar_script_tag(); ?>
 <?php endif; ?>
 <script>
 (function () {
-    var input = document.getElementById('orden_practica_buscar');
-    var hidden = document.getElementById('orden_idpractica');
-    var list = document.getElementById('orden_practicas_lista');
-    if (!input || !hidden || !list) return;
+    var endpoint = '<?= h(url('/orden_precio.php')) ?>';
+    var cob = document.getElementById('orden_idobrasocial');
+    var practica = document.getElementById('orden_idpractica');
+    var plan = document.getElementById('orden_idplan');
+    var costo = document.getElementById('orden_costo');
+    var costoOs = document.getElementById('orden_costo_os');
+    var msg = document.getElementById('orden_precio_msg');
+    if (!cob || !practica || !costo || !costoOs) return;
 
-    var options = Array.from(list.querySelectorAll('option'));
+    var requestSeq = 0;
 
-    function normalize(s) {
-        return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    function setMsg(text, isError) {
+        if (!msg) return;
+        msg.textContent = text;
+        msg.classList.toggle('alert', !!isError);
+        msg.classList.toggle('alert-error', !!isError);
+        msg.classList.toggle('muted', !isError);
+        msg.classList.toggle('small', !isError);
     }
 
-    function findMatch(raw) {
-        var q = normalize(raw);
-        if (!q) {
-            return null;
+    function fmtInput(v) {
+        if (v === null || v === undefined || v === '') return '';
+        var n = Number(v);
+        return isNaN(n) ? '' : String(n);
+    }
+
+    function cargarArancel() {
+        var idCob = parseInt(String(cob.value || '0'), 10) || 0;
+        var idPractica = parseInt(String(practica.value || '0'), 10) || 0;
+        var idPlan = plan ? (parseInt(String(plan.value || '0'), 10) || 0) : 0;
+        if (idCob < 1 || idPractica < 1) {
+            setMsg('Elegí cobertura y práctica para proponer importes desde Aranceles.', false);
+            return;
         }
 
-        for (var i = 0; i < options.length; i++) {
-            if (normalize(options[i].value) === q) {
-                return options[i];
-            }
+        requestSeq += 1;
+        var seq = requestSeq;
+        setMsg('Consultando arancel...', false);
+
+        var url = endpoint
+            + '?idobrasocial=' + encodeURIComponent(String(idCob))
+            + '&idpractica=' + encodeURIComponent(String(idPractica));
+        if (idPlan > 0) {
+            url += '&idplan=' + encodeURIComponent(String(idPlan));
         }
 
-        var code = q.match(/^\#?(\d+)/);
-        if (code) {
-            for (var j = 0; j < options.length; j++) {
-                if (String(options[j].getAttribute('data-id') || '') === code[1]) {
-                    return options[j];
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (seq !== requestSeq) return;
+                if (!data || !data.ok) {
+                    setMsg('No se pudo consultar el arancel.', true);
+                    return;
                 }
-            }
-        }
-
-        var partials = options.filter(function (o) {
-            return normalize(o.value).indexOf(q) !== -1;
-        });
-        return partials.length === 1 ? partials[0] : null;
+                if (!data.found || !data.precio) {
+                    setMsg(data.message || 'No hay arancel cargado para esa combinación.', true);
+                    return;
+                }
+                costo.value = fmtInput(data.precio.costopaciente);
+                costoOs.value = fmtInput(data.precio.costocobertura);
+                setMsg('Importes propuestos desde Aranceles. Podés ajustarlos antes de guardar.', false);
+            })
+            .catch(function () {
+                if (seq !== requestSeq) return;
+                setMsg('No se pudo consultar el arancel.', true);
+            });
     }
 
-    function syncPractica() {
-        var match = findMatch(input.value);
-        var next = match ? String(match.getAttribute('data-id') || '') : '';
-        if (match && input.value !== match.value) {
-            input.value = match.value;
-        }
-        if (hidden.value !== next) {
-            hidden.value = next;
-            hidden.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+    cob.addEventListener('change', cargarArancel);
+    practica.addEventListener('change', cargarArancel);
+    if (plan) {
+        plan.addEventListener('change', cargarArancel);
     }
 
-    input.addEventListener('change', syncPractica);
-    input.addEventListener('blur', syncPractica);
+    if (
+        (parseInt(String(cob.value || '0'), 10) || 0) > 0
+        && (parseInt(String(practica.value || '0'), 10) || 0) > 0
+        && String(costo.value || '').trim() === ''
+        && String(costoOs.value || '').trim() === ''
+    ) {
+        cargarArancel();
+    }
 })();
 </script>
 <script>
@@ -426,44 +294,17 @@ if ($pacienteOrden !== null) {
     var endpoint = '<?= h(url('/orden_paciente.php')) ?>';
     var esNueva = <?= (int) ($row['id'] ?? 0) < 1 ? 'true' : 'false' ?>;
     var nro = document.getElementById('orden_nropaci');
-    var box = document.getElementById('orden_paciente_box');
     var msg = document.getElementById('orden_paciente_msg');
     var cob = document.getElementById('orden_idobrasocial');
     var plan = document.getElementById('orden_idplan');
+    var pagaIva = document.getElementById('orden_pagaiva');
     var pacienteActual = document.getElementById('orden-paciente-actual');
     var pacienteBuscar = document.getElementById('orden-paciente-buscar');
     var pacienteResultados = document.getElementById('orden-paciente-resultados');
-    if (!nro || !box || !msg) return;
+    if (!nro || !msg) return;
 
-    var fields = {
-        nombre: document.getElementById('orden_paciente_nombre'),
-        dni: document.getElementById('orden_paciente_dni'),
-        cobertura: document.getElementById('orden_paciente_cobertura'),
-        plan: document.getElementById('orden_paciente_plan'),
-        nroOs: document.getElementById('orden_paciente_nro_os'),
-        cobertura2: document.getElementById('orden_paciente_cobertura2'),
-        afiliado2: document.getElementById('orden_paciente_afiliado2'),
-        iva: document.getElementById('orden_paciente_iva')
-    };
     var timer = null;
     var requestSeq = 0;
-
-    function text(v) {
-        v = String(v || '').trim();
-        return v !== '' && v !== '0' ? v : 'Sin dato';
-    }
-
-    function catalogLabel(item, idKey, nameKey) {
-        var id = Number(item && item[idKey] ? item[idKey] : 0);
-        var name = String(item && item[nameKey] ? item[nameKey] : '').trim();
-        if (!id && !name) return 'Sin dato';
-        if (name) return name + (id ? ' (#' + id + ')' : '');
-        return '#' + id;
-    }
-
-    function setText(el, value) {
-        if (el) el.textContent = value;
-    }
 
     function formatearPacienteActual(item) {
         if (!item) return '—';
@@ -485,7 +326,6 @@ if ($pacienteOrden !== null) {
 
     function applyPatient(item) {
         if (!item) {
-            box.style.display = 'none';
             msg.style.display = '';
             msg.textContent = 'No se encontró un paciente con ese Nro. HC.';
             if (pacienteActual) {
@@ -494,22 +334,16 @@ if ($pacienteOrden !== null) {
             return;
         }
 
-        setText(fields.nombre, text(item.nombre));
-        setText(fields.dni, text(item.dni));
-        setText(fields.cobertura, catalogLabel(item, 'id_cobertura', 'cobertura_nombre'));
-        setText(fields.plan, catalogLabel(item, 'id_plan', 'plan_nombre'));
-        setText(fields.nroOs, text(item.nro_os));
-        setText(fields.cobertura2, catalogLabel(item, 'id_cobertura2', 'cobertura2_nombre'));
-        setText(fields.afiliado2, text(item.nu_afiliado2));
-        setText(fields.iva, item.paga_iva ? 'Sí' : 'No');
         if (pacienteActual) {
             pacienteActual.value = formatearPacienteActual(item);
         }
 
-        box.style.display = '';
         msg.style.display = 'none';
         maybeSetSelect(cob, Number(item.id_cobertura || 0));
         maybeSetSelect(plan, Number(item.id_plan || 0));
+        if (pagaIva && esNueva && String(pagaIva.value || '') === '') {
+            pagaIva.value = item.paga_iva ? '1' : '0';
+        }
     }
 
     function loadPatient() {
@@ -517,9 +351,8 @@ if ($pacienteOrden !== null) {
         requestSeq += 1;
         var seq = requestSeq;
         if (!id) {
-            box.style.display = 'none';
             msg.style.display = '';
-            msg.textContent = 'Ingresá un Nro. HC válido para ver cobertura, plan y afiliado del paciente.';
+            msg.textContent = 'Ingresá un Nro. HC válido para cargar los datos del paciente.';
             return;
         }
 
@@ -531,7 +364,6 @@ if ($pacienteOrden !== null) {
             })
             .catch(function () {
                 if (seq !== requestSeq) return;
-                box.style.display = 'none';
                 msg.style.display = '';
                 msg.textContent = 'No se pudieron consultar los datos del paciente.';
             });
@@ -615,120 +447,5 @@ if ($pacienteOrden !== null) {
             }
         });
     }
-})();
-</script>
-<script>
-(function () {
-    var endpoint = '<?= h(url('/orden_precio.php')) ?>';
-    var cob = document.getElementById('orden_idobrasocial');
-    var plan = document.getElementById('orden_idplan');
-    var practica = document.getElementById('orden_idpractica');
-    var costo = document.getElementById('orden_costo');
-    var costoOs = document.getElementById('orden_costo_os');
-    var msg = document.getElementById('orden_precio_msg');
-    if (!cob || !practica || !costo || !costoOs || !msg) return;
-
-    var requestSeq = 0;
-    var lastApplied = {
-        costo: null,
-        costoOs: null
-    };
-
-    function norm(v) {
-        return String(v || '').replace(',', '.').trim();
-    }
-
-    function fmt(v) {
-        if (v === null || typeof v === 'undefined' || v === '') {
-            return '';
-        }
-        var n = Number(String(v).replace(',', '.'));
-        if (!isFinite(n)) {
-            return String(v);
-        }
-        return String(n.toFixed(4)).replace(/0+$/, '').replace(/\.$/, '');
-    }
-
-    function canReplace(input, key) {
-        var current = norm(input.value);
-        return current === '' || (lastApplied[key] !== null && current === lastApplied[key]);
-    }
-
-    function setAutoValue(input, key, value) {
-        var formatted = fmt(value);
-        if (formatted === '') {
-            return false;
-        }
-        if (!canReplace(input, key)) {
-            return false;
-        }
-        input.value = formatted;
-        lastApplied[key] = norm(formatted);
-        return true;
-    }
-
-    function setMsg(text) {
-        msg.textContent = text;
-    }
-
-    function buscarPrecio() {
-        var idCob = String(cob.value || '');
-        var idPractica = String(practica.value || '');
-        var idPlan = plan ? String(plan.value || '') : '';
-        requestSeq += 1;
-        var seq = requestSeq;
-
-        if (!idCob || !idPractica) {
-            setMsg('Al elegir cobertura y práctica, se buscará el arancel cargado para completar los importes.');
-            return;
-        }
-
-        setMsg('Buscando arancel...');
-        var qs = '?idobrasocial=' + encodeURIComponent(idCob)
-            + '&idpractica=' + encodeURIComponent(idPractica)
-            + '&idplan=' + encodeURIComponent(idPlan);
-
-        fetch(endpoint + qs, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (seq !== requestSeq) return;
-                if (!data || !data.ok || !data.found || !data.precio) {
-                    setMsg(data && data.message ? data.message : 'No hay arancel cargado para esa combinación.');
-                    return;
-                }
-
-                var p = data.precio;
-                var aplicoPaciente = setAutoValue(costo, 'costo', p.costopaciente);
-                var aplicoCobertura = setAutoValue(costoOs, 'costoOs', p.costocobertura);
-                var detalle = [];
-                if (p.costopaciente !== null) {
-                    detalle.push('paciente $' + fmt(p.costopaciente));
-                }
-                if (p.costocobertura !== null) {
-                    detalle.push('obra social $' + fmt(p.costocobertura));
-                }
-                if (p.usarporcentaje && p.costoporcentaje !== null) {
-                    detalle.push('porcentaje ' + fmt(p.costoporcentaje) + '%');
-                }
-
-                if (aplicoPaciente || aplicoCobertura) {
-                    setMsg('Arancel encontrado: ' + detalle.join(' · ') + '.');
-                } else {
-                    setMsg('Arancel encontrado (' + detalle.join(' · ') + '), pero no se pisaron importes editados manualmente.');
-                }
-            })
-            .catch(function () {
-                if (seq === requestSeq) {
-                    setMsg('No se pudo consultar el arancel. Revisá conexión o permisos.');
-                }
-            });
-    }
-
-    cob.addEventListener('change', buscarPrecio);
-    practica.addEventListener('change', buscarPrecio);
-    if (plan) {
-        plan.addEventListener('change', buscarPrecio);
-    }
-    buscarPrecio();
 })();
 </script>

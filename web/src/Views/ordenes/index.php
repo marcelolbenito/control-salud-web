@@ -6,6 +6,7 @@ declare(strict_types=1);
 /** @var list<array<string, mixed>> $rows */
 /** @var list<array<string, mixed>> $doctores */
 /** @var list<array{id:int|string,nombre:?string}> $cobOpts */
+/** @var list<array{id:int|string,nombre:?string}> $practicaOpts */
 /** @var string $ordenesQueryString */
 /** @var bool $ordenesFiltrosActivos */
 
@@ -61,18 +62,25 @@ function orden_num($v): float
     return (float) $v;
 }
 
-function orden_fmt_ref($idRaw, $nombreRaw): string
+function orden_fmt_ref($idRaw, $nombreRaw, $codigoRaw = null): string
 {
     $id = ($idRaw !== null && $idRaw !== '' && is_numeric($idRaw)) ? (int) $idRaw : 0;
     $nom = trim((string) $nombreRaw);
+    $codigo = trim((string) $codigoRaw);
+    if ($nom !== '' && $codigo !== '') {
+        return $codigo . ' · ' . $nom;
+    }
+    if ($codigo !== '') {
+        return $codigo;
+    }
     if ($nom !== '' && $id > 0) {
-        return $nom . ' · #' . $id;
+        return $nom;
     }
     if ($nom !== '') {
         return $nom;
     }
     if ($id > 0) {
-        return 'Sin catálogo · #' . $id;
+        return $codigoRaw !== null ? 'Sin catálogo' : ('Sin catálogo · #' . $id);
     }
 
     return '—';
@@ -142,10 +150,31 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
                     Id plan
                     <input type="number" name="idplan" min="1" placeholder="Código" value="<?= ($f['idplan'] ?? 0) > 0 ? (int) $f['idplan'] : '' ?>">
                 </label>
-                <label>
-                    Id práctica
-                    <input type="number" name="idpractica" min="1" placeholder="Código" value="<?= ($f['idpractica'] ?? 0) > 0 ? (int) $f['idpractica'] : '' ?>">
-                </label>
+                <?php if (($practicaOpts ?? []) !== []): ?>
+                    <?php
+                    $cbLabel = 'Práctica / estudio';
+                    $cbPlaceholder = 'Código o nombre de práctica';
+                    $cbName = 'idpractica';
+                    $cbHiddenId = 'ordenes_filtro_idpractica';
+                    $cbInputId = 'ordenes_filtro_practica_buscar';
+                    $cbListId = 'ordenes_filtro_practicas_lista';
+                    $cbOpts = $practicaOpts;
+                    $cbSelected = (int) ($f['idpractica'] ?? 0);
+                    $cbRequired = false;
+                    $cbAutoSubmitFormId = null;
+                    $cbGrowClass = '';
+                    $cbSubmitTextName = 'idpractica_txt';
+                    $cbValor = trim((string) ($f['idpractica_txt'] ?? ''));
+                    $cbHint = 'Código de nomenclador (ej. 420101) o nombre.';
+                    $cbSoloCodigo = true;
+                    require dirname(__DIR__) . '/_partials/catalogo_buscar.php';
+                    ?>
+                <?php else: ?>
+                    <label>
+                        Id práctica
+                        <input type="number" name="idpractica" min="1" placeholder="Sin catálogo" value="<?= ($f['idpractica'] ?? 0) > 0 ? (int) $f['idpractica'] : '' ?>">
+                    </label>
+                <?php endif; ?>
                 <label>
                     Id derivado
                     <input type="number" name="idderivado" min="1" placeholder="Código" value="<?= ($f['idderivado'] ?? 0) > 0 ? (int) $f['idderivado'] : '' ?>">
@@ -323,7 +352,11 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
                         <tr>
                             <td><?= !empty($r['fecha_orden']) ? h((string) $r['fecha_orden']) : '—' ?></td>
                             <?php
-                            $prTxt = orden_fmt_ref($r['idpractica'] ?? null, $r['practica_nombre'] ?? '');
+                            $prTxt = orden_fmt_ref(
+                                $r['idpractica'] ?? null,
+                                $r['practica_nombre'] ?? '',
+                                $r['practica_codigo'] ?? ''
+                            );
                             ?>
                             <td class="cell-clip" title="<?= h($prTxt) ?>"><?= h($prTxt) ?></td>
                             <?php
@@ -373,3 +406,6 @@ function orden_fmt_ref($idRaw, $nombreRaw): string
         </div>
     <?php endif; ?>
 </div>
+<?php if (($practicaOpts ?? []) !== []): ?>
+    <?php catalogo_buscar_script_tag(); ?>
+<?php endif; ?>

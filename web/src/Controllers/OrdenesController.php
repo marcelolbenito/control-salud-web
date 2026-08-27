@@ -35,6 +35,15 @@ final class OrdenesController
         $docRepo = new DoctoresRepository($this->pdo, user_clinica_id($this->user));
 
         $f = self::collectFiltrosOrdenes();
+        $practicaOpts = catalogo_lista($this->pdo, 'lista_practicas', 'prioridad_id');
+        $practicaTxt = trim((string) ($_GET['idpractica_txt'] ?? ''));
+        if ($practicaTxt !== '' && $practicaOpts !== []) {
+            $resolved = catalogo_resolver_id_practica($practicaOpts, $practicaTxt);
+            $f['idpractica'] = $resolved > 0 ? $resolved : 0;
+        } elseif (($f['idpractica'] ?? 0) > 0 && $practicaOpts !== []) {
+            $practicaTxt = catalogo_valor_datalist($practicaOpts, (int) $f['idpractica']);
+        }
+        $f['idpractica_txt'] = $practicaTxt;
         $rows = $repo->listForIndex($f);
         $doctores = $docRepo->listAllOrdered();
         $cobOpts = catalogo_lista($this->pdo, 'lista_coberturas', 'prioridad_id');
@@ -44,6 +53,7 @@ final class OrdenesController
             'rows' => $rows,
             'doctores' => $doctores,
             'cobOpts' => $cobOpts,
+            'practicaOpts' => $practicaOpts,
             'f' => $f,
             'ordenesQueryString' => $ordenesQueryString,
             'ordenesFiltrosActivos' => self::ordenesHayFiltrosActivos($f),
@@ -143,15 +153,39 @@ final class OrdenesController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             csrf_verify();
             $id = (int) ($_POST['id'] ?? 0);
+            $esFormularioCompacto = (string) ($_POST['formato_orden'] ?? '') === 'compacto';
             $parsed = self::ordenParsePost($this->pdo, $repo, $this->user);
             $error = $parsed['error'];
             if ($error === '') {
                 $vals = $parsed['values'];
+                if ($id > 0 && $esFormularioCompacto) {
+                    // El formulario compacto no publica los campos legacy. Actualizar solo
+                    // lo visible evita borrar importes, estados, sesiones y fechas existentes.
+                    $camposCompactos = [
+                        'NroPaci',
+                        'iddoctor',
+                        'fecha',
+                        'idobrasocial',
+                        'idpractica',
+                        'costo',
+                        'costo_os',
+                        'pagaiva',
+                        'cerrada',
+                    ];
+                    $vals = array_intersect_key($vals, array_flip($camposCompactos));
+                }
                 if ($id > 0) {
                     unset($vals['idusuariocarga']);
                     $repo->updateRow($id, $vals);
                     flash_set('Orden actualizada.');
                 } else {
+                    if ($esFormularioCompacto) {
+                        self::aplicarArancelCompactoSiCorresponde($repo, $vals);
+                    }
+                    if ($esFormularioCompacto && (int) ($vals['idobrasocial'] ?? 0) > 0) {
+                        // Toda orden nueva de cobertura comienza pendiente de facturación.
+                        $vals['estado_os'] = 'A';
+                    }
                     $idOrdenNueva = $repo->insertRow($vals);
                     if ($turno) {
                         $agendaRepo->vincularOrden($idTurno, $idOrdenNueva);
@@ -182,6 +216,9 @@ final class OrdenesController
             }
             if (($row['idplan'] ?? '') === '' && (int) ($pacienteOrden['id_plan'] ?? 0) > 0) {
                 $row['idplan'] = (string) (int) $pacienteOrden['id_plan'];
+            }
+            if (($row['pagaiva'] ?? '') === '') {
+                $row['pagaiva'] = (string) (int) ($pacienteOrden['paga_iva'] ?? 0);
             }
         }
 
@@ -320,7 +357,7 @@ final class OrdenesController
             'id' => 0,
             'NroPaci' => $prefillNro > 0 ? $prefillNro : '',
             'iddoctor' => '',
-            'fecha_orden' => '',
+            'fecha_orden' => date('Y-m-d'),
             'autorizada' => 0,
             'entregada' => 0,
             'liquidada' => 0,
@@ -582,6 +619,7 @@ final class OrdenesController
             'sucursal' => $gi('sucursal'),
             'idobrasocial' => $gi('idobrasocial'),
             'idpractica' => $gi('idpractica'),
+            'idpractica_txt' => $g('idpractica_txt'),
             'idderivado' => $gi('idderivado'),
             'idplan' => $gi('idplan'),
             'sesion_doctor' => $gi('sesion_doctor'),
@@ -632,6 +670,9 @@ final class OrdenesController
             if (($f[$k] ?? 0) > 0) {
                 $q[$k] = (int) $f[$k];
             }
+        }
+        if (($f['idpractica_txt'] ?? '') !== '') {
+            $q['idpractica_txt'] = (string) $f['idpractica_txt'];
         }
         if (($f['sesion_estado'] ?? '') !== '') {
             $q['sesion_estado'] = (string) $f['sesion_estado'];
@@ -734,6 +775,34 @@ final class OrdenesController
             return $row ? trim((string) ($row['nombre'] ?? '')) : '';
         } catch (Throwable $e) {
             return '';
+        }
+    }
+
+    /**
+     * Completa importes desde lista_precios cuando el formulario compacto no los envió.
+     *
+     * @param array<string, mixed> $vals
+     */
+    private static function aplicarArancelCompactoSiCorresponde(OrdenesRepository $repo, array &$vals): void
+    {
+        $idCob = (int) ($vals['idobrasocial'] ?? 0);
+        $idPractica = (int) ($vals['idpractica'] ?? 0);
+        if ($idCob < 1 || $idPractica < 1) {
+            return;
+        }
+        if (($vals['costo'] ?? null) !== null || ($vals['costo_os'] ?? null) !== null) {
+            return;
+        }
+
+        $precio = $repo->findPrecioOrden($idCob, $idPractica, (int) ($vals['idplan'] ?? 0));
+        if ($precio === null) {
+            return;
+        }
+        if (isset($precio['costopaciente']) && $precio['costopaciente'] !== '' && is_numeric($precio['costopaciente'])) {
+            $vals['costo'] = (float) $precio['costopaciente'];
+        }
+        if (isset($precio['costocobertura']) && $precio['costocobertura'] !== '' && is_numeric($precio['costocobertura'])) {
+            $vals['costo_os'] = (float) $precio['costocobertura'];
         }
     }
 
