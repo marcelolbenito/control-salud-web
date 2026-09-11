@@ -47,7 +47,7 @@ declare(strict_types=1);
                         <thead>
                             <tr>
                                 <th>Fecha/hora</th>
-                                <th>Usuario</th>
+                                <th>Autor</th>
                                 <th>Anotación</th>
                                 <th>Adjuntos</th>
                             </tr>
@@ -57,10 +57,23 @@ declare(strict_types=1);
                                 <?php
                                 $nid = (int) ($n['id'] ?? 0);
                                 $adj = isset($adjuntosPorNota[$nid]) && is_array($adjuntosPorNota[$nid]) ? $adjuntosPorNota[$nid] : [];
+                                $origenNota = (string) ($n['origen'] ?? 'web');
+                                $esExe = ($origenNota === 'consulta_exe');
+                                $autor = $esExe
+                                    ? trim((string) ($n['medico_nombre'] ?? ''))
+                                    : trim((string) ($n['usuario_nombre'] ?? ''));
+                                if ($autor === '') {
+                                    $autor = $esExe ? 'Consulta anterior' : '—';
+                                }
                                 ?>
                                 <tr>
                                     <td><?= h((string) ($n['fecha_hora'] ?? $n['creado_en'] ?? '')) ?></td>
-                                    <td><?= h((string) ($n['usuario_nombre'] ?? '')) ?></td>
+                                    <td>
+                                        <?= h($autor) ?>
+                                        <?php if ($esExe): ?>
+                                            <div class="muted small">Sistema anterior</div>
+                                        <?php endif; ?>
+                                    </td>
                                     <td style="white-space:pre-wrap;"><?= h((string) ($n['texto'] ?? '')) ?></td>
                                     <td>
                                         <?php if ($adj === []): ?>

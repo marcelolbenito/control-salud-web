@@ -44,9 +44,16 @@ function ayuda_modulos(): array
                 [
                     'titulo' => 'Roles de usuario',
                     'items' => [
-                        'Doctor: agenda, anunciador, pacientes (consulta), odontograma e historia clínica según permisos.',
+                        'Doctor: agenda, anunciador, pacientes (consulta), odontograma, historia clínica e Info / Novedades.',
                         'Admin clínica: todo lo operativo de su clínica + usuarios y configuración (excepto superadmin).',
-                        'Superadmin: acceso global y configuración de todas las clíicas.',
+                        'Superadmin: acceso global y configuración de todas las clínicas.',
+                    ],
+                ],
+                [
+                    'titulo' => 'Info / Novedades',
+                    'items' => [
+                        'Menú «Info / Novedades»: carpeta compartida para PDF y fotos de información general del equipo.',
+                        'Cualquier usuario puede subir, ver y descargar. Eliminar: quien lo subió o un administrador.',
                     ],
                 ],
                 [
@@ -60,6 +67,7 @@ function ayuda_modulos(): array
             'enlaces' => [
                 ['href' => '/index.php', 'texto' => 'Panel de inicio'],
                 ['href' => '/agenda.php', 'texto' => 'Agenda diaria'],
+                ['href' => '/novedades.php', 'texto' => 'Info / Novedades'],
             ],
             'capturas' => [
                 ['archivo' => 'inicio-panel.png', 'titulo' => 'Panel de inicio', 'texto' => 'Resumen operativo y accesos del día.'],
@@ -420,6 +428,7 @@ function ayuda_modulos(): array
                     'items' => [
                         'El reporte muestra afiliado, paciente, código y nombre de práctica, fecha, cantidad, costo y totales.',
                         'Puede seleccionar todas las órdenes o desmarcar las que no correspondan al lote.',
+                        'Las órdenes con costo de obra social en $0 o vacío se marcan en amarillo con la etiqueta «Sin precio OS» y quedan destildadas por defecto.',
                         '«Imprimir / PDF» genera un listado A4 horizontal con cabecera de la clínica. Imprimir no cambia el estado.',
                     ],
                 ],
@@ -429,7 +438,7 @@ function ayuda_modulos(): array
                         'Si los importes de la columna Costo práctica no coinciden con los aranceles vigentes, use «Actualizar costos desde aranceles».',
                         'Recalcula costo paciente y costo obra social de todas las órdenes pendientes (A) del período filtrado, tomando los valores de Aranceles.',
                         'Solo afecta órdenes en estado A; las ya facturadas (F) no se modifican.',
-                        'Úselo como revisión final antes de imprimir o marcar el lote, por ejemplo si se ajustaron aranceles y no se propagaron al guardarlos.',
+                        'Úselo como revisión final antes de imprimir o marcar el lote, por ejemplo si se ajustaron aranceles y no se propagaron al guardarlos, o si hay filas «Sin precio OS».',
                     ],
                 ],
                 [

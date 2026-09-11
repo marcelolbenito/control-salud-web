@@ -174,7 +174,19 @@ final class PacientesRepository
             return [];
         }
         $joinUsuarios = db_table_exists($this->pdo, 'usuarios');
+        $hasOrigen = db_table_has_column($this->pdo, 'pacientes_hc_notas', 'origen');
+        $hasMedico = db_table_has_column($this->pdo, 'pacientes_hc_notas', 'medico_nombre');
         $sql = 'SELECT n.id, n.id_paciente, n.id_usuario, n.fecha_hora, n.texto, n.creado_en';
+        if ($hasOrigen) {
+            $sql .= ', n.origen';
+        } else {
+            $sql .= ', \'web\' AS origen';
+        }
+        if ($hasMedico) {
+            $sql .= ', n.medico_nombre';
+        } else {
+            $sql .= ', NULL AS medico_nombre';
+        }
         if ($joinUsuarios) {
             $sql .= ', COALESCE(u.nombre, u.usuario, CONCAT(\'Usuario #\', n.id_usuario)) AS usuario_nombre';
         } else {
@@ -220,6 +232,10 @@ final class PacientesRepository
         if (db_table_has_column($this->pdo, 'pacientes_hc_notas', 'id_clinica')) {
             $cols[] = 'id_clinica';
             $vals[] = $this->idClinica;
+        }
+        if (db_table_has_column($this->pdo, 'pacientes_hc_notas', 'origen')) {
+            $cols[] = 'origen';
+            $vals[] = 'web';
         }
         $quoted = array_map(static function (string $c): string {
             return '`' . str_replace('`', '', $c) . '`';

@@ -433,7 +433,7 @@ final class TurnosRepository
             : "TRIM(COALESCE(p.Nombres,''))";
 
         $like = '%' . $q . '%';
-        $sql = "SELECT p.NroHC AS nrohc,
+        $sql = "SELECT p.id AS id, p.NroHC AS nrohc,
                        COALESCE(p.DNI,'') AS dni,
                        {$sqlNombre} AS nombre
                 FROM pacientes p
@@ -458,6 +458,7 @@ final class TurnosRepository
         $out = [];
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $out[] = [
+                'id' => (int) ($r['id'] ?? 0),
                 'nrohc' => (int) ($r['nrohc'] ?? 0),
                 'dni' => trim((string) ($r['dni'] ?? '')),
                 'nombre' => trim((string) ($r['nombre'] ?? '')),

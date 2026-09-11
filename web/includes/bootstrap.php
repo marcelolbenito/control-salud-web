@@ -98,6 +98,8 @@ if (auth_user() !== null) {
             '/agenda_turno_anular.php',
             '/anunciador.php',
             '/ayuda.php',
+            '/novedades.php',
+            '/novedad_archivo.php',
             '/pacientes.php',
             '/pacientes_lookup.php',
             '/paciente_por_hc.php',

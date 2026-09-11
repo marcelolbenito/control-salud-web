@@ -99,11 +99,12 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                         <a class="side-sublink<?= $isPath('/facturacion_ordenes.php') ? ' is-active' : '' ?>" href="/facturacion_ordenes.php">Facturación OS</a>
                         <a class="side-sublink<?= $isPath('/sesiones.php') || $isPath('/sesion_form.php') ? ' is-active' : '' ?>" href="/sesiones.php">Sesiones</a>
                     </details>
-                    <details class="side-group"<?= $isPath('/caja.php') || $isPath('/caja_form.php') || $isPath('/caja_cierre.php') || $isPath('/pagos.php') || $isPath('/pagos_form.php') ? ' open' : '' ?>>
+                    <details class="side-group"<?= $isPath('/caja.php') || $isPath('/caja_form.php') || $isPath('/caja_cierre.php') || $isPath('/pagos.php') || $isPath('/pagos_form.php') || $isPath('/factura_electronica.php') || $isPath('/fe_parametros.php') ? ' open' : '' ?>>
                         <summary><i class="bi bi-cash-coin" aria-hidden="true"></i><span class="side-label">Finanzas</span></summary>
                         <a class="side-sublink<?= $isPath('/caja.php') || $isPath('/caja_form.php') ? ' is-active' : '' ?>" href="/caja.php">Caja</a>
                         <a class="side-sublink<?= $isPath('/caja_cierre.php') ? ' is-active' : '' ?>" href="/caja_cierre.php">Cierre de caja</a>
                         <a class="side-sublink<?= $isPath('/pagos.php') || $isPath('/pagos_form.php') ? ' is-active' : '' ?>" href="/pagos.php">Pagos</a>
+                        <a class="side-sublink<?= $isPath('/factura_electronica.php') || $isPath('/fe_parametros.php') || $isPath('/fe_imprimir.php') ? ' is-active' : '' ?>" href="/factura_electronica.php">Facturación electrónica</a>
                     </details>
                     <details class="side-group"<?= $isPath('/catalogos.php') || $isPath('/aranceles.php') || $isPath('/sistema.php') ? ' open' : '' ?>>
                         <summary><i class="bi bi-gear" aria-hidden="true"></i><span class="side-label">Sistema</span></summary>
@@ -120,6 +121,7 @@ function layout_render(string $title, string $bodyHtml, ?array $user, ?array $la
                     <a class="side-link" href="<?= h($labHref) ?>"><i class="bi bi-droplet-half" aria-hidden="true"></i><span class="side-label">Laboratorio</span></a>
                     <?php } ?>
                 <?php endif; ?>
+                <a class="side-link<?= $isPath('/novedades.php') ? ' is-active' : '' ?>" href="/novedades.php"><i class="bi bi-megaphone" aria-hidden="true"></i><span class="side-label">Info / Novedades</span></a>
                 <a class="side-link<?= $isPath('/ayuda.php') ? ' is-active' : '' ?>" href="/ayuda.php"><i class="bi bi-question-circle" aria-hidden="true"></i><span class="side-label">Ayuda</span></a>
             </nav>
         </aside>

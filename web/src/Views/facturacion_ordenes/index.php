@@ -44,12 +44,27 @@ $cantidad = static function (array $r): int {
     return $s > 0 ? $s : 1;
 };
 
+$ordenSinPrecio = static function (array $r): bool {
+    if (!isset($r['costo_os']) || $r['costo_os'] === '' || $r['costo_os'] === null) {
+        return true;
+    }
+    if (!is_numeric($r['costo_os'])) {
+        return true;
+    }
+
+    return (float) $r['costo_os'] <= 0.0;
+};
+
 $totalCosto = 0.0;
 $totalCant = 0;
+$sinPrecioCount = 0;
 foreach ($rows as $r) {
     $c = $cantidad($r);
     $totalCant += $c;
     $totalCosto += is_numeric($r['costo_os'] ?? null) ? (float) $r['costo_os'] : 0.0;
+    if ($ordenSinPrecio($r)) {
+        $sinPrecioCount++;
+    }
 }
 ?>
 <style>
@@ -110,6 +125,31 @@ foreach ($rows as $r) {
 .facturacion-reporte th, .facturacion-reporte td { padding: 0.35rem 0.5rem; vertical-align: top; }
 .facturacion-reporte .num { text-align: right; white-space: nowrap; }
 .facturacion-meta { margin-bottom: 1rem; }
+.facturacion-reporte tr.orden-sin-precio {
+    background: #fff3cd;
+}
+.facturacion-reporte tr.orden-sin-precio td.num-costo {
+    color: #9a6700;
+    font-weight: 600;
+}
+.facturacion-badge-sin-precio {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 0.25rem;
+    background: #ffecb5;
+    color: #7a5b00;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+@media print {
+    .facturacion-reporte tr.orden-sin-precio {
+        background: #fff3cd !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
 </style>
 
 <div class="container container-wide">
@@ -169,6 +209,14 @@ foreach ($rows as $r) {
                     ? 'No hay órdenes facturadas para esos filtros.'
                     : 'No hay órdenes pendientes de facturar para esos filtros.' ?></p>
             <?php else: ?>
+                <?php if ($sinPrecioCount > 0): ?>
+                    <p class="alert alert-error no-print" role="status">
+                        <strong><?= (int) $sinPrecioCount ?></strong> orden(es) con costo de obra social en $0 o vacío
+                        (filas en amarillo<?= !$esFacturadas ? '; quedan destildadas por defecto' : '' ?>).
+                        Revisá aranceles o usá «Actualizar costos desde aranceles» antes de facturar.
+                    </p>
+                <?php endif; ?>
+
                 <div class="no-print page-actions" style="margin-bottom:1rem;">
                     <button type="button" class="btn btn-primary" onclick="window.print();"><i class="bi bi-printer" aria-hidden="true"></i> Imprimir / PDF</button>
                     <?php if ($esFacturadas): ?>
@@ -203,7 +251,7 @@ foreach ($rows as $r) {
                                 <tr>
                                     <?php if (!$esFacturadas): ?>
                                     <th class="no-print" style="width:2.5rem;">
-                                        <input type="checkbox" id="chk-todos" checked title="Seleccionar todas">
+                                        <input type="checkbox" id="chk-todos"<?= $sinPrecioCount > 0 ? '' : ' checked' ?> title="Seleccionar todas">
                                     </th>
                                     <?php endif; ?>
                                     <th>Afiliado</th>
@@ -221,11 +269,13 @@ foreach ($rows as $r) {
                                     <?php
                                     $c = $cantidad($r);
                                     $costo = is_numeric($r['costo_os'] ?? null) ? (float) $r['costo_os'] : 0.0;
+                                    $sinPrecio = $ordenSinPrecio($r);
                                     ?>
-                                    <tr>
+                                    <tr<?= $sinPrecio ? ' class="orden-sin-precio"' : '' ?> title="<?= $sinPrecio ? 'Sin costo de obra social: revisá el arancel de esta práctica' : '' ?>">
                                         <?php if (!$esFacturadas): ?>
                                         <td class="no-print">
-                                            <input type="checkbox" name="orden_ids[]" value="<?= (int) $r['id'] ?>" checked class="chk-orden">
+                                            <input type="checkbox" name="orden_ids[]" value="<?= (int) $r['id'] ?>"
+                                                class="chk-orden"<?= $sinPrecio ? '' : ' checked' ?>>
                                         </td>
                                         <?php endif; ?>
                                         <td><?= h((string) ($r['paciente_nro_os'] ?? '—')) ?></td>
@@ -233,10 +283,15 @@ foreach ($rows as $r) {
                                         <td><?= trim((string) ($r['practica_codigo'] ?? '')) !== ''
                                             ? h((string) $r['practica_codigo'])
                                             : '—' ?></td>
-                                        <td><?= h(trim((string) ($r['practica_nombre'] ?? '')) !== '' ? (string) $r['practica_nombre'] : '—') ?></td>
+                                        <td>
+                                            <?= h(trim((string) ($r['practica_nombre'] ?? '')) !== '' ? (string) $r['practica_nombre'] : '—') ?>
+                                            <?php if ($sinPrecio): ?>
+                                                <span class="facturacion-badge-sin-precio">Sin precio OS</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?= h((string) ($r['fecha_orden'] ?? '—')) ?></td>
                                         <td class="num"><?= $c ?></td>
-                                        <td class="num">$ <?= h($fmtMoney($costo)) ?></td>
+                                        <td class="num num-costo">$ <?= h($fmtMoney($costo)) ?></td>
                                         <td class="no-print"><a href="/orden_form.php?id=<?= (int) $r['id'] ?>">#<?= (int) $r['id'] ?></a></td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -254,8 +309,7 @@ foreach ($rows as $r) {
 
                 <?php if (!$esFacturadas): ?>
                     <div class="page-actions" style="margin-top:1rem;">
-                        <button type="submit" class="btn btn-primary"
-                            onclick="return confirm('¿Marcar las órdenes seleccionadas como FACTURADAS (estado_os = F)?');">
+                        <button type="submit" class="btn btn-primary" id="btn-marcar-facturadas">
                             <i class="bi bi-check2-circle" aria-hidden="true"></i> Marcar seleccionadas como facturadas
                         </button>
                     </div>
@@ -265,10 +319,36 @@ foreach ($rows as $r) {
                 (function () {
                     const master = document.getElementById('chk-todos');
                     const boxes = document.querySelectorAll('.chk-orden');
-                    if (!master) return;
-                    master.addEventListener('change', function () {
-                        boxes.forEach(function (b) { b.checked = master.checked; });
-                    });
+                    const form = document.getElementById('form-marcar-facturadas');
+                    if (master) {
+                        master.addEventListener('change', function () {
+                            boxes.forEach(function (b) { b.checked = master.checked; });
+                        });
+                    }
+                    if (form) {
+                        form.addEventListener('submit', function (ev) {
+                            const selected = Array.prototype.filter.call(boxes, function (b) { return b.checked; });
+                            if (selected.length === 0) {
+                                ev.preventDefault();
+                                alert('Seleccioná al menos una orden.');
+                                return;
+                            }
+                            let sinPrecioSel = 0;
+                            selected.forEach(function (b) {
+                                const tr = b.closest('tr');
+                                if (tr && tr.classList.contains('orden-sin-precio')) {
+                                    sinPrecioSel++;
+                                }
+                            });
+                            let msg = '¿Marcar las órdenes seleccionadas como FACTURADAS (estado_os = F)?';
+                            if (sinPrecioSel > 0) {
+                                msg = 'Hay ' + sinPrecioSel + ' orden(es) seleccionada(s) con costo OS en $0.\n\n' + msg;
+                            }
+                            if (!confirm(msg)) {
+                                ev.preventDefault();
+                            }
+                        });
+                    }
                 })();
                 </script>
                 <?php endif; ?>
