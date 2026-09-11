@@ -8,7 +8,7 @@
 #
 # Salida: sql\migracion\export\mvp_gesis2_YYYYMMDD_HHMM.sql
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent (Split-Path -Parent $here)
 $exportDir = Join-Path $here "export"
@@ -31,7 +31,7 @@ if (-not $running) {
     Start-Sleep -Seconds 5
 }
 
-# Tablas web + legacy típicas del exe (si no existen, mysqldump las omite con --force? mejor listar existentes)
+# Tablas web + legacy típicas del exe (si no existen, se omiten)
 $wanted = @(
     "lista_coberturas",
     "lista_planes",
@@ -65,7 +65,8 @@ $wanted = @(
     "Consultas"
 )
 
-$existingRaw = docker exec $container mysql -uroot -psalud_root_dev -N -e "SHOW TABLES FROM control_salud" 2>$null
+$existingRaw = docker exec $container mysql -uroot -psalud_root_dev -N -e "SHOW TABLES FROM control_salud" 2>&1 |
+    Where-Object { $_ -is [string] -and $_ -notmatch "Using a password" }
 if (-not $existingRaw) {
     throw "No se pudo listar tablas en control_salud. ¿Está levantado $container?"
 }
