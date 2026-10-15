@@ -53,14 +53,15 @@ final class TurnosRepository
 
     public function listDoctores(): array
     {
+        $esp = db_table_has_column($this->pdo, 'lista_doctores', 'especialidad') ? ', especialidad' : '';
         if (db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
-            $st = $this->pdo->prepare('SELECT id, nombre FROM lista_doctores WHERE id_clinica = ? ORDER BY nombre ASC');
+            $st = $this->pdo->prepare('SELECT id, nombre' . $esp . ' FROM lista_doctores WHERE id_clinica = ? ORDER BY nombre ASC');
             $st->execute([$this->idClinica]);
 
             return $st->fetchAll();
         }
 
-        return $this->pdo->query('SELECT id, nombre FROM lista_doctores ORDER BY nombre ASC')->fetchAll();
+        return $this->pdo->query('SELECT id, nombre' . $esp . ' FROM lista_doctores ORDER BY nombre ASC')->fetchAll();
     }
 
     public function findById(int $id): ?array
@@ -886,5 +887,318 @@ final class TurnosRepository
         $merged = array_values(array_unique(array_merge($slots, array_keys($occupied))));
         sort($merged, SORT_STRING);
         return $merged;
+    }
+
+    /**
+     * Próximos días con horarios realmente libres para el portal del paciente.
+     * No incluye días sin franja en la planilla ni horarios ocupados o bloqueados.
+     *
+     * @return list<array{fecha:string,titulo:string,horas:list<string>}>
+     */
+    public function diasConHorariosLibres(int $doctor, string $desde, int $horizonte = 60, int $maxDias = 14): array
+    {
+        if ($doctor < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde)) {
+            return [];
+        }
+        $horizonte = max(1, min(120, $horizonte));
+        $maxDias = max(1, min(30, $maxDias));
+        $hasta = date('Y-m-d', strtotime($desde . ' +' . ($horizonte - 1) . ' day'));
+        $horarios = $this->horariosLegacyEnRango($doctor, $desde, $hasta);
+        $ocupadas = $this->horasOcupadasEnRango($doctor, $desde, $hasta);
+        $bloqueos = $this->bloqueosEnRango($doctor, $desde, $hasta);
+        $out = [];
+        for ($i = 0; $i < $horizonte && count($out) < $maxDias; $i++) {
+            $fecha = date('Y-m-d', strtotime($desde . ' +' . $i . ' day'));
+            $horario = $this->horarioVigente($horarios, $fecha);
+            if ($horario === null) {
+                continue;
+            }
+            $libres = [];
+            foreach ($this->slotsRealesDelDia($horario, $fecha) as $slot) {
+                if ($this->slotBloqueadoEnLista($fecha, $slot, $bloqueos)) {
+                    continue;
+                }
+                if (isset($ocupadas[$fecha][$slot])) {
+                    continue;
+                }
+                $libres[] = $slot;
+            }
+            if ($libres === []) {
+                continue;
+            }
+            $out[] = [
+                'fecha' => $fecha,
+                'titulo' => $this->tituloDiaLargo($fecha),
+                'horas' => $libres,
+            ];
+        }
+
+        return $out;
+    }
+
+    private function tituloDiaLargo(string $fecha): string
+    {
+        $ts = strtotime($fecha . ' 00:00:00');
+        if ($ts === false) {
+            return $fecha;
+        }
+        $dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+        return $dias[(int) date('w', $ts)] . ' ' . date('d', $ts) . ' de ' . $this->nombreMes((int) date('n', $ts)) . ' de ' . date('Y', $ts);
+    }
+
+    /**
+     * Mes visible y el siguiente, coloreados como la agenda del exe.
+     * libre = atiende y no hay turnos; parcial = quedan horarios; lleno = no queda ninguno; no_atiende = no trabaja.
+     *
+     * @return array{prev:string,next:string,meses:list<array{titulo:string,semanas:list<list<array{fecha:string,dia:int,en_mes:bool,estado:string,seleccionado:bool,hoy:bool}>>}>}
+     */
+    public function calendarioDisponibilidad(int $doctor, string $fechaAncla): array
+    {
+        $ancla = strtotime($fechaAncla . ' 00:00:00') ?: time();
+        $mesInicio = date('Y-m-01', $ancla);
+        $mesSiguiente = date('Y-m-01', strtotime($mesInicio . ' +1 month'));
+        $rangoDesde = $this->domingoDeSemana($mesInicio);
+        $rangoHasta = $this->sabadoDeSemana(date('Y-m-t', strtotime($mesSiguiente)));
+        $horarios = $this->horariosLegacyEnRango($doctor, $rangoDesde, $rangoHasta);
+        $ocupadas = $this->horasOcupadasEnRango($doctor, $rangoDesde, $rangoHasta);
+        $bloqueos = $this->bloqueosEnRango($doctor, $rangoDesde, $rangoHasta);
+        $hoy = date('Y-m-d');
+
+        $armar = function (string $primerDia) use ($horarios, $ocupadas, $bloqueos, $fechaAncla, $hoy): array {
+            $ts = strtotime($primerDia);
+            $anio = (int) date('Y', $ts);
+            $mes = (int) date('n', $ts);
+            $titulo = $this->nombreMes($mes) . ' ' . $anio;
+            $cursor = strtotime($this->domingoDeSemana($primerDia));
+            $fin = strtotime($this->sabadoDeSemana(date('Y-m-t', $ts)));
+            $semanas = [];
+            while ($cursor <= $fin) {
+                $semana = [];
+                for ($i = 0; $i < 7; $i++) {
+                    $fecha = date('Y-m-d', $cursor);
+                    $enMes = (int) date('n', $cursor) === $mes;
+                    $estado = 'no_atiende';
+                    if ($enMes) {
+                        $estado = $this->estadoDiaCalendario(
+                            $fecha,
+                            $this->horarioVigente($horarios, $fecha),
+                            $ocupadas[$fecha] ?? [],
+                            $bloqueos
+                        );
+                    }
+                    $semana[] = [
+                        'fecha' => $fecha,
+                        'dia' => (int) date('j', $cursor),
+                        'en_mes' => $enMes,
+                        'estado' => $enMes ? $estado : '',
+                        'seleccionado' => $fecha === $fechaAncla,
+                        'hoy' => $fecha === $hoy,
+                    ];
+                    $cursor = strtotime('+1 day', $cursor);
+                }
+                $semanas[] = $semana;
+            }
+
+            return ['titulo' => $titulo, 'semanas' => $semanas];
+        };
+
+        return [
+            'prev' => date('Y-m-d', strtotime($mesInicio . ' -1 month')),
+            'next' => date('Y-m-d', strtotime($mesInicio . ' +1 month')),
+            'meses' => [$armar($mesInicio), $armar($mesSiguiente)],
+        ];
+    }
+
+    private function nombreMes(int $mes): string
+    {
+        $nombres = [1 => 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+        return $nombres[$mes] ?? '';
+    }
+
+    private function domingoDeSemana(string $fecha): string
+    {
+        $ts = strtotime($fecha . ' 00:00:00');
+        $w = (int) date('w', $ts);
+
+        return date('Y-m-d', strtotime('-' . $w . ' day', $ts));
+    }
+
+    private function sabadoDeSemana(string $fecha): string
+    {
+        $ts = strtotime($fecha . ' 00:00:00');
+        $w = (int) date('w', $ts);
+
+        return date('Y-m-d', strtotime('+' . (6 - $w) . ' day', $ts));
+    }
+
+    /**
+     * @param list<array<string, mixed>> $horarios
+     * @return array<string, mixed>|null
+     */
+    private function horarioVigente(array $horarios, string $fecha): ?array
+    {
+        foreach ($horarios as $row) {
+            $desde = substr((string) ($row['fechadesde'] ?? ''), 0, 10);
+            $hasta = substr((string) ($row['fechahasta'] ?? ''), 0, 10);
+            if ($desde !== '' && $hasta !== '' && $fecha >= $desde && $fecha <= $hasta) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed>|null $horario
+     * @param array<string, int> $horasOcupadas
+     * @param list<array<string, mixed>> $bloqueos
+     */
+    private function estadoDiaCalendario(string $fecha, ?array $horario, array $horasOcupadas, array $bloqueos): string
+    {
+        $slots = $horario === null ? [] : $this->slotsRealesDelDia($horario, $fecha);
+        if ($slots === []) {
+            return 'no_atiende';
+        }
+
+        $libres = 0;
+        $ocupados = 0;
+        foreach ($slots as $slot) {
+            if ($this->slotBloqueadoEnLista($fecha, $slot, $bloqueos)) {
+                continue;
+            }
+            if (isset($horasOcupadas[$slot])) {
+                $ocupados++;
+            } else {
+                $libres++;
+            }
+        }
+        if ($libres === 0 && $ocupados === 0) {
+            return 'no_atiende';
+        }
+        if ($libres === 0) {
+            return 'lleno';
+        }
+        if ($horasOcupadas === []) {
+            return 'libre';
+        }
+
+        return 'parcial';
+    }
+
+    /**
+     * @param array<string, mixed> $horario
+     * @return list<string>
+     */
+    private function slotsRealesDelDia(array $horario, string $fecha): array
+    {
+        $w = (int) date('w', strtotime($fecha . ' 00:00:00'));
+        $pref = self::LEGACY_DIA_PREFIJOS[$w] ?? 'Lu';
+        $step = (int) ($horario['durtur' . (string) ($w + 1)] ?? 0);
+        if ($step < 5) {
+            $step = 15;
+        }
+        $morning = $this->buildSlotListFromLegacyBounds($horario[$pref . 'MaDesde'] ?? null, $horario[$pref . 'MaHasta'] ?? null, $step);
+        $afternoon = $this->buildSlotListFromLegacyBounds($horario[$pref . 'TaDesde'] ?? null, $horario[$pref . 'TaHasta'] ?? null, $step);
+        $slots = array_values(array_unique(array_merge($morning, $afternoon)));
+        sort($slots, SORT_STRING);
+
+        return $slots;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $bloqueos
+     */
+    private function slotBloqueadoEnLista(string $fecha, string $slot, array $bloqueos): bool
+    {
+        foreach ($bloqueos as $row) {
+            $desde = substr((string) ($row['fecha_desde'] ?? ''), 0, 10);
+            $hasta = substr((string) ($row['fecha_hasta'] ?? ''), 0, 10);
+            if ($desde === '' || $hasta === '' || $fecha < $desde || $fecha > $hasta) {
+                continue;
+            }
+            if ($this->slotMatchesBloqueo($slot, $row)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function horariosLegacyEnRango(int $doctor, string $desde, string $hasta): array
+    {
+        if ($doctor < 1 || !db_table_exists($this->pdo, self::LEGACY_HORARIO_TABLE)) {
+            return [];
+        }
+        $sql = 'SELECT h.* FROM `' . str_replace('`', '', self::LEGACY_HORARIO_TABLE) . '` h
+                WHERE h.iddoctor = ?
+                  AND DATE(h.fechadesde) <= ?
+                  AND DATE(h.fechahasta) >= ?';
+        $par = [$doctor, $hasta, $desde];
+        if (db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM lista_doctores ld WHERE ld.id = h.iddoctor AND ld.id_clinica = ?)';
+            $par[] = $this->idClinica;
+        }
+        $sql .= ' ORDER BY h.fechadesde DESC';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
+
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * @return array<string, array<string, int>>
+     */
+    private function horasOcupadasEnRango(int $doctor, string $desde, string $hasta): array
+    {
+        if ($doctor < 1) {
+            return [];
+        }
+        $sql = "SELECT Fecha, DATE_FORMAT(hora, '%H:%i') AS h
+                FROM agenda_turnos
+                WHERE Doctor = ? AND Fecha BETWEEN ? AND ? AND NroHC > 0 AND hora IS NOT NULL";
+        $params = [$doctor, $desde, $hasta];
+        if (db_table_has_column($this->pdo, 'agenda_turnos', 'estado')) {
+            $sql .= " AND (estado IS NULL OR estado <> 'cancelado')";
+        }
+        $this->appendAgendaClinica($sql, $params);
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+        $out = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $fecha = substr((string) ($r['Fecha'] ?? ''), 0, 10);
+            $h = (string) ($r['h'] ?? '');
+            if ($fecha !== '' && $h !== '') {
+                $out[$fecha][$h] = 1;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function bloqueosEnRango(int $doctor, string $desde, string $hasta): array
+    {
+        if ($doctor < 1 || !$this->agendaBloqueosTableExists()) {
+            return [];
+        }
+        $sql = 'SELECT fecha_desde, fecha_hasta, hora_desde, hora_hasta
+                FROM agenda_bloqueos
+                WHERE doctor = ? AND fecha_desde <= ? AND fecha_hasta >= ?';
+        $par = [$doctor, $hasta, $desde];
+        if ($this->bloqueosTieneClinica()) {
+            $sql .= ' AND id_clinica = ?';
+            $par[] = $this->idClinica;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($par);
+
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }

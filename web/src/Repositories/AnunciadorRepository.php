@@ -123,13 +123,14 @@ final class AnunciadorRepository
         if (db_table_has_column($this->pdo, 'pacientes', 'id_clinica')) {
             $joinPaciente .= ' AND p.id_clinica = l.id_clinica';
         }
+        $consultorioExpr = $this->exprConsultorioVisible();
         $sql = "SELECT l.id, l.id_turno, l.id_doctor, l.nro_hc,
                        CASE
                            WHEN l.paciente_display LIKE 'HC %' AND COALESCE(NULLIF(TRIM(p.Nombres), ''), '') <> ''
                                THEN p.Nombres
                            ELSE l.paciente_display
                        END AS paciente_display,
-                       l.consultorio,
+                       {$consultorioExpr} AS consultorio,
                        l.estado_llamado, l.llamado_en, l.en_consultorio_en, l.finalizado_en, l.actualizado_en,
                        d.nombre AS doctor_nombre
                 FROM agenda_llamados l
@@ -141,7 +142,40 @@ final class AnunciadorRepository
                 LIMIT {$limit}";
         $st = $this->pdo->prepare($sql);
         $st->execute([$this->idClinica, $estadoUse]);
-        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as &$row) {
+            $row['consultorio'] = $this->etiquetaConsultorio((string) ($row['consultorio'] ?? ''));
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    private function exprConsultorioVisible(): string
+    {
+        if (!db_table_has_column($this->pdo, 'lista_doctores', 'consultorio')) {
+            return 'l.consultorio';
+        }
+
+        return "CASE
+            WHEN LOWER(TRIM(COALESCE(l.consultorio, ''))) IN ('', 'consultorio')
+                 AND NULLIF(TRIM(d.consultorio), '') IS NOT NULL
+            THEN TRIM(d.consultorio)
+            ELSE l.consultorio
+        END";
+    }
+
+    private function etiquetaConsultorio(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '' || strcasecmp($raw, 'Consultorio') === 0) {
+            return 'Consultorio';
+        }
+        if (preg_match('/^\d+$/', $raw) === 1) {
+            return 'Consultorio ' . $raw;
+        }
+
+        return $raw;
     }
 
     public function cambiarEstado(int $idLlamado, string $estadoDestino, ?int $idUsuarioAccion): bool

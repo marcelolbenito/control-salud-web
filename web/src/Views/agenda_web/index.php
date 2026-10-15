@@ -5,20 +5,17 @@ declare(strict_types=1);
 /** @var int $idClinica */
 /** @var array{nrohc:int,dni:string,nombre:string}|null $paciente */
 /** @var string $error */
-/** @var string $fecha */
 /** @var int $doctor */
 /** @var list<array<string,mixed>> $doctores */
-/** @var array<string,mixed> $disp */
+/** @var list<array{fecha:string,titulo:string,horas:list<string>}> $diasLibres */
 /** @var list<array<string,mixed>> $turnosPaciente */
 
-$slots = is_array($disp['slots'] ?? null) ? $disp['slots'] : [];
-$occupied = is_array($disp['occupied'] ?? null) ? $disp['occupied'] : [];
-$blocked = is_array($disp['blocked'] ?? null) ? $disp['blocked'] : [];
-$fechaValida = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) && $fecha >= date('Y-m-d');
 $doctorNombre = '';
+$doctorEspecialidad = '';
 foreach ($doctores as $d) {
     if ((int) ($d['id'] ?? 0) === $doctor) {
         $doctorNombre = (string) ($d['nombre'] ?? '');
+        $doctorEspecialidad = trim((string) ($d['especialidad'] ?? ''));
         break;
     }
 }
@@ -98,13 +95,10 @@ foreach ($doctores as $d) {
         <?php endif; ?>
 
         <section class="card-like agenda-web-card">
-            <h2>Buscar disponibilidad</h2>
+            <h2>Elegir profesional</h2>
             <form method="get" class="agenda-filters" action="/agenda_web.php">
                 <input type="hidden" name="clinica" value="<?= (int) $idClinica ?>">
                 <div class="filter-row">
-                    <label>Fecha
-                        <input type="date" name="fecha" min="<?= h(date('Y-m-d')) ?>" value="<?= h($fecha) ?>">
-                    </label>
                     <label>Profesional
                         <select name="doctor" required>
                             <option value="0">— Elegí —</option>
@@ -113,57 +107,51 @@ foreach ($doctores as $d) {
                             <?php endforeach; ?>
                         </select>
                     </label>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Ver horarios</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Ver turnos</button>
                 </div>
             </form>
         </section>
 
         <?php if ($doctor > 0): ?>
-            <section class="card-like agenda-web-card">
-                <h2>Horarios disponibles</h2>
-                <p class="muted"><?= h($fecha) ?><?= $doctorNombre !== '' ? ' · ' . h($doctorNombre) : '' ?></p>
-                <?php if (!$fechaValida): ?>
-                    <p class="alert alert-error">Elegí una fecha desde hoy en adelante.</p>
+            <section class="card-like agenda-web-card agenda-web-board-card">
+                <div class="agenda-web-board-head">
+                    <a class="btn btn-ghost btn-sm" href="/agenda_web.php?clinica=<?= (int) $idClinica ?>"><i class="bi bi-arrow-left" aria-hidden="true"></i> Atrás</a>
+                    <div>
+                        <h2>Turnos online</h2>
+                        <?php if ($doctorEspecialidad !== ''): ?>
+                            <p class="agenda-web-esp"><?= h($doctorEspecialidad) ?></p>
+                        <?php endif; ?>
+                        <p class="agenda-web-prof"><?= h($doctorNombre) ?></p>
+                    </div>
+                </div>
+                <?php if ($diasLibres === []): ?>
+                    <p class="empty-state">No hay turnos libres en los próximos días para este profesional.</p>
                 <?php else: ?>
-                    <?php
-                    $hayLibres = false;
-                    foreach ($slots as $slot) {
-                        if ((int) ($occupied[$slot] ?? 0) === 0 && (int) ($blocked[$slot] ?? 0) === 0) {
-                            $hayLibres = true;
-                            break;
-                        }
-                    }
-                    ?>
-                    <?php if (!$hayLibres): ?>
-                        <p class="empty-state">No hay horarios libres para ese día y profesional.</p>
-                    <?php else: ?>
-                        <form method="post" class="form-paciente">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="accion" value="reservar">
-                            <input type="hidden" name="clinica" value="<?= (int) $idClinica ?>">
-                            <input type="hidden" name="fecha" value="<?= h($fecha) ?>">
-                            <input type="hidden" name="doctor" value="<?= (int) $doctor ?>">
-                            <div class="agenda-web-slots">
-                                <?php foreach ($slots as $slot): ?>
-                                    <?php
-                                    $slot = (string) $slot;
-                                    $ocup = (int) ($occupied[$slot] ?? 0);
-                                    $bloq = (int) ($blocked[$slot] ?? 0);
-                                    $free = $ocup === 0 && $bloq === 0;
-                                    ?>
-                                    <?php if ($free): ?>
-                                        <label class="agenda-web-slot">
-                                            <input type="radio" name="hora" value="<?= h($slot) ?>" required>
-                                            <span><?= h($slot) ?></span>
-                                        </label>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn-primary"><i class="bi bi-calendar-check" aria-hidden="true"></i> Confirmar turno</button>
-                            </div>
-                        </form>
-                    <?php endif; ?>
+                    <form method="post" class="form-paciente">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="accion" value="reservar">
+                        <input type="hidden" name="clinica" value="<?= (int) $idClinica ?>">
+                        <input type="hidden" name="doctor" value="<?= (int) $doctor ?>">
+                        <div class="agenda-web-board">
+                            <?php foreach ($diasLibres as $dia): ?>
+                                <section class="agenda-web-col">
+                                    <h3><?= h((string) $dia['titulo']) ?></h3>
+                                    <div class="agenda-web-col-horas">
+                                        <?php foreach ($dia['horas'] as $hora): ?>
+                                            <label class="agenda-web-slot">
+                                                <input type="radio" name="turno_slot" value="<?= h((string) $dia['fecha'] . '|' . $hora) ?>" required>
+                                                <span><?= h((string) $hora) ?></span>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </section>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="muted small agenda-web-board-hint">Desplazate hacia los costados para ver más días, y hacia arriba o abajo dentro de cada día para ver todos los horarios. Elegí un horario y confirmá.</p>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-calendar-check" aria-hidden="true"></i> Confirmar turno</button>
+                        </div>
+                    </form>
                 <?php endif; ?>
             </section>
         <?php endif; ?>

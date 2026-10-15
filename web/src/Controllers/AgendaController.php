@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/Repositories/AgendaRepository.php';
 require_once dirname(__DIR__) . '/Repositories/AnunciadorRepository.php';
 require_once dirname(__DIR__) . '/Repositories/DoctoresRepository.php';
+require_once dirname(__DIR__) . '/Repositories/TurnosRepository.php';
 
 final class AgendaController
 {
@@ -26,10 +27,7 @@ final class AgendaController
             $fecha = date('Y-m-d');
         }
         $doctorFiltro = (int) ($_GET['doctor'] ?? 0);
-        $consultorio = trim((string) ($_GET['consultorio'] ?? ''));
-        if ($consultorio === '') {
-            $consultorio = 'Consultorio';
-        }
+        $consultorio = $this->consultorioOverride((string) ($_GET['consultorio'] ?? ''));
         $doctorRole = auth_user_role($this->user) === 'doctor';
         $doctorUser = $doctorRole ? auth_user_doctor_id($this->user) : 0;
         if (auth_user_role($this->user) === 'doctor') {
@@ -55,6 +53,11 @@ final class AgendaController
 
         $fechaPrev = date('Y-m-d', strtotime($fecha . ' -1 day'));
         $fechaNext = date('Y-m-d', strtotime($fecha . ' +1 day'));
+        $calendario = null;
+        if ($doctorFiltro > 0 && !($doctorRole && $doctorUser < 1)) {
+            $turnosRepo = new TurnosRepository($this->pdo, user_clinica_id($this->user));
+            $calendario = $turnosRepo->calendarioDisponibilidad($doctorFiltro, $fecha);
+        }
 
         $body = $this->renderView('agenda/index', [
             'extAgenda' => $extAgenda,
@@ -67,6 +70,7 @@ final class AgendaController
             'resumen' => $resumen,
             'turnoSel' => $turnoSel,
             'consultorio' => $consultorio,
+            'calendario' => $calendario,
         ]);
         layout_render('Agenda', $body, $this->user);
     }
@@ -78,7 +82,7 @@ final class AgendaController
         $accion = trim((string) ($_POST['accion'] ?? ''));
         $fecha = trim((string) ($_POST['fecha'] ?? ''));
         $doctor = (int) ($_POST['doctor'] ?? 0);
-        $consultorio = trim((string) ($_POST['consultorio'] ?? ''));
+        $consultorio = $this->consultorioOverride((string) ($_POST['consultorio'] ?? ''));
 
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
             $fecha = date('Y-m-d');
@@ -90,10 +94,15 @@ final class AgendaController
 
         $repo = new AgendaRepository($this->pdo, user_clinica_id($this->user));
         if ($accion === 'llamar') {
+            $consultorioLlamado = $consultorio;
+            if ($consultorioLlamado === '') {
+                $turnoLlamado = $repo->findById($id, $repo->hasExtendedColumns());
+                $consultorioLlamado = trim((string) ($turnoLlamado['doctor_consultorio'] ?? ''));
+            }
             $anunciadorRepo = new AnunciadorRepository($this->pdo, user_clinica_id($this->user));
             [$ok, $msg] = $anunciadorRepo->llamarDesdeTurno(
                 $id,
-                $consultorio,
+                $consultorioLlamado,
                 (int) ($this->user['id'] ?? 0),
                 auth_user_role($this->user)
             );
@@ -126,7 +135,7 @@ final class AgendaController
         $id = (int) ($_POST['id'] ?? 0);
         $fecha = trim((string) ($_POST['fecha'] ?? ''));
         $doctor = (int) ($_POST['doctor'] ?? 0);
-        $consultorio = trim((string) ($_POST['consultorio'] ?? ''));
+        $consultorio = $this->consultorioOverride((string) ($_POST['consultorio'] ?? ''));
         $observaciones = trim((string) ($_POST['observaciones'] ?? ''));
 
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
@@ -160,6 +169,16 @@ final class AgendaController
             . '&turno=' . $id
         );
         exit;
+    }
+
+    private function consultorioOverride(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '' || strcasecmp($raw, 'Consultorio') === 0) {
+            return '';
+        }
+
+        return $raw;
     }
 
     private function renderView(string $view, array $data): string

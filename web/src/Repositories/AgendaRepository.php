@@ -30,6 +30,51 @@ final class AgendaRepository
         return db_table_exists($this->pdo, 'agenda_llamados');
     }
 
+    private function exprPacienteNombre(): string
+    {
+        $live = db_table_has_column($this->pdo, 'pacientes', 'apellido')
+            ? "NULLIF(TRIM(CONCAT(COALESCE(p.apellido, ''), ' ', COALESCE(p.Nombres, ''))), '')"
+            : "NULLIF(TRIM(p.Nombres), '')";
+        $snap = db_table_has_column($this->pdo, 'agenda_turnos', 'paciente_nombre')
+            ? "NULLIF(TRIM(t.paciente_nombre), '')"
+            : 'NULL';
+
+        return "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE({$live}, {$snap}, CONCAT('HC ', t.NroHC)) END AS paciente_nombre";
+    }
+
+    private function coberturaDisponible(): bool
+    {
+        return db_table_exists($this->pdo, 'lista_coberturas')
+            && db_table_has_column($this->pdo, 'pacientes', 'id_cobertura');
+    }
+
+    private function selectCoberturaNombre(): string
+    {
+        if (!$this->coberturaDisponible()) {
+            return ", '' AS cobertura_nombre";
+        }
+
+        return ', lc.nombre AS cobertura_nombre';
+    }
+
+    private function joinCobertura(): string
+    {
+        if (!$this->coberturaDisponible()) {
+            return '';
+        }
+
+        return ' LEFT JOIN lista_coberturas lc ON lc.id = p.id_cobertura';
+    }
+
+    private function selectDoctorConsultorio(): string
+    {
+        if (!db_table_has_column($this->pdo, 'lista_doctores', 'consultorio')) {
+            return ", '' AS doctor_consultorio";
+        }
+
+        return ', d.consultorio AS doctor_consultorio';
+    }
+
     private function joinPacienteTurno(): string
     {
         $on = 'p.NroHC = t.NroHC';
@@ -47,9 +92,7 @@ final class AgendaRepository
 
     public function listByFechaYDoctor(string $fecha, int $doctorFiltro, bool $extAgenda): array
     {
-        $pacienteExpr = $extAgenda
-            ? "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre"
-            : "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre";
+        $pacienteExpr = $this->exprPacienteNombre();
         $extraSel = $extAgenda
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno'
             : '';
@@ -76,12 +119,14 @@ final class AgendaRepository
         if ($this->agendaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
             $joinDoc .= ' AND d.id_clinica = t.id_clinica';
         }
+        $doctorCons = $this->selectDoctorConsultorio();
+        $coberturaSel = $this->selectCoberturaNombre();
         $sql = "SELECT t.id, t.Fecha, t.hora, t.NroHC, t.Doctor, t.estado, t.idorden, t.observaciones,
             p.id AS paciente_id,
-            {$pacienteExpr}, d.nombre AS doctor_nombre{$extraSel}
+            {$pacienteExpr}, d.nombre AS doctor_nombre{$doctorCons}{$coberturaSel}{$extraSel}
             FROM agenda_turnos t
             LEFT JOIN pacientes p ON " . $this->joinPacienteTurno() . '
-            LEFT JOIN lista_doctores d ON ' . $joinDoc . '
+            LEFT JOIN lista_doctores d ON ' . $joinDoc . $this->joinCobertura() . '
             WHERE t.Fecha = ?
               AND t.NroHC > 0';
         $params = [$fecha];
@@ -104,9 +149,7 @@ final class AgendaRepository
 
     public function findById(int $id, bool $extAgenda): ?array
     {
-        $pacienteExpr = $extAgenda
-            ? "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(t.paciente_nombre), ''), NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre"
-            : "CASE WHEN t.NroHC = -111 THEN 'Disponible' ELSE COALESCE(NULLIF(TRIM(p.Nombres), ''), CONCAT('HC ', t.NroHC)) END AS paciente_nombre";
+        $pacienteExpr = $this->exprPacienteNombre();
         $extraSel = $extAgenda
             ? ', t.atendido, t.llegado, t.confirmado, t.falta_turno, t.pagado, t.motivo'
             : '';
@@ -132,12 +175,14 @@ final class AgendaRepository
         if ($this->agendaTieneClinica() && db_table_has_column($this->pdo, 'lista_doctores', 'id_clinica')) {
             $joinDoc .= ' AND d.id_clinica = t.id_clinica';
         }
+        $doctorCons = $this->selectDoctorConsultorio();
+        $coberturaSel = $this->selectCoberturaNombre();
         $sql = "SELECT t.id, t.Fecha, t.hora, t.NroHC, t.Doctor, t.estado, t.idorden, t.observaciones,
             p.id AS paciente_id,
-            {$pacienteExpr}, d.nombre AS doctor_nombre{$extraSel}
+            {$pacienteExpr}, d.nombre AS doctor_nombre{$doctorCons}{$coberturaSel}{$extraSel}
             FROM agenda_turnos t
             LEFT JOIN pacientes p ON " . $this->joinPacienteTurno() . '
-            LEFT JOIN lista_doctores d ON ' . $joinDoc . '
+            LEFT JOIN lista_doctores d ON ' . $joinDoc . $this->joinCobertura() . '
             WHERE t.id = ?';
         $par = [$id];
         if ($this->agendaTieneClinica()) {

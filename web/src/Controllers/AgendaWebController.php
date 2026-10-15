@@ -56,12 +56,11 @@ final class AgendaWebController
             }
         }
 
-        $fecha = $this->fechaDesdeGet();
         $doctor = (int) ($_GET['doctor'] ?? 0);
         $doctores = $repo->listDoctores();
-        $disp = ['slots' => [], 'occupied' => [], 'blocked' => [], 'source' => '', 'step' => 15, 'sin_franja_dia' => false];
-        if ($paciente && $doctor > 0 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
-            $disp = $repo->disponibilidadVisual($fecha, $doctor, 0);
+        $diasLibres = [];
+        if ($paciente && $doctor > 0) {
+            $diasLibres = $repo->diasConHorariosLibres($doctor, date('Y-m-d'));
         }
         $turnosPaciente = $paciente ? $repo->turnosFuturosPaciente((int) $paciente['nrohc']) : [];
 
@@ -69,10 +68,9 @@ final class AgendaWebController
             'idClinica' => $idClinica,
             'paciente' => $paciente,
             'error' => $error,
-            'fecha' => $fecha,
             'doctor' => $doctor,
             'doctores' => $doctores,
-            'disp' => $disp,
+            'diasLibres' => $diasLibres,
             'turnosPaciente' => $turnosPaciente,
         ]);
         layout_render('Agenda web', $body, null, [
@@ -84,8 +82,14 @@ final class AgendaWebController
 
     private function reservar(TurnosRepository $repo, array $paciente): string
     {
-        $fecha = trim((string) ($_POST['fecha'] ?? ''));
-        $hora = trim((string) ($_POST['hora'] ?? ''));
+        $slot = trim((string) ($_POST['turno_slot'] ?? ''));
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})\|(\d{2}:\d{2})$/', $slot, $m)) {
+            $fecha = $m[1];
+            $hora = $m[2];
+        } else {
+            $fecha = trim((string) ($_POST['fecha'] ?? ''));
+            $hora = trim((string) ($_POST['hora'] ?? ''));
+        }
         $doctor = (int) ($_POST['doctor'] ?? 0);
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $fecha < date('Y-m-d')) {
             return 'Elegí una fecha válida, desde hoy en adelante.';
@@ -96,11 +100,14 @@ final class AgendaWebController
         if (!$repo->doctorDisponible($doctor)) {
             return 'El profesional seleccionado no está disponible.';
         }
-        $disp = $repo->disponibilidadVisual($fecha, $doctor, 0);
-        $slots = $disp['slots'] ?? [];
-        $occupied = $disp['occupied'] ?? [];
-        $blocked = $disp['blocked'] ?? [];
-        if (!in_array($hora, $slots, true) || (int) ($occupied[$hora] ?? 0) > 0 || (int) ($blocked[$hora] ?? 0) > 0) {
+        $libre = false;
+        foreach ($repo->diasConHorariosLibres($doctor, $fecha, 1, 1) as $dia) {
+            if (($dia['fecha'] ?? '') === $fecha && in_array($hora, $dia['horas'] ?? [], true)) {
+                $libre = true;
+                break;
+            }
+        }
+        if (!$libre) {
             return 'Ese horario ya no está disponible. Elegí otra opción.';
         }
 
@@ -152,13 +159,6 @@ final class AgendaWebController
         }
 
         return $id;
-    }
-
-    private function fechaDesdeGet(): string
-    {
-        $fecha = trim((string) ($_GET['fecha'] ?? date('Y-m-d')));
-
-        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) ? $fecha : date('Y-m-d');
     }
 
     /**

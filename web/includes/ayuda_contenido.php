@@ -119,9 +119,11 @@ function ayuda_modulos(): array
                     'titulo' => 'Filtros y grilla',
                     'items' => [
                         'Elija fecha y profesional para ver la agenda correspondiente.',
+                        'Cada fila muestra apellido y nombre del paciente, y debajo la obra social de su ficha.',
+                        'La grilla no tiene columnas Confirmado ni Ausente. Ausente sigue como botón de la fila. Confirmado se ve al seleccionar el turno, en el detalle de la derecha.',
+                        'El consultorio del llamado es el cargado en el profesional. «Otro consultorio» lo reemplaza solo en esta pantalla: puede ser un número (3) o un texto (Consultorio 3). Si lo deja vacío, se usa el de la ficha.',
                         'Puede ordenar la tabla (por hora, paciente, etc.) según necesite.',
-                        'Los colores y estados indican confirmación, llegada, llamado y atención.',
-                        'La agenda muestra únicamente turnos con un paciente asignado. Los registros de horarios vacíos del sistema anterior no se muestran ni se cuentan.',
+                        'El color de la fila indica llegada y atención. La agenda muestra únicamente turnos con un paciente asignado. Los horarios vacíos del sistema anterior no se muestran ni se cuentan.',
                     ],
                 ],
                 [
@@ -131,14 +133,26 @@ function ayuda_modulos(): array
                         'Horario disponible (sin paciente): doble clic en la fila o botón «Asignar turno» abre el formulario con la hora ya cargada.',
                         'Llegó: presencia física en el centro. No implica que esté cobrado.',
                         'Cobro / Orden: abre la gestión administrativa del turno (particular u OS).',
-                        'Llamar: envía al Anunciador (monitor de sala). Requiere que el paciente haya llegado.',
+                        'Llamar: envía al Anunciador (monitor de sala) el paciente y el consultorio del profesional, o el de «Otro consultorio» si se completó. Requiere que el paciente haya llegado.',
+                        'Observaciones del turno: botón de la fila. No se cargan en el formulario del turno.',
                         'Atendido: cierra el circuito asistencial del turno.',
                         'Anular: cancela el turno; puede disparar aviso por WhatsApp si está configurado.',
                     ],
                 ],
                 [
+                    'titulo' => 'Calendario de disponibilidad',
+                    'items' => [
+                        'Al elegir un profesional (no con «Todos») aparece, a la izquierda, el mes en curso y el siguiente.',
+                        'Verde: atiende y el día está libre. Amarillo: atiende y todavía quedan turnos. Rojo: atiende y ya no hay turnos. Azul: ese día no atiende.',
+                        'Un clic en el día abre esa fecha, con el mismo profesional. Las flechas cambian de mes.',
+                        'El doble clic no abre un turno nuevo. Para cargar uno, use «Nuevo turno» después de ver el día.',
+                    ],
+                ],
+                [
                     'titulo' => 'Elegir horario al cargar turno',
                     'items' => [
+                        'El formulario pide paciente, fecha, hora y profesional. No muestra flags (llegó, confirmado, faltó), sesión/caja ni observaciones, para agilizar la carga. Si el turno ya tenía esos datos, se conservan al guardar.',
+                        'Llegó, ausente y atendido se marcan desde la agenda, no desde el formulario.',
                         'En el formulario de turno, la grilla debajo del profesional muestra horarios libres en verde.',
                         'Un clic en verde completa el campo Hora automáticamente; doble clic además lleva el cursor al Nro HC.',
                         '«Próximos turnos libres» permite elegir día y luego la hora con un clic.',
@@ -243,7 +257,8 @@ function ayuda_modulos(): array
                 [
                     'titulo' => 'Flujo',
                     'items' => [
-                        'Desde Agenda, «Llamar» publica paciente, consultorio y profesional.',
+                        'Desde Agenda, «Llamar» publica el paciente y el consultorio cargado en la ficha del profesional. «Otro consultorio» lo reemplaza solo en esa pantalla. Un número solo, por ejemplo 3, se muestra como «Consultorio 3».',
+                        'Si un llamado viejo quedó guardado solo con la palabra «Consultorio», el monitor usa el consultorio actual de la ficha.',
                         'Al marcar «Atendido» en Agenda se finaliza el llamado activo.',
                         'Si no hay llamados, el monitor muestra un mensaje de espera.',
                     ],
@@ -270,7 +285,8 @@ function ayuda_modulos(): array
                 [
                     'titulo' => 'Qué hace el paciente',
                     'items' => [
-                        'Ingresa con documento → elige fecha → profesional → horario libre → confirma.',
+                        'Ingresa con documento, elige el profesional y ve los próximos días con turnos libres, en columnas. Cada columna se desplaza para ver más horarios, y hacia los costados aparecen más días.',
+                        'Solo se listan días en los que el profesional atiende, y horarios que siguen libres. Elige un horario y confirma.',
                         'El turno aparece en Agenda diaria (recepción lo ve igual que un turno cargado a mano).',
                         'No puede entrar al resto del sistema (pacientes, caja, etc.).',
                     ],
@@ -577,7 +593,7 @@ function ayuda_modulos(): array
                     'titulo' => 'Alta y vínculo con usuario',
                     'items' => [
                         'Cada doctor del listado puede vincularse a un usuario con rol «doctor» para acceder solo a su agenda.',
-                        'Complete matrícula y consultorio si usa Anunciador.',
+                        'Complete matrícula y consultorio si usa Anunciador. Ese consultorio es el que ve el paciente en la sala, salvo que en la agenda se indique otro para ese momento.',
                     ],
                 ],
             ],
@@ -781,7 +797,15 @@ function ayuda_modulos(): array
                 ],
                 [
                     'pregunta' => 'Agenda Web: el paciente no encuentra turnos.',
-                    'respuesta' => 'Verifique que el DNI esté cargado en su ficha, que haya horarios libres sin bloqueos, que el profesional elegido atienda ese día y que la URL use el id de clínica correcto (?clinica=).',
+                    'respuesta' => 'Verifique que el DNI esté cargado en su ficha, que el profesional tenga planilla de horarios y turnos libres sin bloqueos, y que la URL use el id de clínica correcto (?clinica=). El portal no muestra días en los que el profesional no atiende.',
+                ],
+                [
+                    'pregunta' => '¿Qué significan los colores del calendario de la agenda?',
+                    'respuesta' => 'Aparece al elegir un profesional. Verde: atiende y el día está libre. Amarillo: atiende y todavía quedan turnos. Rojo: ya no hay turnos. Azul: ese día no atiende. Un clic abre esa fecha.',
+                ],
+                [
+                    'pregunta' => '¿De dónde sale el consultorio que muestra el Anunciador?',
+                    'respuesta' => 'De la ficha del profesional (Doctores → Consultorio). En la agenda, «Otro consultorio» lo cambia solo para los llamados de esa pantalla. Puede escribir un número (3) o un texto (Consultorio 3).',
                 ],
                 [
                     'pregunta' => '¿El Anunciador no muestra nada en la TV?',

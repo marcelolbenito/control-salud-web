@@ -175,9 +175,10 @@ final class DoctoresRepository
 
     public function listActivos(): array
     {
+        $cons = db_table_has_column($this->pdo, 'lista_doctores', 'consultorio') ? ', consultorio' : '';
         if ($this->doctoresTieneClinica()) {
             $st = $this->pdo->prepare(
-                'SELECT id, nombre FROM lista_doctores WHERE activo = 1 AND id_clinica = ? ORDER BY nombre ASC'
+                'SELECT id, nombre' . $cons . ' FROM lista_doctores WHERE activo = 1 AND id_clinica = ? ORDER BY nombre ASC'
             );
             $st->execute([$this->idClinica]);
 
@@ -185,7 +186,7 @@ final class DoctoresRepository
         }
 
         return $this->pdo->query(
-            'SELECT id, nombre FROM lista_doctores WHERE activo = 1 ORDER BY nombre ASC'
+            'SELECT id, nombre' . $cons . ' FROM lista_doctores WHERE activo = 1 ORDER BY nombre ASC'
         )->fetchAll();
     }
 

@@ -19,12 +19,9 @@ final class TurnosController
 
     public function form(): void
     {
-        require_once dirname(__DIR__, 2) . '/includes/catalogos.php';
-
         $repo = new TurnosRepository($this->pdo, user_clinica_id($this->user));
         $ext = $repo->hasExtendedAgendaColumns();
         $doctores = $repo->listDoctores();
-        $primeraVezOpts = catalogo_lista($this->pdo, 'lista_primera_vez', 'prioridad_id');
 
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         $defaultsFecha = trim((string) ($_GET['fecha'] ?? ''));
@@ -113,32 +110,43 @@ final class TurnosController
             $Doctor = (int) ($_POST['Doctor'] ?? 0);
             $idordenRaw = trim((string) ($_POST['idorden'] ?? ''));
             $estado = trim((string) ($_POST['estado'] ?? 'pendiente'));
-            $observaciones = trim((string) ($_POST['observaciones'] ?? ''));
+            $observaciones = $existente
+                ? trim((string) ($existente['observaciones'] ?? ''))
+                : '';
 
             $hora = $horaRaw === '' ? null : $horaRaw;
             $idorden = $idordenRaw === '' ? null : (int) $idordenRaw;
 
             $ex = [];
             if ($ext) {
+                $mantener = static function (string $key) use ($existente) {
+                    if (!$existente || !array_key_exists($key, $existente) || $existente[$key] === null || $existente[$key] === '') {
+                        return null;
+                    }
+
+                    return $existente[$key];
+                };
+                $flag = static function (string $key) use ($existente): int {
+                    return $existente ? (int) ($existente[$key] ?? 0) : 0;
+                };
                 $ex = [
                     'paciente_nombre' => trim((string) ($_POST['paciente_nombre'] ?? '')),
                     'motivo' => post_int_null('motivo'),
-                    'atendido' => isset($_POST['atendido']) ? 1 : 0,
-                    'pagado' => isset($_POST['pagado']) ? 1 : 0,
-                    'llegado' => isset($_POST['llegado']) ? 1 : 0,
-                    'llegado_hora' => trim((string) ($_POST['llegado_hora'] ?? '')) ?: null,
-                    'confirmado' => isset($_POST['confirmado']) ? 1 : 0,
-                    'falta_turno' => isset($_POST['falta_turno']) ? 1 : 0,
-                    'reingresar' => isset($_POST['reingresar']) ? 1 : 0,
-                    'primera_vez' => post_int_null('primera_vez'),
-                    'num_sesion' => post_int_null('num_sesion'),
-                    'id_sesion' => post_int_null('id_sesion'),
-                    'id_caja' => post_int_null('id_caja'),
-                    'usuario_asignado' => trim((string) ($_POST['usuario_asignado'] ?? '')) ?: null,
-                    'alta_paci_web' => post_int_null('alta_paci_web'),
+                    'atendido' => $flag('atendido'),
+                    'pagado' => $flag('pagado'),
+                    'llegado' => $flag('llegado'),
+                    'llegado_hora' => $mantener('llegado_hora'),
+                    'confirmado' => $flag('confirmado'),
+                    'falta_turno' => $flag('falta_turno'),
+                    'reingresar' => $flag('reingresar'),
+                    'primera_vez' => $mantener('primera_vez') !== null ? (int) $mantener('primera_vez') : null,
+                    'num_sesion' => $mantener('num_sesion') !== null ? (int) $mantener('num_sesion') : null,
+                    'id_sesion' => $mantener('id_sesion') !== null ? (int) $mantener('id_sesion') : null,
+                    'id_caja' => $mantener('id_caja') !== null ? (int) $mantener('id_caja') : null,
+                    'usuario_asignado' => $mantener('usuario_asignado') !== null ? trim((string) $mantener('usuario_asignado')) : null,
+                    'alta_paci_web' => $mantener('alta_paci_web') !== null ? (int) $mantener('alta_paci_web') : null,
+                    'fechahora_asignado' => $mantener('fechahora_asignado'),
                 ];
-                $fh = trim((string) ($_POST['fechahora_asignado'] ?? ''));
-                $ex['fechahora_asignado'] = $fh === '' ? null : str_replace('T', ' ', $fh) . ':00';
 
                 if ($ex['paciente_nombre'] === '' && $NroHC > 0) {
                     $ex['paciente_nombre'] = $repo->pacienteNombreParaTurno($NroHC);
@@ -262,7 +270,6 @@ final class TurnosController
             'titulo' => $titulo,
             'volver' => $volver,
             'doctores' => $doctores,
-            'primeraVezOpts' => $primeraVezOpts,
             'dispOcupadas' => $disp['occupied'],
             'dispBloqueadas' => $disp['blocked'] ?? [],
             'dispSlots' => $disp['slots'],

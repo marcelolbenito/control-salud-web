@@ -10,10 +10,28 @@ declare(strict_types=1);
             <p class="alert alert-error">Tu usuario doctor no tiene profesional vinculado. Pedí al administrador que asocie un doctor en Sistema > Usuarios.</p>
         <?php endif; ?>
         <?php if (!$extAgenda): ?>
-            <p class="muted" style="font-size:0.9rem;">Columnas Atendido/Llegó/Confirmado/Ausente aparecen tras <code>sql/migration_003_doctores_agenda_exe.sql</code>.</p>
+            <p class="muted" style="font-size:0.9rem;">Columnas Atendido/Llegó aparecen tras <code>sql/migration_003_doctores_agenda_exe.sql</code>.</p>
         <?php endif; ?>
     </div>
 
+    <?php
+    $consultorioProfesional = '';
+    if ($doctorFiltro > 0) {
+        foreach ($doctores as $d) {
+            if ((int) $d['id'] === $doctorFiltro) {
+                $consultorioProfesional = trim((string) ($d['consultorio'] ?? ''));
+                break;
+            }
+        }
+    }
+    if ($consultorioProfesional !== '') {
+        $consultorioPlaceholder = 'Del profesional: ' . $consultorioProfesional;
+    } elseif ($doctorFiltro > 0) {
+        $consultorioPlaceholder = 'Este profesional no tiene consultorio';
+    } else {
+        $consultorioPlaceholder = 'El de cada profesional';
+    }
+    ?>
     <form method="get" class="agenda-filters form-card" action="/agenda.php">
         <div class="filter-row">
             <label class="agenda-fecha-label">
@@ -39,8 +57,9 @@ declare(strict_types=1);
             </label>
             <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Ver</button>
             <label>
-                Consultorio llamado
-                <input type="text" name="consultorio" value="<?= h($consultorio) ?>" maxlength="40" placeholder="Consultorio 1">
+                Otro consultorio
+                <input type="text" id="agenda-consultorio-override" name="consultorio" value="<?= h($consultorio) ?>" maxlength="40" placeholder="<?= h($consultorioPlaceholder) ?>">
+                <span class="hint">Vacío: el del profesional. Si lo cambiás, podés poner un número (3) o un texto (Consultorio 3): eso se ve en el anunciador.</span>
             </label>
         </div>
     </form>
@@ -67,29 +86,99 @@ declare(strict_types=1);
         <a class="btn btn-primary" title="Crear una orden fuera del circuito del turno" href="/orden_form.php?fecha=<?= urlencode($fecha) ?><?= $doctorFiltro > 0 ? '&doctor=' . (int) $doctorFiltro : '' ?>"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nueva orden manual</a>
     </div>
 
-    <div class="agenda-layout">
+    <div class="agenda-layout<?= $calendario ? ' agenda-layout-cal' : '' ?>">
+        <?php if ($calendario): ?>
+            <?php
+            $calExtra = ($doctorFiltro > 0 ? '&doctor=' . (int) $doctorFiltro : '')
+                . ($consultorio !== '' ? '&consultorio=' . rawurlencode($consultorio) : '');
+            $calTitulo = static function (string $estado): string {
+                if ($estado === 'libre') {
+                    return 'Atiende y el día está libre';
+                }
+                if ($estado === 'parcial') {
+                    return 'Atiende y todavía quedan turnos';
+                }
+                if ($estado === 'lleno') {
+                    return 'Atiende y ya no hay turnos';
+                }
+                if ($estado === 'no_atiende') {
+                    return 'No atiende';
+                }
+
+                return '';
+            };
+            ?>
+            <aside class="agenda-cal card-like">
+                <div class="agenda-cal-nav">
+                    <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode((string) $calendario['prev']) ?><?= $calExtra ?>" title="Mes anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+                    <strong>Disponibilidad</strong>
+                    <a class="btn btn-ghost btn-sm" href="/agenda.php?fecha=<?= rawurlencode((string) $calendario['next']) ?><?= $calExtra ?>" title="Mes siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+                </div>
+                <?php foreach ($calendario['meses'] as $mes): ?>
+                    <section class="agenda-cal-mes">
+                        <h2><?= h((string) $mes['titulo']) ?></h2>
+                        <div class="agenda-cal-grid agenda-cal-dow" aria-hidden="true">
+                            <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+                        </div>
+                        <?php foreach ($mes['semanas'] as $semana): ?>
+                            <div class="agenda-cal-grid">
+                                <?php foreach ($semana as $dia): ?>
+                                    <?php if (!$dia['en_mes']): ?>
+                                        <span class="agenda-cal-dia is-out"></span>
+                                    <?php else: ?>
+                                        <a
+                                            class="agenda-cal-dia estado-<?= h((string) $dia['estado']) ?><?= !empty($dia['seleccionado']) ? ' is-selected' : '' ?><?= !empty($dia['hoy']) ? ' is-today' : '' ?>"
+                                            href="/agenda.php?fecha=<?= rawurlencode((string) $dia['fecha']) ?><?= $calExtra ?>"
+                                            title="<?= h($calTitulo((string) $dia['estado'])) ?>"
+                                        ><?= (int) $dia['dia'] ?></a>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </section>
+                <?php endforeach; ?>
+                <ul class="agenda-cal-leyenda">
+                    <li><span class="agenda-cal-muestra estado-libre"></span> Libre</li>
+                    <li><span class="agenda-cal-muestra estado-parcial"></span> Quedan turnos</li>
+                    <li><span class="agenda-cal-muestra estado-lleno"></span> Sin turnos</li>
+                    <li><span class="agenda-cal-muestra estado-no_atiende"></span> No atiende</li>
+                </ul>
+            </aside>
+        <?php endif; ?>
         <section class="agenda-main">
             <?php if ($rows === []): ?>
                 <p class="empty-state">No hay turnos para esta fecha<?= $doctorFiltro > 0 ? ' y profesional' : '' ?>.</p>
             <?php else: ?>
                 <div class="table-wrap table-wrap-datatable">
                     <table id="tbl-agenda" class="table">
+                <colgroup>
+                    <col class="agenda-col-hora">
+                    <col class="agenda-col-paciente">
+                    <col class="agenda-col-hc">
+                    <col class="agenda-col-prof">
+                    <col class="agenda-col-estado">
+                    <?php if ($extAgenda): ?>
+                        <col class="agenda-col-flag">
+                        <col class="agenda-col-flag">
+                    <?php endif; ?>
+                    <col class="agenda-col-orden">
+                    <col class="agenda-col-obs">
+                    <col class="agenda-col-acciones">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th>Hora</th>
-                        <th>Paciente</th>
-                        <th>Nro HC</th>
-                        <th>Profesional</th>
-                        <th>Estado</th>
+                        <th class="agenda-col-hora">Hora</th>
+                        <th class="agenda-col-paciente">Paciente</th>
+                        <th class="agenda-col-hc" title="Número de historia clínica">HC</th>
+                        <th class="agenda-col-prof">Profesional</th>
+                        <th class="agenda-col-estado">Estado</th>
                         <?php if ($extAgenda): ?>
-                            <th>Atendido</th>
-                            <th>Llegó</th>
-                            <th>Confirmado</th>
-                            <th>Ausente</th>
+                            <th class="agenda-col-flag">Atendido</th>
+                            <th class="agenda-col-flag">Llegó</th>
                         <?php endif; ?>
-                        <th>Orden médica</th>
-                        <th>Obs.</th>
-                        <th>Acciones</th>
+                        <th class="agenda-col-orden" title="Orden médica">Orden</th>
+                        <th class="agenda-col-obs">Obs.</th>
+                        <th class="agenda-col-acciones">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,21 +233,27 @@ declare(strict_types=1);
                             aria-label="<?= $esDisponible ? 'Horario disponible. Doble clic para asignar paciente.' : 'Ver detalle del turno de ' . h((string) ($r['paciente_nombre'] ?? 'paciente')) ?>"
                         >
                             <td><?= $r['hora'] ? h(substr((string) $r['hora'], 0, 5)) : '—' ?></td>
-                            <td>
+                            <?php $osPaciente = trim((string) ($r['cobertura_nombre'] ?? '')); ?>
+                            <td class="agenda-paciente-cell">
                                 <?php if ($esDisponible): ?>
                                     <span class="muted"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Disponible</span>
                                 <?php else: ?>
-                                    <a class="agenda-paciente-link" href="<?= h($pacienteUrl) ?>" target="_blank" rel="noopener" title="Abrir ficha del paciente"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a>
+                                    <a class="agenda-paciente-link" href="<?= h($pacienteUrl) ?>" target="_blank" rel="noopener" title="<?= h(trim((string) ($r['paciente_nombre'] ?? 'paciente') . ($osPaciente !== '' ? ' · ' . $osPaciente : ''))) ?>"><i class="bi bi-person" aria-hidden="true"></i> <?= h($r['paciente_nombre'] ?? '') ?></a>
+                                    <?php if ($osPaciente !== ''): ?><span class="agenda-os"><?= h($osPaciente) ?></span><?php endif; ?>
                                 <?php endif; ?>
                             </td>
                             <td><?= $esDisponible ? '—' : $nroHc ?></td>
-                            <td><?= h($r['doctor_nombre'] ?? '—') ?></td>
+                            <?php
+                            $consDoctor = trim((string) ($r['doctor_consultorio'] ?? ''));
+                            $consVisible = $consultorio !== '' ? $consultorio : $consDoctor;
+                            ?>
+                            <td class="agenda-prof-cell" title="<?= h(trim((string) ($r['doctor_nombre'] ?? '—') . ($consVisible !== '' ? ' · ' . $consVisible : ''))) ?>">
+                                <span class="agenda-clip"><?= h($r['doctor_nombre'] ?? '—') ?></span><?php if ($consVisible !== ''): ?><span class="agenda-cons"><?= h($consVisible) ?></span><?php endif; ?>
+                            </td>
                             <td><span class="badge-estado estado-<?= h($estadoSlug) ?>"><?= h((string) $estadoUi) ?></span></td>
                             <?php if ($extAgenda): ?>
                                 <td title="Atendido"><?= !empty($r['atendido']) ? 'Sí' : '—' ?></td>
                                 <td title="Llegó"><?= !empty($r['llegado']) ? 'Sí' : '—' ?></td>
-                                <td title="Confirmado"><?= !empty($r['confirmado']) ? 'Sí' : '—' ?></td>
-                                <td title="Faltó"><?= !empty($r['falta_turno']) ? 'Sí' : '—' ?></td>
                             <?php endif; ?>
                             <td><?= $r['idorden'] !== null ? (int) $r['idorden'] : '—' ?></td>
                             <td class="cell-clip" title="<?= h($obs) ?>">
@@ -177,7 +272,7 @@ declare(strict_types=1);
                             </td>
                             <td class="table-actions">
                                 <?php if ($esDisponible): ?>
-                                    <a class="btn btn-sm btn-primary" title="Asignar paciente a este horario" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Asignar turno</a>
+                                    <a class="btn btn-sm btn-primary btn-icon" title="Asignar paciente a este horario" href="/turno_form.php?id=<?= (int) $r['id'] ?>"><i class="bi bi-calendar-plus" aria-hidden="true"></i><span class="btn-label"> Asignar turno</span></a>
                                 <?php else: ?>
                                 <?php
                                 $isLlegado = $extAgenda && !empty($r['llegado']);
@@ -187,7 +282,7 @@ declare(strict_types=1);
                                 $llamadoActivo = !empty($r['llamado_activo']);
                                 ?>
                                 <?php if (!$isNoAsistio): ?>
-                                    <a class="btn btn-sm btn-primary" title="Registrar cobro u orden del turno" href="/recepcion_turno.php?turno=<?= (int) $r['id'] ?>"><i class="bi bi-person-vcard" aria-hidden="true"></i> Cobro / Orden</a>
+                                    <a class="btn btn-sm btn-primary btn-icon" title="Registrar cobro u orden del turno" href="/recepcion_turno.php?turno=<?= (int) $r['id'] ?>"><i class="bi bi-person-vcard" aria-hidden="true"></i><span class="btn-label"> Cobro / Orden</span></a>
                                 <?php endif; ?>
                                 <?php if ($extAgenda): ?>
                                     <?php if (!$isAtendido): ?>
@@ -265,6 +360,12 @@ declare(strict_types=1);
                 <?php $turnoDisponible = (int) ($turnoSel['NroHC'] ?? 0) === -111; ?>
                 <p><strong>Hora:</strong> <?= $turnoSel['hora'] ? h(substr((string) $turnoSel['hora'], 0, 5)) : '—' ?></p>
                 <p><strong>Profesional:</strong> <?= h((string) ($turnoSel['doctor_nombre'] ?? '—')) ?></p>
+                <?php
+                $consSel = $consultorio !== ''
+                    ? $consultorio
+                    : trim((string) ($turnoSel['doctor_consultorio'] ?? ''));
+                ?>
+                <p><strong>Consultorio:</strong> <?= $consSel !== '' ? h($consSel) : '—' ?><?php if ($consultorio !== ''): ?> <span class="muted small">(reemplaza al del profesional en los llamados)</span><?php endif; ?></p>
                 <?php if ($turnoDisponible): ?>
                     <p class="alert alert-info">Horario disponible. Todavía no tiene paciente asignado. <strong>Doble clic</strong> en la fila para asignar.</p>
                     <p class="agenda-side-actions">
@@ -272,6 +373,7 @@ declare(strict_types=1);
                     </p>
                 <?php else: ?>
                     <p><strong>Paciente:</strong> <?= h((string) ($turnoSel['paciente_nombre'] ?? '—')) ?></p>
+                    <p><strong>Obra social:</strong> <?= h(trim((string) ($turnoSel['cobertura_nombre'] ?? '')) ?: '—') ?></p>
                     <p><strong>Nro HC:</strong> <?= (int) ($turnoSel['NroHC'] ?? 0) ?></p>
                     <p><strong>Estado:</strong> <?= h((string) ($turnoSel['estado'] ?? '—')) ?></p>
                     <?php if ($extAgenda): ?>
@@ -361,6 +463,15 @@ declare(strict_types=1);
         if (event.key === 'Escape' && !modal.hidden) {
             closeModal();
         }
+    });
+})();
+(function () {
+    var input = document.getElementById('agenda-consultorio-override');
+    if (!input) return;
+    input.addEventListener('input', function () {
+        document.querySelectorAll('input[type="hidden"][name="consultorio"]').forEach(function (el) {
+            el.value = input.value;
+        });
     });
 })();
 </script>
