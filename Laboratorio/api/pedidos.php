@@ -10,7 +10,9 @@ use App\Helpers\Response;
 use App\Repositories\DeterminacionRepository;
 use App\Repositories\NbuDeterminacionRepository;
 use App\Repositories\NbuValorOsRepository;
+use App\Repositories\PedidoItemRepository;
 use App\Repositories\PedidoRepository;
+use App\Repositories\ResultadoRepository;
 use App\Repositories\PerfilRepository;
 use App\Services\AranceladorService;
 use App\Services\AuditoriaService;
@@ -38,6 +40,8 @@ $service = new PedidoService(
     perfilRepo: new PerfilRepository($db),
     auditoria: new AuditoriaService($db),
     arancelador: $arancelador,
+    itemRepo: new PedidoItemRepository($db),
+    resultadoRepo: new ResultadoRepository($db),
 );
 
 $controller = new PedidoController($service);
@@ -72,6 +76,16 @@ switch (true) {
     case $method === 'POST' && $accion === 'eliminar':
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         $controller->eliminar($id);
+        break;
+
+    case $method === 'POST' && $accion === 'agregar_items':
+        $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        $controller->agregarItems($id);
+        break;
+
+    case $method === 'POST' && $accion === 'quitar_item':
+        $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        $controller->quitarItem($id);
         break;
 
     case $method === 'GET' && $accion === 'portada':

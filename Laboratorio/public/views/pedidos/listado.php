@@ -165,10 +165,11 @@ require __DIR__ . '/../_layout/header.php';
                             <th data-sort="estado_asc">Estado</th>
                             <th data-sort="prioridad_asc">Prioridad</th>
                             <th><i class="bi bi-exclamation-triangle"></i></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody id="ord-tbody">
-                        <tr><td colspan="9" class="muted" style="text-align:center; padding: 2rem;">Aplica filtros y presiona Buscar.</td></tr>
+                        <tr><td colspan="10" class="muted" style="text-align:center; padding: 2rem;">Aplica filtros y presiona Buscar.</td></tr>
                     </tbody>
                 </table>
             </div>

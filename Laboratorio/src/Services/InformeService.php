@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\DomainException;
 use App\Exceptions\ValidationException;
+use App\Helpers\HemogramaLayout;
 use App\Models\Informe;
 use App\Repositories\InformeRepository;
 use App\Repositories\PedidoRepository;
@@ -272,6 +273,17 @@ final class InformeService
     }
 
     /**
+     * Pedidos activos sin informe completo.
+     *
+     * @param array<string,mixed> $filtros
+     * @return array<int,array<string,mixed>>
+     */
+    public function listarPendientes(array $filtros = []): array
+    {
+        return $this->informeRepo->findPendientesDeInforme($filtros);
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     public function obtener(int $id): ?array
@@ -299,8 +311,12 @@ final class InformeService
             $snapshot = is_string($sp) ? (json_decode($sp, true) ?: []) : (is_array($sp) ? $sp : []);
         }
 
+        // El hemograma se renderiza con su layout propio (serie roja/blanca +
+        // formula leucocitaria con absolutos calculados); el resto va por area.
+        [$hemograma, $resto] = $this->separarHemograma($resultados);
+
         $porArea = [];
-        foreach ($resultados as $r) {
+        foreach ($resto as $r) {
             $area = (string) ($r['area_nombre'] ?? 'Sin area');
             $porArea[$area][] = $r;
         }
@@ -320,8 +336,80 @@ final class InformeService
                 'sexo'      => $snapshot['sexo']      ?? '',
                 'fecha_nac' => $snapshot['fecha_nac'] ?? '',
             ],
+            'hemograma'           => $hemograma,
             'resultados_por_area' => $porArea,
             'firma' => $opciones['firma'] ?? null,
         ];
+    }
+
+    /**
+     * Separa los resultados del hemograma (por codigo de determinacion) y los
+     * estructura segun el layout impreso. Devuelve [estructura|null, resto].
+     * El absoluto de la formula leucocitaria se calcula con el recuento de
+     * globulos blancos del propio pedido.
+     *
+     * @param array<int,array<string,mixed>> $resultados
+     * @return array{0: ?array<string,mixed>, 1: array<int,array<string,mixed>>}
+     */
+    private function separarHemograma(array $resultados): array
+    {
+        $porCodigo = [];
+        $resto = [];
+        foreach ($resultados as $r) {
+            $cod = strtoupper((string) ($r['determinacion_codigo'] ?? ''));
+            if ($cod !== '' && HemogramaLayout::esHemograma($cod)) {
+                $porCodigo[$cod] = $r;
+            } else {
+                $resto[] = $r;
+            }
+        }
+
+        if ($porCodigo === []) {
+            return [null, $resultados];
+        }
+
+        $valorNum = static function (?array $r): ?float {
+            if ($r === null) {
+                return null;
+            }
+            $v = $r['valor_numerico'] ?? null;
+            return ($v === null || $v === '') ? null : (float) $v;
+        };
+
+        $gb = $valorNum($porCodigo['GB'] ?? null);
+
+        $fila = static function (string $cod) use ($porCodigo): ?array {
+            if (!isset($porCodigo[$cod])) {
+                return null;
+            }
+            $r = $porCodigo[$cod];
+            $r['hemo_label'] = HemogramaLayout::etiqueta($cod, (string) ($r['determinacion_nombre'] ?? ''));
+            return $r;
+        };
+
+        $indices = [];
+        foreach (HemogramaLayout::SERIE_ROJA_INDICES as $cod) {
+            $f = $fila($cod);
+            if ($f !== null) {
+                $indices[] = $f;
+            }
+        }
+
+        $formula = [];
+        foreach (HemogramaLayout::FORMULA as $cod) {
+            $f = $fila($cod);
+            if ($f === null) {
+                continue;
+            }
+            $f['hemo_absoluto'] = HemogramaLayout::absoluto($gb, $valorNum($f));
+            $formula[] = $f;
+        }
+
+        $hemograma = [
+            'serie_roja'   => ['header' => $fila('GR'), 'indices' => $indices],
+            'serie_blanca' => ['header' => $fila('GB'), 'formula' => $formula],
+        ];
+
+        return [$hemograma, $resto];
     }
 }

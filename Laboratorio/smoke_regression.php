@@ -14,7 +14,9 @@ require __DIR__ . '/vendor/autoload.php';
 use App\Repositories\DeterminacionRepository;
 use App\Repositories\NbuDeterminacionRepository;
 use App\Repositories\NbuValorOsRepository;
+use App\Repositories\PedidoItemRepository;
 use App\Repositories\PedidoRepository;
+use App\Repositories\ResultadoRepository;
 use App\Repositories\PerfilRepository;
 use App\Services\AranceladorService;
 use App\Services\AuditoriaService;
@@ -47,6 +49,8 @@ try {
         perfilRepo: new PerfilRepository($db),
         auditoria: new AuditoriaService($db),
         arancelador: $arancelador,
+        itemRepo: new PedidoItemRepository($db),
+        resultadoRepo: new ResultadoRepository($db),
     );
 
     $result = $service->buscar([]);

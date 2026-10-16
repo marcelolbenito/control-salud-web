@@ -135,16 +135,32 @@ $bqTitulo = (string) ($firmante['titulo'] ?? 'Bioquimica');
         h2.seccion { margin: 5mm 0 1mm 0; font-size: 10.5pt; font-weight: bold; }
 
         table.deters { width: 100%; border-collapse: collapse; }
+        table.deters.area { margin-top: 2mm; }
         table.deters td { vertical-align: top; padding: 1mm 0; }
         table.deters .deter { width: 40%; }
         table.deters .deter .nombre { font-weight: bold; }
         table.deters .deter .metodo { font-style: italic; font-size: 8.5pt; padding-left: 3mm; color: #444; }
         table.deters .resultado { width: 22%; font-family: DejaVu Sans Mono, monospace; }
         table.deters .resultado.anormal { font-weight: bold; }
-        table.deters .resultado.critico { font-weight: bold; color: #b42318; }
-        table.deters .resultado.critico:after { content: " <?= str_replace(['"', '\\'], '', (string) ($lab['informe_label_critico'] ?? '') ?: 'CRITICO') ?>"; font-size: 7.5pt; background: #b42318; color: white; padding: 0 3px; margin-left: 2px; border-radius: 2px; }
+        table.deters .resultado.critico { font-weight: bold; }
         table.deters .referencia { width: 38%; font-size: 8.5pt; line-height: 1.3; }
         table.deters .referencia.multiline { white-space: pre-line; }
+
+        .hemo-metodo { font-style: italic; font-size: 8.5pt; color: #444; padding-left: 3mm; margin: 0 0 1mm 0; }
+        table.deters .deter.indent { padding-left: 7mm; }
+        table.deters .deter.indent .nombre { font-weight: normal; }
+        table.hemo-formula { width: 100%; border-collapse: collapse; margin-top: 1mm; }
+        table.hemo-formula td { vertical-align: top; padding: 0.6mm 0; }
+        table.hemo-formula .deter { width: 40%; }
+        table.hemo-formula .deter.indent { padding-left: 7mm; }
+        table.hemo-formula .deter .nombre { font-weight: normal; }
+        table.hemo-formula .rel,
+        table.hemo-formula .abs { width: 11%; font-family: DejaVu Sans Mono, monospace; }
+        table.hemo-formula .rel.anormal,
+        table.hemo-formula .abs.anormal { font-weight: bold; }
+        table.hemo-formula .referencia { width: 38%; font-size: 8.5pt; line-height: 1.3; white-space: pre-line; }
+        table.hemo-formula tr.hdr td { font-weight: bold; border-bottom: 1px solid #555; padding-bottom: 0.5mm; }
+        table.hemo-formula tr.hdr .deter { font-style: normal; }
 
         .parcial-banner { background: #fef3f2; color: #b42318; padding: 4px 8px; border-radius: 3px; font-weight: bold; display: inline-block; font-size: 9pt; margin-bottom: 3mm; }
     </style>
@@ -214,9 +230,74 @@ $bqTitulo = (string) ($firmante['titulo'] ?? 'Bioquimica');
         <span class="col c3"><?= $esc((string) ($lab['informe_label_valores_referencia'] ?? '') ?: 'VALORES DE REFERENCIA') ?></span>
     </div>
 
-    <?php foreach ($resultados_por_area as $areaNombre => $resultados): ?>
-        <h2 class="seccion"><?= $esc(strtoupper((string) $areaNombre)) ?></h2>
+    <?php if (!empty($hemograma)): ?>
+        <?php
+        $hemoMetodo = trim((string) ($lab['informe_hemograma_metodo'] ?? '')) ?: 'Advia 2120, Siemens, USA';
+        $fmtAbs = static fn (mixed $v): string => $v === null ? '' : number_format((float) $v, 0, ',', '.') . ' mm3';
+        $filasSerie = [];
+        if (!empty($hemograma['serie_roja']['header'])) {
+            $filasSerie[] = [$hemograma['serie_roja']['header'], false];
+        }
+        foreach (($hemograma['serie_roja']['indices'] ?? []) as $ix) {
+            $filasSerie[] = [$ix, true];
+        }
+        if (!empty($hemograma['serie_blanca']['header'])) {
+            $filasSerie[] = [$hemograma['serie_blanca']['header'], false];
+        }
+        ?>
+        <div class="hemo-bloque">
+        <h2 class="seccion">HEMOGRAMA</h2>
+        <div class="hemo-metodo">(M&Eacute;TODO: <?= $esc($hemoMetodo) ?>)</div>
         <table class="deters">
+            <?php foreach ($filasSerie as [$r, $indent]): ?>
+                <?php
+                $clase = !empty($r['es_critico']) ? 'critico' : (!empty($r['es_anormal']) ? 'anormal' : '');
+                $unidad = (string) ($r['unidad'] ?? '');
+                $valor = $fmtValor($r) . ($unidad !== '' ? ' ' . $unidad : '');
+                $ref = $fmtReferencia($r);
+                $multiline = str_contains($ref, "\n");
+                ?>
+                <tr>
+                    <td class="deter <?= $indent ? 'indent' : '' ?>">
+                        <span class="nombre"><?= $esc((string) ($r['hemo_label'] ?? $r['determinacion_nombre'] ?? '')) ?></span>
+                    </td>
+                    <td class="resultado <?= $esc($clase) ?>"><?= $esc($valor) ?></td>
+                    <td class="referencia <?= $multiline ? 'multiline' : '' ?>"><?= $esc($ref) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </table>
+
+        <?php if (!empty($hemograma['serie_blanca']['formula'])): ?>
+            <table class="hemo-formula">
+                <tr class="hdr">
+                    <td class="deter">F&Oacute;RMULA LEUCOCITARIA</td>
+                    <td class="rel">Relativa</td>
+                    <td class="abs">Absoluta</td>
+                    <td class="referencia"></td>
+                </tr>
+                <?php foreach ($hemograma['serie_blanca']['formula'] as $r): ?>
+                    <?php
+                    $clase = !empty($r['es_critico']) ? 'critico' : (!empty($r['es_anormal']) ? 'anormal' : '');
+                    $rel = $fmtValor($r) . ' %';
+                    $abs = $fmtAbs($r['hemo_absoluto'] ?? null);
+                    $ref = $fmtReferencia($r);
+                    ?>
+                    <tr>
+                        <td class="deter indent">
+                            <span class="nombre"><?= $esc((string) ($r['hemo_label'] ?? $r['determinacion_nombre'] ?? '')) ?></span>
+                        </td>
+                        <td class="rel <?= $esc($clase) ?>"><?= $esc($rel) ?></td>
+                        <td class="abs <?= $esc($clase) ?>"><?= $esc($abs) ?></td>
+                        <td class="referencia"><?= $esc($ref) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+        <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <?php foreach ($resultados_por_area as $areaNombre => $resultados): ?>
+        <table class="deters area">
             <?php foreach ($resultados as $r): ?>
                 <?php
                 $clase = '';

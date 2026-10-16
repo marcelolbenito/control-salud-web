@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 $pageTitle = 'Perfiles';
 require __DIR__ . '/../_layout/header.php';
@@ -24,6 +25,7 @@ require __DIR__ . '/../_layout/header.php';
                             <th style="width:120px">C&oacute;digo</th>
                             <th>Nombre</th>
                             <th>Determinaciones</th>
+                            <th style="width:130px">Facturaci&oacute;n</th>
                             <th style="width:100px"></th>
                         </tr>
                     </thead>
@@ -48,7 +50,19 @@ require __DIR__ . '/../_layout/header.php';
                     Descripci&oacute;n <span class="hint-inline">(opcional)</span>
                     <input type="text" id="f-desc" maxlength="500">
                 </label>
+                <label>
+                    Facturaci&oacute;n
+                    <select id="f-fact">
+                        <option value="separado">Por separado (cada an&aacute;lisis se factura solo)</option>
+                        <option value="junto">Todo junto (una sola l&iacute;nea, ej. hemograma)</option>
+                    </select>
+                </label>
+                <label id="f-nbu-wrap" hidden>
+                    NBU del perfil (unidades)
+                    <input type="number" id="f-nbu" min="0.01" step="0.01" placeholder="Ej. 20">
+                </label>
             </div>
+            <p class="hint">Si se factura <strong>todo junto</strong>, el lote de la obra social lleva una sola l&iacute;nea con el c&oacute;digo del perfil y su NBU (los an&aacute;lisis del perfil no se facturan aparte). Si es <strong>por separado</strong>, cada an&aacute;lisis va con su propio c&oacute;digo y NBU.</p>
 
             <h3>Determinaciones del perfil <span id="sel-count" class="tag">0</span></h3>
             <p class="hint">Click en una determinaci&oacute;n para agregarla; click en una del perfil para quitarla.</p>

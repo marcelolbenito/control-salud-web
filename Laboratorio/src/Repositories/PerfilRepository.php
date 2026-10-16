@@ -23,7 +23,7 @@ final class PerfilRepository
     public function findAllActivosConDeterminaciones(): array
     {
         $sql = "SELECT p.id AS perfil_id, p.codigo AS perfil_codigo, p.nombre AS perfil_nombre,
-                       p.descripcion,
+                       p.descripcion, p.nbu_unidades,
                        d.id AS det_id, d.codigo AS det_codigo, d.nombre AS det_nombre,
                        pd.orden
                 FROM lab_perfiles p
@@ -46,6 +46,7 @@ final class PerfilRepository
                     'codigo'          => $row['perfil_codigo'],
                     'nombre'          => $row['perfil_nombre'],
                     'descripcion'     => $row['descripcion'],
+                    'nbu_unidades'    => $row['nbu_unidades'],
                     'determinaciones' => [],
                 ];
             }
@@ -61,22 +62,22 @@ final class PerfilRepository
         return array_values($perfiles);
     }
 
-    public function crear(string $codigo, string $nombre, ?string $descripcion): int
+    public function crear(string $codigo, string $nombre, ?string $descripcion, ?float $nbuUnidades = null): int
     {
         $stmt = $this->db->prepare(
-            "INSERT INTO lab_perfiles (codigo, nombre, descripcion, activo) VALUES (?, ?, ?, 1)"
+            "INSERT INTO lab_perfiles (codigo, nombre, descripcion, nbu_unidades, activo) VALUES (?, ?, ?, ?, 1)"
         );
-        $stmt->execute([$codigo, $nombre, $descripcion]);
+        $stmt->execute([$codigo, $nombre, $descripcion, $nbuUnidades]);
         return (int) $this->db->lastInsertId();
     }
 
-    public function actualizar(int $id, string $codigo, string $nombre, ?string $descripcion): bool
+    public function actualizar(int $id, string $codigo, string $nombre, ?string $descripcion, ?float $nbuUnidades = null): bool
     {
         $stmt = $this->db->prepare(
-            "UPDATE lab_perfiles SET codigo = ?, nombre = ?, descripcion = ?
+            "UPDATE lab_perfiles SET codigo = ?, nombre = ?, descripcion = ?, nbu_unidades = ?
              WHERE id = ? AND deleted_at IS NULL"
         );
-        $stmt->execute([$codigo, $nombre, $descripcion, $id]);
+        $stmt->execute([$codigo, $nombre, $descripcion, $nbuUnidades, $id]);
         return $stmt->rowCount() >= 0;
     }
 

@@ -1,4 +1,4 @@
-import { api, labPath } from '../api.js';
+import { api, labPath } from '../api.js?v=13';
 
 const $ = (id) => document.getElementById(id);
 const $msg = $('mensaje');
@@ -197,27 +197,16 @@ function fmtFecha(iso) {
     return isNaN(d.getTime()) ? iso : d.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-function urlListos(estado) {
-    const params = new URLSearchParams({ accion: 'listar', estado, orden: 'fecha_solicitud_desc' });
-    const q = ($('listos-q')?.value || '').trim();
-    const dia = ($('listos-dia')?.value || '').trim();
-    if (q !== '') params.set('q', q);
-    if (dia !== '') {
-        params.set('fecha_solicitud_desde', dia);
-        params.set('fecha_solicitud_hasta', dia);
-    }
-    return `/api/pedidos?${params.toString()}`;
-}
-
 async function cargarListos() {
     if (!$listos) return;
     try {
-        const [comp, parc] = await Promise.all([
-            api.get(urlListos('completo')),
-            api.get(urlListos('parcial')),
-        ]);
-        const all = [...(comp?.pedidos ?? []), ...(parc?.pedidos ?? [])];
-        all.sort((a, b) => String(b.fecha_solicitud).localeCompare(String(a.fecha_solicitud)));
+        const params = new URLSearchParams({ accion: 'pendientes' });
+        const q = ($('listos-q')?.value || '').trim();
+        const dia = ($('listos-dia')?.value || '').trim();
+        if (q !== '') params.set('q', q);
+        if (dia !== '') params.set('dia', dia);
+        const data = await api.get(`/api/informes?${params.toString()}`);
+        const all = data?.pedidos ?? [];
         renderListos(all);
         const info = $('listos-info');
         if (info) info.textContent = `${all.length} pedido(s)`;

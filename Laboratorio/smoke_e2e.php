@@ -40,7 +40,9 @@ $db  = new PDO($dsn, 'root', '', [
 use App\Repositories\DeterminacionRepository;
 use App\Repositories\NbuDeterminacionRepository;
 use App\Repositories\NbuValorOsRepository;
+use App\Repositories\PedidoItemRepository;
 use App\Repositories\PedidoRepository;
+use App\Repositories\ResultadoRepository;
 use App\Repositories\PerfilRepository;
 use App\Services\AranceladorService;
 use App\Services\AuditoriaService;
@@ -62,6 +64,8 @@ $service = new PedidoService(
     perfilRepo:       $perfilRepo,
     auditoria:        $auditoriaServ,
     arancelador:      $arancelador,
+    itemRepo:         new PedidoItemRepository($db),
+    resultadoRepo:    new ResultadoRepository($db),
 );
 
 // -----------------------------------------------------------------------

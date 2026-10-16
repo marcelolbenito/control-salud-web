@@ -161,6 +161,20 @@ final class DeterminacionRepository
     }
 
     /**
+     * Soft delete: deja de aparecer en el nomenclador y en los buscadores.
+     * Los pedidos historicos que la usan quedan intactos.
+     */
+    public function softDelete(int $id): bool
+    {
+        $sql = "UPDATE lab_determinaciones
+                SET deleted_at = NOW()
+                WHERE id = :id AND deleted_at IS NULL";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id' => $id]);
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
      * @param array<int,int> $ids
      * @return array<int,array<string,mixed>>
      */

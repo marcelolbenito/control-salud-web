@@ -31,6 +31,8 @@ if ($method === 'POST' && in_array($accion, ['crear', 'actualizar'], true)) {
     $nombre    = trim((string) ($input['nombre'] ?? ''));
     $descRaw   = trim((string) ($input['descripcion'] ?? ''));
     $descripcion = $descRaw !== '' ? $descRaw : null;
+    $nbuRaw = $input['nbu_unidades'] ?? null;
+    $nbuUnidades = null;
     $detIds    = is_array($input['determinaciones'] ?? null)
         ? array_values(array_unique(array_map('intval', $input['determinaciones'])))
         : [];
@@ -43,6 +45,13 @@ if ($method === 'POST' && in_array($accion, ['crear', 'actualizar'], true)) {
     }
     if ($nombre === '' || mb_strlen($nombre) > 150) {
         $errors['nombre'] = 'Nombre obligatorio (max 150 caracteres)';
+    }
+    if ($nbuRaw !== null && $nbuRaw !== '') {
+        if (!is_numeric($nbuRaw) || (float) $nbuRaw <= 0) {
+            $errors['nbu_unidades'] = 'NBU del perfil debe ser numerico > 0';
+        } else {
+            $nbuUnidades = round((float) $nbuRaw, 2);
+        }
     }
     $detIds = array_values(array_filter($detIds, static fn (int $v): bool => $v > 0));
     if ($detIds === []) {
@@ -70,9 +79,9 @@ if ($method === 'POST' && in_array($accion, ['crear', 'actualizar'], true)) {
     $db->beginTransaction();
     try {
         if ($accion === 'crear') {
-            $id = $repo->crear($codigo, $nombre, $descripcion);
+            $id = $repo->crear($codigo, $nombre, $descripcion, $nbuUnidades);
         } else {
-            $repo->actualizar($id, $codigo, $nombre, $descripcion);
+            $repo->actualizar($id, $codigo, $nombre, $descripcion, $nbuUnidades);
         }
         $repo->reemplazarDeterminaciones($id, $detIds);
         $db->commit();

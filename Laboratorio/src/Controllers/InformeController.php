@@ -65,6 +65,50 @@ final class InformeController
         }
     }
 
+    /**
+     * Copia el PDF del informe a la carpeta de red configurada en RED_DIR
+     * (.env). Si no esta configurada, responde 409.
+     */
+    public function subirRed(int $id): void
+    {
+        if ($id <= 0) {
+            Response::error('id invalido', 400);
+            return;
+        }
+
+        $informe = $this->service->obtener($id);
+        if ($informe === null) {
+            Response::error("Informe $id no encontrado", 404);
+            return;
+        }
+
+        $redDir = trim((string) ($_ENV['RED_DIR'] ?? ''));
+        if ($redDir === '') {
+            Response::error('Falta configurar RED_DIR en el .env (carpeta de red donde se suben los informes)', 409);
+            return;
+        }
+        if (!is_dir($redDir) || !is_writable($redDir)) {
+            Response::error("La carpeta de red no esta accesible: $redDir", 409);
+            return;
+        }
+
+        $ruta = rtrim($this->storageDir, '/\\') . DIRECTORY_SEPARATOR . (string) $informe['ruta_pdf'];
+        $real = realpath($ruta);
+        $base = realpath($this->storageDir);
+        if ($real === false || $base === false || !str_starts_with($real, $base) || !is_file($real)) {
+            Response::error('PDF del informe no encontrado en disco', 404);
+            return;
+        }
+
+        $destino = rtrim($redDir, '/\\') . DIRECTORY_SEPARATOR . basename($real);
+        if (!@copy($real, $destino)) {
+            Response::error('No se pudo copiar el informe a la carpeta de red', 500);
+            return;
+        }
+
+        Response::success(['informe_id' => $id, 'subido' => true, 'destino' => $destino]);
+    }
+
     public function listarPorPedido(int $pedidoId): void
     {
         if ($pedidoId <= 0) {
@@ -91,6 +135,22 @@ final class InformeController
         ];
         $informes = $this->service->listarRecientes($filtros);
         Response::success(['informes' => $informes]);
+    }
+
+    /**
+     * Pedidos pendientes de informe (lista de los no informados).
+     *
+     * @param array<string,mixed> $query
+     */
+    public function listarPendientes(array $query): void
+    {
+        $filtros = [
+            'q'     => $query['q']   ?? null,
+            'dia'   => $query['dia'] ?? null,
+            'limit' => isset($query['limit']) ? (int) $query['limit'] : null,
+        ];
+        $pedidos = $this->service->listarPendientes($filtros);
+        Response::success(['pedidos' => $pedidos]);
     }
 
     public function descargar(int $id): void

@@ -71,6 +71,40 @@ final class PedidoItemRepository
     }
 
     /**
+     * Soft-delete de un item. Se usa al sacar un analisis de un pedido ya
+     * creado: nunca borramos fisico datos clinicos.
+     */
+    public function softDelete(int $id): bool
+    {
+        $sql = "UPDATE lab_pedido_items
+                SET deleted_at = CURRENT_TIMESTAMP
+                WHERE id = :id AND deleted_at IS NULL";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id' => $id]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Determinacion_ids de todos los items vivos de un pedido (incluye el acto
+     * bioquimico / solo_facturacion). Sirve para deduplicar al agregar items.
+     *
+     * @return array<int,int>
+     */
+    public function listarDeterminacionIdsByPedidoId(int $pedidoId): array
+    {
+        $sql = "SELECT determinacion_id
+                FROM lab_pedido_items
+                WHERE pedido_id = :pid AND deleted_at IS NULL";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':pid' => $pedidoId]);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'determinacion_id'));
+    }
+
+    /**
      * Devuelve solo los estados de los items vivos de un pedido.
      * Sirve para decidir si el pedido transiciona a 'completo'.
      *

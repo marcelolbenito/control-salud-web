@@ -30,6 +30,7 @@ const CLAVES = [
     'informe_label_resultado',
     'informe_label_valores_referencia',
     'informe_label_critico',
+    'informe_hemograma_metodo',
     'informe_nota_pie',
 ];
 

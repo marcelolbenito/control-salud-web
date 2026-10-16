@@ -1,4 +1,4 @@
-import { api } from '../api.js';
+import { api } from '../api.js?v=14';
 
 const $ = (id) => document.getElementById(id);
 const $msg = $('mensaje');
@@ -28,7 +28,6 @@ async function init() {
         ]);
         state.determinaciones = det?.determinaciones ?? [];
         state.areas = areas?.areas ?? [];
-        poblarAreas();
         render();
     } catch (e) {
         $tbody.innerHTML = `<tr><td colspan="6" class="muted">Error al cargar: ${esc(e.message)}</td></tr>`;
@@ -40,8 +39,10 @@ async function init() {
     $('btn-guardar').addEventListener('click', guardar);
     $buscar.addEventListener('input', render);
 
+    // Cerrar al hacer clic en el fondo oscuro o con la tecla Escape
     $overlay.addEventListener('click', (e) => { if (e.target === $overlay) cerrarEditor(); });
 
+    // Modal de rangos (valores de referencia)
     $('rg-cerrar').addEventListener('click', cerrarRangos);
     $('rg-nuevo').addEventListener('click', rgNuevo);
     $('rg-guardar').addEventListener('click', rgGuardar);
@@ -63,9 +64,10 @@ function cerrarEditor() {
     $overlay.hidden = true;
 }
 
-function poblarAreas() {
-    $('f-area').innerHTML = '<option value="">(elegir area)</option>' +
-        state.areas.map((a) => `<option value="${a.id}">${esc(a.codigo)} · ${esc(a.nombre)}</option>`).join('');
+// El area ya no se elige en el formulario: se mantiene la existente al editar
+// y para determinaciones nuevas se usa un area por defecto (la primera).
+function areaDefault() {
+    return state.areas.length > 0 ? state.areas[0].id : 0;
 }
 
 function fmtNbu(v) {
@@ -91,21 +93,36 @@ function render() {
             <td>${fmtNbu(d.nbu_unidades)}</td>
             <td style="white-space:nowrap;">
                 <button type="button" class="btn btn-ghost btn-sm" data-edit="${d.id}"><i class="bi bi-pencil"></i> Editar</button>
-                <button type="button" class="btn btn-ghost btn-sm" data-rangos="${d.id}" data-nombre="${esc(d.nombre)}"><i class="bi bi-rulers"></i> Rangos</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-del="${d.id}" data-nombre="${esc(d.nombre)}" title="Eliminar esta determinación del nomenclador"><i class="bi bi-trash"></i> Eliminar</button>
             </td>
         </tr>`).join('');
 
     $tbody.querySelectorAll('button[data-edit]').forEach((b) => {
         b.addEventListener('click', () => abrirEditar(parseInt(b.dataset.edit, 10)));
     });
-    $tbody.querySelectorAll('button[data-rangos]').forEach((b) => {
-        b.addEventListener('click', () => abrirRangos(parseInt(b.dataset.rangos, 10), b.dataset.nombre));
+    $tbody.querySelectorAll('button[data-del]').forEach((b) => {
+        b.addEventListener('click', () => eliminarDet(parseInt(b.dataset.del, 10), b.dataset.nombre));
     });
+}
+
+// Eliminar (soft delete): sale del nomenclador y de los buscadores; los
+// pedidos ya cargados con este analisis no se modifican.
+async function eliminarDet(id, nombre) {
+    if (!confirm(`¿Eliminar "${nombre}" del nomenclador?\nLos pedidos ya cargados con este análisis no se modifican.`)) return;
+    try {
+        await api.post(`/api/determinaciones?accion=eliminar&id=${id}`, {});
+        showMsg(`Determinación "${nombre}" eliminada.`, 'exito');
+        const det = await api.get('/api/determinaciones?accion=abm');
+        state.determinaciones = det?.determinaciones ?? [];
+        render();
+    } catch (e) {
+        showMsg(`Error: ${e.message}`, 'error');
+    }
 }
 
 function setForm(d) {
     $('f-id').value = d.id ?? '';
-    $('f-area').value = d.area_id != null ? String(d.area_id) : '';
+    $('f-area').value = d.area_id != null ? String(d.area_id) : String(areaDefault());
     $('f-codigo').value = d.codigo ?? '';
     $('f-nombre').value = d.nombre ?? '';
     $('f-corto').value = d.nombre_corto ?? '';
@@ -116,6 +133,8 @@ function setForm(d) {
     $('f-precio').value = d.precio ?? '';
     $('f-nbu').value = d.nbu_unidades ?? '';
     $('f-solo-facturacion').checked = Number(d.solo_facturacion) === 1;
+    $('f-valref').value = '';
+    $('f-valref-rango-id').value = '';
 }
 
 function abrirNuevo() {
@@ -125,14 +144,60 @@ function abrirNuevo() {
     $('f-codigo').focus();
 }
 
+// Rango "general" de una determinacion: sin sexo especifico, sin limites de
+// edad y sin min/max numericos. Es el que refleja el campo de texto del editor.
+function esRangoGeneral(r) {
+    return (r.sexo === 'ambos' || !r.sexo)
+        && r.edad_min_dias == null && r.edad_max_dias == null
+        && r.valor_min == null && r.valor_max == null;
+}
+
 async function abrirEditar(id) {
     try {
         const d = await api.get(`/api/determinaciones?accion=obtener&id=${id}`);
         $('editor-titulo').textContent = `Editar · ${d.codigo}`;
         setForm(d);
+        // Precargar el texto de referencia general (si existe).
+        try {
+            const data = await api.get(`/api/valores-referencia?accion=listar&determinacion_id=${id}`);
+            const general = (data?.rangos ?? []).find(esRangoGeneral);
+            if (general) {
+                $('f-valref').value = general.texto_referencia ?? '';
+                $('f-valref-rango-id').value = String(general.id);
+            }
+        } catch {
+            // sin rangos: el campo queda vacio
+        }
         abrirEditor();
     } catch (e) {
         showMsg(`Error: ${e.message}`, 'error');
+    }
+}
+
+// Sincroniza el texto del editor con el rango general de valores de referencia.
+async function guardarValRef(detId) {
+    const texto = ($('f-valref').value || '').trim();
+    const rangoId = ($('f-valref-rango-id').value || '').trim();
+    if (texto === '' && rangoId === '') return;
+    if (texto === '' && rangoId !== '') {
+        await api.post(`/api/valores-referencia?accion=eliminar&id=${rangoId}`, {});
+        return;
+    }
+    const payload = {
+        determinacion_id: detId,
+        sexo: 'ambos',
+        edad_min_dias: null,
+        edad_max_dias: null,
+        valor_min: '',
+        valor_max: '',
+        texto_referencia: texto,
+        observaciones: '',
+    };
+    if (rangoId !== '') {
+        payload.id = parseInt(rangoId, 10);
+        await api.post('/api/valores-referencia?accion=actualizar', payload);
+    } else {
+        await api.post('/api/valores-referencia?accion=crear', payload);
     }
 }
 
@@ -156,6 +221,11 @@ async function guardar() {
 
     try {
         const r = await api.post(`/api/determinaciones?accion=${accion}`, payload);
+        try {
+            await guardarValRef(r.id);
+        } catch (e) {
+            showMsg(`Determinación guardada, pero fallo el valor de referencia: ${e.message}`, 'error');
+        }
         showMsg(`Determinación ${esc(r.codigo)} ${accion === 'crear' ? 'creada' : 'actualizada'}.`, 'exito');
         cerrarEditor();
         const det = await api.get('/api/determinaciones?accion=abm');
@@ -166,6 +236,8 @@ async function guardar() {
         showMsg(`Error: ${e.message}${det}`, 'error');
     }
 }
+
+/* ---------- Valores de referencia (rangos) ---------- */
 
 const ANIO_DIAS = 365;
 const MES_DIAS = 30;

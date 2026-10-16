@@ -187,7 +187,7 @@ final class ResultadoRepository
             if (!isset($map[$det])) {
                 $map[$det] = [];
             }
-            if (count($map[$det]) >= $limitPorDet) {
+            if ($limitPorDet > 0 && count($map[$det]) >= $limitPorDet) {
                 continue;
             }
             $map[$det][] = [

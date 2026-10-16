@@ -248,6 +248,12 @@ final class PedidoRepository
         $where = ['p.paciente_id = :pid', 'p.deleted_at IS NULL'];
         $params = [':pid' => $pacienteId];
 
+        if (!empty($filtros['dni'])) {
+            $where[0] = "(p.paciente_id = :pid OR (p.paciente_id IS NULL
+                          AND JSON_UNQUOTE(JSON_EXTRACT(p.snapshot_paciente, '$.dni')) = :dni))";
+            $params[':dni'] = (string) $filtros['dni'];
+        }
+
         if (!empty($filtros['estado'])) {
             $where[] = 'p.estado = :estado';
             $params[':estado'] = (string) $filtros['estado'];
@@ -271,7 +277,9 @@ final class PedidoRepository
                           WHERE pi.pedido_id = p.id AND pi.deleted_at IS NULL) AS items_count,
                        (SELECT COUNT(*) FROM lab_pedido_items pi
                           WHERE pi.pedido_id = p.id AND pi.deleted_at IS NULL
-                            AND pi.estado = 'validado') AS items_validados
+                            AND pi.estado = 'validado') AS items_validados,
+                       (SELECT MAX(i.id) FROM lab_informes i
+                          WHERE i.pedido_id = p.id AND i.deleted_at IS NULL) AS ultimo_informe_id
                 FROM lab_pedidos p
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY p.fecha_solicitud DESC, p.id DESC
@@ -287,6 +295,12 @@ final class PedidoRepository
     {
         $where = ['paciente_id = :pid', 'deleted_at IS NULL'];
         $params = [':pid' => $pacienteId];
+
+        if (!empty($filtros['dni'])) {
+            $where[0] = "(paciente_id = :pid OR (paciente_id IS NULL
+                          AND JSON_UNQUOTE(JSON_EXTRACT(snapshot_paciente, '$.dni')) = :dni))";
+            $params[':dni'] = (string) $filtros['dni'];
+        }
 
         if (!empty($filtros['estado'])) {
             $where[] = 'estado = :estado';

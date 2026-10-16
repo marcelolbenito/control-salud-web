@@ -107,6 +107,9 @@ require __DIR__ . '/../_layout/header.php';
                     <label>Etiqueta de resultado crítico
                         <input type="text" name="informe_label_critico" placeholder="CRITICO">
                     </label>
+                    <label class="col-2">Método del hemograma (informe)
+                        <input type="text" name="informe_hemograma_metodo" placeholder="Advia 2120, Siemens, USA">
+                    </label>
                     <label class="col-2">Nota al pie (opcional)
                         <textarea name="informe_nota_pie" rows="2" placeholder="Texto extra que aparece al pie del informe (ej. aclaraciones)."></textarea>
                     </label>

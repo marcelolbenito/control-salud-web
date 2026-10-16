@@ -62,28 +62,38 @@ require __DIR__ . '/../_layout/header.php';
                         Fecha de nacimiento
                         <input type="date" name="snap_fecha_nac" id="snap-fecha-nac" required>
                     </label>
+                    <label>
+                        Obra social
+                        <select name="obra_social_id" id="obra-social-select">
+                            <option value="">(particular / sin OS)</option>
+                        </select>
+                    </label>
+                    <label>
+                        N° de afiliado
+                        <input type="text" name="numero_afiliado" id="numero-afiliado" maxlength="50">
+                    </label>
+                    <label>
+                        Fecha de realizado
+                        <input type="date" name="fecha_realizado" id="f-fecha-realizado" required>
+                    </label>
                 </div>
             </fieldset>
 
-            <fieldset class="form-section">
-                <legend>Datos clinicos</legend>
-                <div class="grid">
-                    <label>
-                        Medico (texto libre)
-                        <input type="text" name="medico_externo" maxlength="150">
-                    </label>
-                    <label>
-                        Diagnostico
-                        <input type="text" name="diagnostico" maxlength="500">
-                    </label>
-                    <label>
-                        Prioridad
-                        <select name="prioridad">
-                            <option value="rutina" selected>Rutina</option>
-                            <option value="urgente">Urgente</option>
-                            <option value="guardia">Guardia</option>
-                        </select>
-                    </label>
+            <fieldset class="form-section" id="box-anteriores" hidden>
+                <legend>Analisis anteriores del paciente</legend>
+                <div class="table-wrap" style="max-height: 220px; overflow-y: auto;">
+                    <table class="table" style="font-size: 0.85em;">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>N° pedido</th>
+                                <th>Items</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="anteriores-items"></tbody>
+                    </table>
                 </div>
             </fieldset>
 
@@ -118,12 +128,60 @@ require __DIR__ . '/../_layout/header.php';
             </fieldset>
 
             <div class="form-actions">
-                <button type="submit" id="btn-submit"><i class="bi bi-check2-circle"></i> Crear pedido</button>
+                <button type="submit" id="btn-submit"><i class="bi bi-check2-circle"></i> Crear pedido y cargar resultados</button>
                 <button type="reset" id="btn-reset"><i class="bi bi-eraser"></i> Limpiar</button>
             </div>
 
             <div id="mensaje" class="mensaje" role="status" aria-live="polite" hidden></div>
         </form>
+
+        <section id="workspace-pedido" hidden>
+            <fieldset class="form-section">
+                <legend>Pedido creado</legend>
+                <div id="ws-info" class="muted"></div>
+                <p class="hint">Cargá los valores (Enter pasa al siguiente) y guardá todo junto. Tocá el nombre de un análisis para ver sus resultados anteriores. Podés seguir agregando o sacando análisis mientras el pedido no esté entregado.</p>
+            </fieldset>
+
+            <fieldset class="form-section">
+                <legend>Agregar análisis al pedido</legend>
+                <div class="buscador-pedido">
+                    <label class="busqueda-rapida">
+                        Buscar determinación o perfil
+                        <input type="search" id="ws-add" autocomplete="off"
+                               placeholder="Nombre o código… (Enter agrega el primero)">
+                    </label>
+                    <ul id="ws-add-resultados" class="dropdown-resultados" hidden></ul>
+                </div>
+            </fieldset>
+
+            <fieldset class="form-section">
+                <legend>Resultados</legend>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Determinacion</th>
+                                <th>Valor</th>
+                                <th>Unidad</th>
+                                <th>Referencia</th>
+                                <th>Estado</th>
+                                <th>Marca</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="ws-items"></tbody>
+                    </table>
+                </div>
+                <div class="form-actions" style="margin-top: 1rem;">
+                    <button type="button" id="ws-guardar" class="btn btn-primary">
+                        <i class="bi bi-save2"></i> Guardar todos los resultados
+                    </button>
+                    <a href="<?= lab_h('/pedidos/nuevo') ?>" class="btn btn-ghost"><i class="bi bi-plus-circle"></i> Nuevo pedido</a>
+                </div>
+            </fieldset>
+
+            <div id="ws-mensaje" class="mensaje" role="status" aria-live="polite" hidden></div>
+        </section>
 
         <link rel="stylesheet" href="<?= lab_asset_h('/assets/js/pacientes/paciente-selector.css') ?>">
         <script type="module" src="<?= lab_asset_h('/assets/js/pedidos/nuevo.js') ?>?v=<?= lab_scripts_version() ?>"></script>

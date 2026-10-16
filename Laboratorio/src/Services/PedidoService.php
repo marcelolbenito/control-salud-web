@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\DomainException;
 use App\Exceptions\ValidationException;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
 use App\Repositories\DeterminacionRepository;
+use App\Repositories\PedidoItemRepository;
 use App\Repositories\PedidoRepository;
 use App\Repositories\PerfilRepository;
+use App\Repositories\ResultadoRepository;
 use App\Services\AranceladorService;
 use PDO;
 use Throwable;
@@ -54,6 +57,8 @@ final class PedidoService
         private PerfilRepository $perfilRepo,
         private AuditoriaService $auditoria,
         private AranceladorService $arancelador,
+        private PedidoItemRepository $itemRepo,
+        private ResultadoRepository $resultadoRepo,
     ) {
     }
 
@@ -92,6 +97,19 @@ final class PedidoService
         $prioridad = $input['prioridad'] ?? 'rutina';
         if (!in_array($prioridad, self::PRIORIDADES_VALIDAS, true)) {
             $errors['prioridad'] = 'prioridad invalida (rutina|urgente|guardia)';
+        }
+
+        $fechaExtraccion = null;
+        $fechaRealizadoRaw = trim((string) ($input['fecha_extraccion'] ?? ''));
+        if ($fechaRealizadoRaw !== '') {
+            $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $fechaRealizadoRaw);
+            if ($dt === false || $dt->format('Y-m-d') !== $fechaRealizadoRaw) {
+                $errors['fecha_extraccion'] = 'Formato esperado YYYY-MM-DD';
+            } elseif ($fechaRealizadoRaw > date('Y-m-d')) {
+                $errors['fecha_extraccion'] = 'La fecha de realizado no puede ser futura';
+            } else {
+                $fechaExtraccion = $fechaRealizadoRaw . ' 00:00:00';
+            }
         }
 
         $items = $input['items'] ?? [];
@@ -148,7 +166,7 @@ final class PedidoService
             estado: 'pendiente',
             esCritico: false,
             fechaSolicitud: date('Y-m-d H:i:s'),
-            fechaExtraccion: null,
+            fechaExtraccion: $fechaExtraccion,
             fechaEntrega: null,
             usuarioRecepcionId: $usuarioId,
             usuarioAnulacionId: null,
@@ -236,6 +254,250 @@ final class PedidoService
         }
         $pedido['items'] = $this->pedidoRepo->findItemsByPedidoId($id);
         return $pedido;
+    }
+
+    /**
+     * Agrega determinaciones/perfiles a un pedido ya creado. Expande perfiles,
+     * deduplica contra los items ya presentes (un pedido no repite analisis),
+     * recalcula montos y estado. No toca pedidos entregados ni anulados.
+     *
+     * @param array<string,mixed> $input  { items: [{determinacion_id}|{perfil_id}] }
+     * @return array{pedido_id:int, agregados:int, items_count:int}
+     */
+    public function agregarItems(int $pedidoId, array $input, int $usuarioId): array
+    {
+        $pedido = $this->pedidoRepo->findById($pedidoId);
+        if ($pedido === null) {
+            throw new ValidationException('Pedido no encontrado', ['id' => 'No existe el pedido o esta borrado'], 404);
+        }
+        $estado = (string) $pedido['estado'];
+        if (in_array($estado, ['entregado', 'anulado'], true)) {
+            throw new DomainException("El pedido esta '$estado', no admite cambios de items");
+        }
+
+        $items = $input['items'] ?? [];
+        if (!is_array($items) || count($items) === 0) {
+            throw new ValidationException('Errores de validacion', ['items' => 'Debe enviar al menos un item']);
+        }
+
+        $errors = [];
+        $itemsResueltos = $this->resolverItems($items, $errors);
+        if ($errors !== []) {
+            throw new ValidationException('Errores de validacion en items', $errors);
+        }
+
+        $yaPresentes = array_fill_keys($this->itemRepo->listarDeterminacionIdsByPedidoId($pedidoId), true);
+        $nuevos = array_values(array_filter(
+            $itemsResueltos,
+            static fn ($r) => !isset($yaPresentes[$r['determinacion_id']])
+        ));
+
+        if ($nuevos === []) {
+            return [
+                'pedido_id'   => $pedidoId,
+                'agregados'   => 0,
+                'items_count' => count($this->pedidoRepo->findItemsByPedidoId($pedidoId)),
+            ];
+        }
+
+        $detIds = array_unique(array_column($nuevos, 'determinacion_id'));
+        $validas = $this->determinacionRepo->findActivasByIds($detIds);
+        $idsValidos = array_map('intval', array_column($validas, 'id'));
+        $ausentes = array_diff($detIds, $idsValidos);
+        if ($ausentes !== []) {
+            throw new ValidationException('Determinaciones invalidas o inactivas', [
+                'items' => 'IDs no validos: ' . implode(',', $ausentes),
+            ]);
+        }
+        $precios = [];
+        foreach ($validas as $d) {
+            $precios[(int) $d['id']] = $d['precio'] !== null ? (float) $d['precio'] : null;
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $agregados = 0;
+            foreach ($nuevos as $r) {
+                $item = new PedidoItem(
+                    id: null,
+                    pedidoId: $pedidoId,
+                    determinacionId: $r['determinacion_id'],
+                    perfilId: $r['perfil_id'],
+                    estado: 'pendiente',
+                    precio: $precios[$r['determinacion_id']] ?? null,
+                    observaciones: null,
+                );
+                $this->pedidoRepo->insertItem($pedidoId, $item);
+                $agregados++;
+            }
+
+            $this->recalcularMontos($pedidoId);
+            $this->recalcularEstadoPedido($pedidoId, $estado);
+
+            $this->auditoria->log(
+                usuarioId: $usuarioId,
+                accion: 'actualizar',
+                tablaAfectada: 'lab_pedidos',
+                registroId: $pedidoId,
+                valorAnterior: null,
+                valorNuevo: ['determinaciones' => array_values($detIds), 'agregados' => $agregados],
+                contexto: 'Agregar items a pedido existente',
+            );
+
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+
+        return [
+            'pedido_id'   => $pedidoId,
+            'agregados'   => $agregados,
+            'items_count' => count($this->pedidoRepo->findItemsByPedidoId($pedidoId)),
+        ];
+    }
+
+    /**
+     * Saca (soft-delete) un item de un pedido. Si el item tenia un resultado
+     * cargado, lo borra (queda en auditoria). Recalcula montos, estado y el
+     * flag es_critico del pedido. No deja al pedido sin analisis clinicos.
+     *
+     * @return array{pedido_item_id:int, pedido_id:int, items_count:int}
+     */
+    public function quitarItem(int $pedidoItemId, int $usuarioId): array
+    {
+        if ($pedidoItemId <= 0) {
+            throw new ValidationException('Errores de validacion', [
+                'pedido_item_id' => 'pedido_item_id es obligatorio y debe ser > 0',
+            ]);
+        }
+
+        $itemCtx = $this->itemRepo->findByIdConContexto($pedidoItemId);
+        if ($itemCtx === null) {
+            throw new ValidationException('Item no encontrado', [
+                'pedido_item_id' => "Item $pedidoItemId no existe",
+            ]);
+        }
+
+        $estadoPedido = (string) $itemCtx['pedido_estado'];
+        if (in_array($estadoPedido, ['entregado', 'anulado'], true)) {
+            throw new DomainException("El pedido esta '$estadoPedido', no admite cambios de items");
+        }
+
+        $pedidoId = (int) $itemCtx['pedido_id'];
+
+        if (count($this->pedidoRepo->findItemsByPedidoId($pedidoId)) <= 1) {
+            throw new DomainException('No se puede quitar el ultimo analisis del pedido. Anula el pedido en su lugar.');
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $resultado = $this->resultadoRepo->findByPedidoItemId($pedidoItemId);
+            if ($resultado !== null) {
+                $this->resultadoRepo->deleteByPedidoItemId($pedidoItemId);
+                $this->auditoria->log(
+                    usuarioId: $usuarioId,
+                    accion: 'eliminar',
+                    tablaAfectada: 'lab_resultados',
+                    registroId: (int) $resultado['id'],
+                    valorAnterior: [
+                        'pedido_item_id' => $pedidoItemId,
+                        'valor_numerico' => $resultado['valor_numerico'],
+                        'valor_texto'    => $resultado['valor_texto'],
+                        'es_anormal'     => (int) $resultado['es_anormal'],
+                        'es_critico'     => (int) $resultado['es_critico'],
+                    ],
+                    valorNuevo: null,
+                    contexto: 'Resultado borrado al quitar el analisis del pedido',
+                );
+            }
+
+            $this->itemRepo->softDelete($pedidoItemId);
+
+            $this->recalcularMontos($pedidoId);
+            $this->recalcularEstadoPedido($pedidoId, $estadoPedido);
+
+            $hayCritico = false;
+            foreach ($this->resultadoRepo->findByPedidoId($pedidoId) as $r) {
+                if ((int) ($r['es_critico'] ?? 0) === 1) {
+                    $hayCritico = true;
+                    break;
+                }
+            }
+            $this->pedidoRepo->updateEsCritico($pedidoId, $hayCritico);
+
+            $this->auditoria->log(
+                usuarioId: $usuarioId,
+                accion: 'eliminar',
+                tablaAfectada: 'lab_pedido_items',
+                registroId: $pedidoItemId,
+                valorAnterior: [
+                    'determinacion_id'     => $itemCtx['determinacion_id'] ?? null,
+                    'determinacion_nombre' => $itemCtx['determinacion_nombre'] ?? null,
+                ],
+                valorNuevo: null,
+                contexto: 'Quitar analisis de pedido existente',
+            );
+
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+
+        return [
+            'pedido_item_id' => $pedidoItemId,
+            'pedido_id'      => $pedidoId,
+            'items_count'    => count($this->pedidoRepo->findItemsByPedidoId($pedidoId)),
+        ];
+    }
+
+    /**
+     * Recalcula y persiste monto_seguro / monto_paciente del pedido segun su
+     * cobertura. Con obra social = unidades NBU; particular = suma de precios.
+     */
+    private function recalcularMontos(int $pedidoId): void
+    {
+        $pedido = $this->pedidoRepo->findById($pedidoId);
+        if ($pedido === null) {
+            return;
+        }
+        $obraSocialId = !empty($pedido['obra_social_id']) ? (int) $pedido['obra_social_id'] : null;
+
+        if ($obraSocialId !== null) {
+            $totalSeguro = $this->pedidoRepo->calcularMontoSeguroUnits($pedidoId);
+            $this->pedidoRepo->updateMontos($pedidoId, $totalSeguro, 0.0);
+            return;
+        }
+
+        $hoy = date('Y-m-d');
+        $totalPaciente = 0.0;
+        foreach ($this->itemRepo->listarDeterminacionIdsByPedidoId($pedidoId) as $detId) {
+            $totalPaciente += $this->arancelador->calcularMontoItem($detId, null, $hoy)->total;
+        }
+        $this->pedidoRepo->updateMontos($pedidoId, 0.0, $totalPaciente);
+    }
+
+    /**
+     * Reconcilia el estado del pedido a partir del estado de sus items:
+     * todos cargados => completo; alguno cargado => parcial; ninguno => pendiente.
+     */
+    private function recalcularEstadoPedido(int $pedidoId, string $estadoActual): void
+    {
+        if (in_array($estadoActual, ['entregado', 'anulado'], true)) {
+            return;
+        }
+        $estados = $this->itemRepo->listarEstadosByPedidoId($pedidoId);
+        $todosCargados = $estados !== [] && array_unique($estados) === ['cargado'];
+        $hayCargados = in_array('cargado', $estados, true);
+        $nuevo = $todosCargados ? 'completo' : ($hayCargados ? 'parcial' : 'pendiente');
+        if ($nuevo !== $estadoActual) {
+            $this->pedidoRepo->updateEstado($pedidoId, $nuevo);
+        }
     }
 
     /**

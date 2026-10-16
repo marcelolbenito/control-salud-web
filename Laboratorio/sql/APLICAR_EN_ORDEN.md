@@ -17,6 +17,7 @@ Base local Docker: `control_salud` (contenedor `control-salud-mysql`).
 | 5 | `seeds/003_fix_perfiles_control_salud.sql` | 2 | ✅ | ✅ |
 | 6 | `seeds/003_fix_area_ids_control_salud.sql` | 2 | ✅ | ✅ |
 | 7 | `migrations/027_acto_facturacion_y_nbu_perfil.sql` | 3 | ✅ | ✅ |
+| 8 | `migrations/028_hemograma_orden_clinico.sql` | 5 | ✅ | pendiente |
 
 ---
 
@@ -46,6 +47,12 @@ sin determinaciones**. Remapea por código de área (HEM, QC, …, OTR).
 Agrega `solo_facturacion` y `lab_perfiles.nbu_unidades`. Correr **antes** del PHP
 de Sesión 3 (NBU por unidades, acto automático, nomenclador).
 
+### 028 — hemograma clínico (Sesión 5)
+Saca PLT del perfil HMG, fija el orden de presentación (serie roja, GB, fórmula)
+y ajusta decimales/unidad de GR y GB, más umbrales críticos de GB en /mm3.
+Correr **antes** de usar el informe con layout de hemograma. No importa el
+catálogo del paquete (`lab_catalogo_config.sql`).
+
 ---
 
 ## Comandos — local (Docker)
@@ -69,6 +76,9 @@ Get-Content "Laboratorio\sql\seeds\003_fix_area_ids_control_salud.sql" -Raw |
   docker exec -i control-salud-mysql mysql -uroot -psalud_root_dev control_salud
 
 Get-Content "Laboratorio\sql\migrations\027_acto_facturacion_y_nbu_perfil.sql" -Raw |
+  docker exec -i control-salud-mysql mysql -uroot -psalud_root_dev control_salud
+
+Get-Content "Laboratorio\sql\migrations\028_hemograma_orden_clinico.sql" -Raw |
   docker exec -i control-salud-mysql mysql -uroot -psalud_root_dev control_salud
 ```
 

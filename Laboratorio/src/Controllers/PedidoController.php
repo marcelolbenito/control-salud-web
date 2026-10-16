@@ -35,6 +35,42 @@ final class PedidoController
         }
     }
 
+    public function agregarItems(int $id): void
+    {
+        if ($id <= 0) {
+            Response::error('id invalido', 400);
+            return;
+        }
+
+        $input = $this->getJsonInput();
+
+        try {
+            $result = $this->service->agregarItems($id, $input, self::USUARIO_ID_HARDCODED);
+            Response::success($result, 201);
+        } catch (ValidationException $e) {
+            $http = $e->getCode() && $e->getCode() >= 400 ? (int) $e->getCode() : 422;
+            Response::error($e->getMessage(), $http, $e->getFields(), 'VALIDATION');
+        } catch (DomainException $e) {
+            Response::error($e->getMessage(), 409);
+        }
+    }
+
+    public function quitarItem(int $id): void
+    {
+        $body = $this->getJsonInput();
+        $pedidoItemId = isset($body['pedido_item_id']) ? (int) $body['pedido_item_id'] : $id;
+
+        try {
+            $result = $this->service->quitarItem($pedidoItemId, self::USUARIO_ID_HARDCODED);
+            Response::success($result);
+        } catch (ValidationException $e) {
+            $http = $e->getCode() && $e->getCode() >= 400 ? (int) $e->getCode() : 422;
+            Response::error($e->getMessage(), $http, $e->getFields(), 'VALIDATION');
+        } catch (DomainException $e) {
+            Response::error($e->getMessage(), 409);
+        }
+    }
+
     public function obtener(int $id): void
     {
         if ($id <= 0) {

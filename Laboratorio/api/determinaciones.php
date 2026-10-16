@@ -46,6 +46,17 @@ if ($method === 'GET') {
     }
 }
 
+if ($method === 'POST' && $accion === 'eliminar') {
+    $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+    if ($id <= 0 || $repo->findByIdParaAbm($id) === null) {
+        Response::error("Determinacion $id no encontrada", 404);
+        return;
+    }
+    $repo->softDelete($id);
+    Response::success(['id' => $id, 'eliminada' => true]);
+    return;
+}
+
 if ($method === 'POST' && in_array($accion, ['crear', 'actualizar'], true)) {
     $input = leerJsonDet();
 

@@ -7,7 +7,9 @@ namespace Tests\Services;
 use App\Exceptions\ValidationException;
 use App\Models\ItemMonto;
 use App\Repositories\DeterminacionRepository;
+use App\Repositories\PedidoItemRepository;
 use App\Repositories\PedidoRepository;
+use App\Repositories\ResultadoRepository;
 use App\Repositories\PerfilRepository;
 use App\Services\AranceladorService;
 use App\Services\AuditoriaService;
@@ -42,6 +44,8 @@ final class PedidoServiceTest extends TestCase
                 $mock->method('calcularMontoItem')->willReturn(ItemMonto::sinArancel());
                 return $mock;
             })(),
+            itemRepo: $this->createMock(PedidoItemRepository::class),
+            resultadoRepo: $this->createMock(ResultadoRepository::class),
         );
     }
 

@@ -1853,33 +1853,34 @@ code {
 .agenda-main .table-wrap,
 .agenda-main .table-wrap-datatable,
 .agenda-main .datatable-wrapper .datatable-container {
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 #tbl-agenda {
-  width: 100%;
+  width: 100% !important;
+  max-width: 100%;
   min-width: 0;
   table-layout: fixed;
 }
 
 #tbl-agenda col.agenda-col-hora,
-#tbl-agenda th.agenda-col-hora { width: 7%; }
+#tbl-agenda th.agenda-col-hora { width: 6%; }
 #tbl-agenda col.agenda-col-paciente,
-#tbl-agenda th.agenda-col-paciente { width: 18%; }
+#tbl-agenda th.agenda-col-paciente { width: 16%; }
 #tbl-agenda col.agenda-col-hc,
-#tbl-agenda th.agenda-col-hc { width: 7%; }
+#tbl-agenda th.agenda-col-hc { width: 6%; }
 #tbl-agenda col.agenda-col-prof,
-#tbl-agenda th.agenda-col-prof { width: 14%; }
+#tbl-agenda th.agenda-col-prof { width: 12%; }
 #tbl-agenda col.agenda-col-estado,
-#tbl-agenda th.agenda-col-estado { width: 10%; }
+#tbl-agenda th.agenda-col-estado { width: 9%; }
 #tbl-agenda col.agenda-col-flag,
-#tbl-agenda th.agenda-col-flag { width: 8%; }
+#tbl-agenda th.agenda-col-flag { width: 7%; }
 #tbl-agenda col.agenda-col-orden,
-#tbl-agenda th.agenda-col-orden { width: 7%; }
+#tbl-agenda th.agenda-col-orden { width: 6%; }
 #tbl-agenda col.agenda-col-obs,
-#tbl-agenda th.agenda-col-obs { width: 7%; }
+#tbl-agenda th.agenda-col-obs { width: 8%; }
 #tbl-agenda col.agenda-col-acciones,
-#tbl-agenda th.agenda-col-acciones { width: 14%; }
+#tbl-agenda th.agenda-col-acciones { width: 23%; }
 
 #tbl-agenda th,
 #tbl-agenda td {
@@ -1900,8 +1901,17 @@ code {
 }
 
 #tbl-agenda td.table-actions {
-  overflow: visible;
+  display: table-cell !important;
+  overflow: hidden;
   white-space: normal;
+  vertical-align: middle;
+}
+
+#tbl-agenda td.table-actions > a,
+#tbl-agenda td.table-actions > .table-action-form {
+  display: inline-flex;
+  vertical-align: middle;
+  margin: 0.12rem 0.15rem 0.12rem 0;
 }
 
 #tbl-agenda td.agenda-prof-cell {
@@ -1955,10 +1965,6 @@ code {
 }
 
 #tbl-agenda .table-actions {
-  display: flex;
-  flex-wrap: wrap;
-  width: 100%;
-  max-width: 100%;
   white-space: normal;
 }
 

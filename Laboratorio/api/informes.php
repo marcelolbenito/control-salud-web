@@ -47,6 +47,10 @@ switch ($method) {
             $controller->marcarEntregado($id);
             break;
         }
+        if ($accion === 'subir-red') {
+            $controller->subirRed($id);
+            break;
+        }
         $controller->generar();
         break;
 
@@ -63,7 +67,11 @@ switch ($method) {
             $controller->listarRecientes($_GET);
             break;
         }
-        Response::error('Falta query param ?id=<int>&download=1, ?pedido_id=<int> o ?accion=recientes', 400);
+        if ($accion === 'pendientes') {
+            $controller->listarPendientes($_GET);
+            break;
+        }
+        Response::error('Falta query param ?id=<int>&download=1, ?pedido_id=<int>, ?accion=recientes o ?accion=pendientes', 400);
         break;
 
     default:

@@ -2,7 +2,7 @@
  * Listado de pedidos — sub-proyecto 2.
  * Reusa PacienteSelector (sub-proyecto 1) para el filtro de paciente.
  */
-import { api, labPath } from '../api.js?v=10';
+import { api, labPath } from '../api.js?v=13';
 import { PacienteSelector } from '../pacientes/paciente-selector.js?v=10';
 
 const ENDPOINT = '/api/pedidos';
@@ -173,7 +173,7 @@ function cablearEventos() {
         limpiarPaciente();
         estado.page = 1;
         estado.orden = 'fecha_solicitud_desc';
-        els.tbody.innerHTML = `<tr><td colspan="9" class="muted" style="text-align:center; padding: 1.5rem;">Aplicá filtros y presioná Buscar.</td></tr>`;
+        els.tbody.innerHTML = `<tr><td colspan="10" class="muted" style="text-align:center; padding: 1.5rem;">Aplicá filtros y presioná Buscar.</td></tr>`;
         els.info.textContent = '— sin búsqueda —';
         els.paginacionInfo.textContent = 'Página 0 de 0';
         els.btnPrev.disabled = true;
@@ -234,7 +234,7 @@ function limpiarPaciente() {
 
 async function ejecutarBusqueda() {
     els.bannerSlot.innerHTML = '';
-    els.tbody.innerHTML = `<tr><td colspan="9" class="muted" style="text-align:center; padding: 1.5rem;">Buscando…</td></tr>`;
+    els.tbody.innerHTML = `<tr><td colspan="10" class="muted" style="text-align:center; padding: 1.5rem;">Buscando…</td></tr>`;
 
     const fd = new FormData(els.form);
     const params = new URLSearchParams({ accion: 'listar', page: String(estado.page), orden: estado.orden });
@@ -253,7 +253,7 @@ async function ejecutarBusqueda() {
         } else {
             mostrarBannerError(err.message || 'Error al buscar');
         }
-        els.tbody.innerHTML = `<tr><td colspan="9" class="muted" style="text-align:center; padding: 1.5rem;">— error —</td></tr>`;
+        els.tbody.innerHTML = `<tr><td colspan="10" class="muted" style="text-align:center; padding: 1.5rem;">— error —</td></tr>`;
     }
 }
 
@@ -271,7 +271,7 @@ function renderResultados(data) {
     els.btnNext.disabled = data.page >= data.total_paginas;
 
     if (pedidos.length === 0) {
-        els.tbody.innerHTML = `<tr><td colspan="9" class="muted" style="text-align:center; padding: 1.5rem;">No se encontraron órdenes.</td></tr>`;
+        els.tbody.innerHTML = `<tr><td colspan="10" class="muted" style="text-align:center; padding: 1.5rem;">No se encontraron órdenes.</td></tr>`;
         return;
     }
 
@@ -289,14 +289,24 @@ function renderResultados(data) {
           <td><span class="badge badge-${escapeAttr(p.estado)}">${escapeHtml(p.estado.replace('_', ' '))}</span></td>
           <td><span class="badge badge-prio-${escapeAttr(p.prioridad)}">${escapeHtml(p.prioridad)}</span></td>
           <td>${p.es_critico ? '<span class="badge badge-critico" title="Critico">CRITICO</span>' : ''}</td>
+          <td>
+            <button type="button" class="btn btn-ghost btn-sm" data-accion="cargar">
+              <i class="bi bi-input-cursor-text"></i> Cargar
+            </button>
+          </td>
         </tr>`;
     }).join('');
 
     // Click en fila → ver detalle.
     els.tbody.querySelectorAll('tr[data-id]').forEach((tr) => {
         tr.classList.add('is-clickable');
-        tr.addEventListener('click', () => {
-            window.location.href = labPath(`/pedidos/ver?id=${tr.getAttribute('data-id')}`);
+        tr.addEventListener('click', (ev) => {
+            const id = tr.getAttribute('data-id');
+            if (ev.target.closest('button[data-accion="cargar"]')) {
+                window.location.href = labPath(`/resultados/cargar?pedido_id=${id}`);
+                return;
+            }
+            window.location.href = labPath(`/pedidos/ver?id=${id}`);
         });
     });
 }

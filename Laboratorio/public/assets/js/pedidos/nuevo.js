@@ -1,5 +1,6 @@
-import { api } from '../api.js?v=10';
-import { PacienteSelector } from '../pacientes/paciente-selector.js?v=10';
+import { api, labPath } from '../api.js?v=14';
+import { PacienteSelector } from '../pacientes/paciente-selector.js?v=14';
+import { crearItemsPanel } from './items-panel.js?v=14';
 
 const state = {
     determinaciones: [],
@@ -18,6 +19,21 @@ const $msg = $('mensaje');
 const $btn = $('btn-submit');
 const $contador = $('contador-sel');
 
+const panelResultados = crearItemsPanel({
+    tbody: $('ws-items'),
+    infoEl: $('ws-info'),
+    addInput: $('ws-add'),
+    addList: $('ws-add-resultados'),
+    guardarBtn: $('ws-guardar'),
+    msg: (text, tipo = 'exito') => {
+        const el = $('ws-mensaje');
+        if (!el) return;
+        el.className = `mensaje ${tipo}`;
+        el.textContent = text;
+        el.hidden = false;
+    },
+});
+
 const $pacienteId = $('paciente-id');
 const $pacienteLabel = $('paciente-label');
 const $btnElegirPac = $('btn-elegir-paciente');
@@ -34,25 +50,41 @@ const FECHA_INVALIDA = '9999-12-31';
 
 async function init() {
     try {
-        const [det, perf] = await Promise.all([
+        const [det, perf, os] = await Promise.all([
             api.get('/api/determinaciones'),
             api.get('/api/perfiles'),
+            api.get('/api/pacientes?accion=obras_sociales').catch(() => ({ obras_sociales: [] })),
         ]);
         state.determinaciones = det?.determinaciones ?? [];
         state.perfiles = perf?.perfiles ?? [];
         renderListas();
+        renderObrasSociales(os?.obras_sociales ?? []);
+        const fecha = $('f-fecha-realizado');
+        if (fecha && !fecha.value) fecha.value = hoyISO();
     } catch (e) {
         showError('No se pudo cargar el catalogo: ' + e.message);
     }
 
     $searchDet.addEventListener('input', renderListas);
     $searchPerfil.addEventListener('input', renderListas);
+    $form.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        if (e.target !== $searchDet && e.target !== $searchPerfil) return;
+        e.preventDefault();
+        const list = e.target === $searchDet ? $listaDet : $listaPerfil;
+        const li = list.querySelector('li:not(.placeholder):not([aria-disabled="true"])');
+        li?.click();
+    });
     $form.addEventListener('submit', onSubmit);
     $('btn-reset').addEventListener('click', () => {
         state.seleccionados.clear();
         limpiarPaciente();
         hideMsg();
-        setTimeout(renderListas, 0);
+        setTimeout(() => {
+            renderListas();
+            const fecha = $('f-fecha-realizado');
+            if (fecha) fecha.value = hoyISO();
+        }, 0);
     });
 
     $btnElegirPac.addEventListener('click', async () => {
@@ -90,10 +122,15 @@ function aplicarPaciente(p) {
     $snapSexo.value = ['M', 'F', 'X'].includes(p.sexo) ? p.sexo : 'X';
     const fn = p.fecha_nacimiento && p.fecha_nacimiento !== FECHA_INVALIDA ? p.fecha_nacimiento : '';
     $snapFecha.value = fn;
+    const os = $('obra-social-select');
+    if (os) os.value = p.obra_social_id != null ? String(p.obra_social_id) : '';
+    const afiliado = $('numero-afiliado');
+    if (afiliado) afiliado.value = p.nro_afiliado || '';
     $pacienteLabel.textContent = `${p.apellido}, ${p.nombres} (HC ${p.nro_hc}${p.dni ? ' · DNI ' + p.dni : ''})`;
     $btnLimpiarPac.disabled = false;
     $resultadosPac.hidden = true;
     $resultadosPac.innerHTML = '';
+    cargarAnteriores(p.id, p.dni);
 }
 
 function limpiarPaciente() {
@@ -103,10 +140,15 @@ function limpiarPaciente() {
     $snapDni.value = '';
     $snapSexo.value = '';
     $snapFecha.value = '';
+    const os = $('obra-social-select');
+    if (os) os.value = '';
+    const afiliado = $('numero-afiliado');
+    if (afiliado) afiliado.value = '';
     $btnLimpiarPac.disabled = true;
     $resultadosPac.hidden = true;
     $resultadosPac.innerHTML = '';
     $busquedaPac.value = '';
+    ocultarAnteriores();
 }
 
 async function buscarPacienteRapido() {
@@ -147,6 +189,63 @@ async function buscarPacienteRapido() {
     } catch (e) {
         $resultadosPac.innerHTML = `<p class="mensaje error">${esc(e.message || 'Error al buscar')}</p>`;
     }
+}
+
+function hoyISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function renderObrasSociales(list) {
+    const sel = $('obra-social-select');
+    if (!sel) return;
+    const sorted = [...list].sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+    sel.innerHTML = '<option value="">(particular / sin OS)</option>'
+        + sorted.map((o) => `<option value="${esc(o.id)}">${esc(o.nombre)}</option>`).join('');
+}
+
+async function cargarAnteriores(pacienteId, dni) {
+    const box = $('box-anteriores');
+    const tbody = $('anteriores-items');
+    if (!box || !tbody) return;
+    box.hidden = true;
+    tbody.innerHTML = '';
+    try {
+        const dniParam = /^\d{6,12}$/.test(String(dni ?? '')) ? `&dni=${encodeURIComponent(dni)}` : '';
+        const r = await api.get(`/api/historial?paciente_id=${pacienteId}&limit=10${dniParam}`);
+        const pedidos = r?.pedidos ?? [];
+        if (pedidos.length === 0) return;
+        tbody.innerHTML = pedidos.map((ped) => {
+            const fecha = formatearFechaCorta(ped.fecha_extraccion || ped.fecha_solicitud);
+            const pdf = ped.ultimo_informe_id
+                ? ` · <a href="${labPath(`/api/informes?id=${encodeURIComponent(ped.ultimo_informe_id)}&download=1`)}" target="_blank">PDF</a>`
+                : '';
+            return `<tr>
+                <td>${esc(fecha)}</td>
+                <td>${esc(ped.numero)}</td>
+                <td>${esc(ped.items_validados)}/${esc(ped.items_count)}</td>
+                <td><span class="tag">${esc(ped.estado)}</span></td>
+                <td style="white-space:nowrap;">
+                    <a href="${labPath(`/resultados/cargar?pedido_id=${encodeURIComponent(ped.id)}`)}" target="_blank">Editar</a>${pdf}
+                </td>
+            </tr>`;
+        }).join('');
+        box.hidden = false;
+    } catch {
+        // el historial es informativo
+    }
+}
+
+function ocultarAnteriores() {
+    const box = $('box-anteriores');
+    if (box) box.hidden = true;
+    const tbody = $('anteriores-items');
+    if (tbody) tbody.innerHTML = '';
+}
+
+function formatearFechaCorta(s) {
+    const m = String(s ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : '—';
 }
 
 function renderListas() {
@@ -286,9 +385,12 @@ async function onSubmit(e) {
             sexo: fd.get('snap_sexo'),
             fecha_nac: (String(fd.get('snap_fecha_nac') || '').trim() || null),
         },
-        medico_externo: String(fd.get('medico_externo') || '').trim() || null,
-        diagnostico: String(fd.get('diagnostico') || '').trim() || null,
-        prioridad: fd.get('prioridad') || 'rutina',
+        obra_social_id: String(fd.get('obra_social_id') || '').trim() === ''
+            ? null
+            : parseInt(String(fd.get('obra_social_id')), 10),
+        numero_afiliado: String(fd.get('numero_afiliado') || '').trim() || null,
+        fecha_extraccion: String(fd.get('fecha_realizado') || '').trim() || null,
+        prioridad: 'rutina',
         observaciones: String(fd.get('observaciones') || '').trim() || null,
         items: Array.from(state.seleccionados.values()).map((s) =>
             s.tipo === 'det' ? { determinacion_id: s.id } : { perfil_id: s.id }
@@ -300,16 +402,21 @@ async function onSubmit(e) {
 
     try {
         const r = await api.post('/api/pedidos', payload);
-        showSuccess(`Pedido <strong>${esc(r.numero)}</strong> creado correctamente (id ${r.id}, ${r.items_count} items).`);
-        $form.reset();
-        state.seleccionados.clear();
-        limpiarPaciente();
-        renderListas();
+        $form.hidden = true;
+        const workspace = $('workspace-pedido');
+        if (workspace) workspace.hidden = false;
+        const wsMsg = $('ws-mensaje');
+        if (wsMsg) {
+            wsMsg.className = 'mensaje exito';
+            wsMsg.innerHTML = `<strong>OK:</strong> Pedido <strong>${esc(r.numero)}</strong> creado. Cargá los resultados abajo.`;
+            wsMsg.hidden = false;
+        }
+        await panelResultados.open(r.id);
+        workspace?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
         showFieldErrors(e);
-    } finally {
         $btn.disabled = false;
-        $btn.textContent = 'Crear pedido';
+        $btn.innerHTML = '<i class="bi bi-check2-circle"></i> Crear pedido y cargar resultados';
     }
 }
 

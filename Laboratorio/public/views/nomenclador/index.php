@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 $pageTitle = 'Nomenclador';
 require __DIR__ . '/../_layout/header.php';
@@ -40,10 +41,12 @@ require __DIR__ . '/../_layout/header.php';
             <button type="button" id="btn-cerrar" class="modal-close" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
             <legend id="editor-titulo">Nueva determinaci&oacute;n</legend>
             <input type="hidden" id="f-id">
+            <input type="hidden" id="f-area">
+            <input type="hidden" id="f-valref-rango-id">
             <div class="grid">
                 <label>
-                    &Aacute;rea
-                    <select id="f-area" required></select>
+                    Valores de referencia <span class="hint-inline">(texto, ej. "70 a 110 mg/dL" o "Negativo")</span>
+                    <input type="text" id="f-valref" maxlength="500" placeholder="Ej. 70 a 110 mg/dL">
                 </label>
                 <label>
                     C&oacute;digo
@@ -102,6 +105,7 @@ require __DIR__ . '/../_layout/header.php';
         </fieldset>
         </div>
 
+        <!-- Modal: ABM de valores de referencia (rangos) de una determinacion -->
         <div class="modal-overlay" id="rangos-overlay" hidden>
         <fieldset class="form-section modal-card" id="rangos-modal">
             <button type="button" id="rg-cerrar" class="modal-close" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
@@ -125,6 +129,7 @@ require __DIR__ . '/../_layout/header.php';
                 <button type="button" id="rg-nuevo" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Nuevo rango</button>
             </div>
 
+            <!-- Sub-form de alta/edicion de un rango -->
             <fieldset class="form-section" id="rg-form" hidden style="margin-top:.5rem;">
                 <legend id="rg-form-titulo">Nuevo rango</legend>
                 <input type="hidden" id="rg-id">

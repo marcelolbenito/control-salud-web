@@ -1,4 +1,4 @@
-import { api } from '../api.js';
+import { api } from '../api.js?v=14';
 
 const $ = (id) => document.getElementById(id);
 const $msg = $('mensaje');
@@ -9,9 +9,9 @@ const $listaSel = $('lista-sel');
 const $buscarDet = $('buscar-det');
 
 const state = {
-    determinaciones: [],
+    determinaciones: [],   // catalogo completo
     perfiles: [],
-    seleccionadas: new Map(),
+    seleccionadas: new Map(), // id -> {id, codigo, nombre}
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -35,27 +35,36 @@ async function init() {
         state.perfiles = perf?.perfiles ?? [];
         renderPerfiles();
     } catch (e) {
-        $tbody.innerHTML = `<tr><td colspan="4" class="muted">Error al cargar: ${esc(e.message)}</td></tr>`;
+        $tbody.innerHTML = `<tr><td colspan="5" class="muted">Error al cargar: ${esc(e.message)}</td></tr>`;
     }
 
     $('btn-nuevo').addEventListener('click', abrirNuevo);
     $('btn-cancelar').addEventListener('click', cerrarEditor);
     $('btn-guardar').addEventListener('click', guardar);
     $buscarDet.addEventListener('input', renderDisponibles);
+
+    // El campo NBU solo aplica cuando el perfil se factura todo junto.
+    $('f-fact').addEventListener('change', () => {
+        $('f-nbu-wrap').hidden = $('f-fact').value !== 'junto';
+    });
 }
 
 function renderPerfiles() {
     if (state.perfiles.length === 0) {
-        $tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;">Sin perfiles. Cre&aacute; el primero.</td></tr>';
+        $tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;">Sin perfiles. Creá el primero.</td></tr>`;
         return;
     }
     $tbody.innerHTML = state.perfiles.map((p) => {
         const dets = (p.determinaciones || []).map((d) => esc(d.codigo || d.nombre)).join(' · ');
+        const fact = p.nbu_unidades != null
+            ? `<span class="tag" title="Una sola línea en el lote con NBU ${esc(String(parseFloat(p.nbu_unidades)))}">Junto (${esc(String(parseFloat(p.nbu_unidades)))} NBU)</span>`
+            : '<span class="muted">Separado</span>';
         return `
         <tr>
             <td><strong>${esc(p.codigo)}</strong></td>
             <td>${esc(p.nombre)}</td>
             <td class="muted" style="font-size:.82rem;">${dets || '(sin determinaciones)'}</td>
+            <td>${fact}</td>
             <td><button type="button" class="btn btn-ghost btn-sm" data-accion="editar" data-id="${p.id}"><i class="bi bi-pencil"></i> Editar</button></td>
         </tr>`;
     }).join('');
@@ -71,6 +80,9 @@ function abrirNuevo() {
     $('f-codigo').value = '';
     $('f-nombre').value = '';
     $('f-desc').value = '';
+    $('f-fact').value = 'separado';
+    $('f-nbu').value = '';
+    $('f-nbu-wrap').hidden = true;
     state.seleccionadas.clear();
     $buscarDet.value = '';
     renderDisponibles();
@@ -88,6 +100,10 @@ function abrirEditar(id) {
     $('f-codigo').value = p.codigo ?? '';
     $('f-nombre').value = p.nombre ?? '';
     $('f-desc').value = p.descripcion ?? '';
+    const junto = p.nbu_unidades != null;
+    $('f-fact').value = junto ? 'junto' : 'separado';
+    $('f-nbu').value = junto ? String(parseFloat(p.nbu_unidades)) : '';
+    $('f-nbu-wrap').hidden = !junto;
     state.seleccionadas.clear();
     for (const d of (p.determinaciones || [])) {
         state.seleccionadas.set(d.id, { id: d.id, codigo: d.codigo, nombre: d.nombre });
@@ -156,10 +172,17 @@ function renderSeleccionadas() {
 
 async function guardar() {
     const id = ($('f-id').value || '').trim();
+    const junto = $('f-fact').value === 'junto';
+    const nbu = ($('f-nbu').value || '').trim();
+    if (junto && (nbu === '' || !(parseFloat(nbu) > 0))) {
+        showMsg('Si el perfil se factura todo junto, cargá las unidades NBU del perfil.', 'error');
+        return;
+    }
     const payload = {
         codigo: ($('f-codigo').value || '').trim(),
         nombre: ($('f-nombre').value || '').trim(),
         descripcion: ($('f-desc').value || '').trim(),
+        nbu_unidades: junto ? nbu : null,
         determinaciones: Array.from(state.seleccionadas.keys()),
     };
     const accion = id ? 'actualizar' : 'crear';
@@ -167,7 +190,7 @@ async function guardar() {
 
     try {
         const r = await api.post(`/api/perfiles?accion=${accion}`, payload);
-        showMsg(`Perfil ${r.codigo} ${accion === 'crear' ? 'creado' : 'actualizado'} (${r.items} determinaciones).`, 'exito');
+        showMsg(`Perfil ${esc(r.codigo)} ${accion === 'crear' ? 'creado' : 'actualizado'} (${r.items} determinaciones).`, 'exito');
         cerrarEditor();
         const perf = await api.get('/api/perfiles');
         state.perfiles = perf?.perfiles ?? [];

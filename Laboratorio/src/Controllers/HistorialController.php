@@ -23,6 +23,7 @@ final class HistorialController
 
         $filtros = [
             'estado' => $query['estado'] ?? null,
+            'dni'    => $query['dni']    ?? null,
             'desde'  => $query['desde']  ?? null,
             'hasta'  => $query['hasta']  ?? null,
             'limit'  => $query['limit']  ?? null,

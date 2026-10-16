@@ -116,7 +116,31 @@ Confirmar A–D en prod ✅
 → Sesión 2 ✅
 → Sesión 3 ✅
 → Sesión 4 ✅
-→ Siguiente: validación cliente facturación web (P-FAC-01) / Seguridad P0 web / Caja v2
+→ Sesión 5 ✅
+→ Sesiones 6 a 14 ✅ en el laboratorio embebido (formulario con fecha de realizado y análisis anteriores, nomenclador con eliminar y texto de referencia, perfiles junto/separado, facturación por código, historial único, PDF sin títulos de área y sin marca CRÍTICO). Sin SQL nuevo. Scripts en versión 14.
+→ Siguiente: validación en el servidor (subir Laboratorio y Ctrl+F5). La migración 028 sigue pendiente en Gesis2.
 ```
+
+## Sesión 5 (paquete 2026-07-28)
+
+Traída al laboratorio embebido, sin reemplazar la integración de Control Salud
+(`ControlSaludIntegration`, `session_bridge`, `lab_h` / `labPath`).
+
+- Misma pantalla: al crear el pedido se oculta el formulario y se abre el panel
+  de resultados. `/resultados/cargar?pedido_id=` sigue para un pedido ya creado.
+  El listado tiene botón Cargar.
+- Enter en el buscador de análisis agrega el primer resultado y no envía el formulario.
+- `POST /api/pedidos?accion=agregar_items` y `?accion=quitar_item`.
+- Historial anterior sin tope (`limit 0` = todos).
+- Hemograma clínico en el PDF (`HemogramaLayout`, plantilla). Se mantienen los
+  títulos de área del resto de determinaciones.
+- `GET /api/informes?accion=pendientes`.
+- El panel también emite informe, copia a `RED_DIR` (`subir-red`) y abre WhatsApp
+  (`wa.me`). Sin `RED_DIR` el botón de red responde 409.
+- Configuración: clave `informe_hemograma_metodo` (si está vacía, el PDF usa
+  "Advia 2120, Siemens, USA").
+- Scripts en versión `13`.
+
+No se importó `lab_catalogo_config.sql`.
 
 Cada bloque: diff → adaptar CS → probar local → SQL si aplica → FTP Gesis2.

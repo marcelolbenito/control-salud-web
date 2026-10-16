@@ -7,7 +7,9 @@ namespace Tests\Services;
 use App\Models\ItemMonto;
 use App\Models\PedidoItem;
 use App\Repositories\DeterminacionRepository;
+use App\Repositories\PedidoItemRepository;
 use App\Repositories\PedidoRepository;
+use App\Repositories\ResultadoRepository;
 use App\Repositories\PerfilRepository;
 use App\Services\AranceladorService;
 use App\Services\AuditoriaService;
@@ -58,6 +60,8 @@ final class PedidoServiceArancelTest extends TestCase
             perfilRepo: $this->createMock(PerfilRepository::class),
             auditoria: $this->createMock(AuditoriaService::class),
             arancelador: $arancelador,
+            itemRepo: $this->createMock(PedidoItemRepository::class),
+            resultadoRepo: $this->createMock(ResultadoRepository::class),
         );
     }
 

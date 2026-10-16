@@ -24,35 +24,6 @@ require __DIR__ . '/../_layout/header.php';
             </div>
         </fieldset>
 
-        <fieldset class="form-section">
-            <legend>Pedidos</legend>
-            <p class="hint">Todos los pedidos. Filtr&aacute; por d&iacute;a y hac&eacute; click en &quot;Cargar&quot; para ingresar resultados.</p>
-            <div class="form-actions" style="margin-bottom: 1rem; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap;">
-                <label class="busqueda-rapida" style="margin:0;">
-                    D&iacute;a (fecha de solicitud)
-                    <input type="date" id="filtro-dia">
-                </label>
-                <button type="button" id="btn-hoy" class="btn btn-sm">Hoy</button>
-                <button type="button" id="btn-todos" class="btn btn-ghost btn-sm">Ver todos</button>
-                <span id="pedidos-info" class="muted" style="margin-left:auto;"></span>
-            </div>
-            <div class="table-wrap">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>N&deg; orden</th>
-                            <th>Fecha solicitud</th>
-                            <th>Paciente</th>
-                            <th>Estado</th>
-                            <th>Prioridad</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="lista-pedidos"></tbody>
-                </table>
-            </div>
-        </fieldset>
-
         <section id="panel-pedido" hidden>
             <fieldset class="form-section">
                 <legend>Pedido</legend>
@@ -60,8 +31,20 @@ require __DIR__ . '/../_layout/header.php';
             </fieldset>
 
             <fieldset class="form-section">
+                <legend>Agregar análisis al pedido</legend>
+                <div class="buscador-pedido">
+                    <label class="busqueda-rapida">
+                        Buscar determinación o perfil
+                        <input type="search" id="cargar-add" autocomplete="off"
+                               placeholder="Nombre o código… (Enter agrega el primero)">
+                    </label>
+                    <ul id="cargar-add-resultados" class="dropdown-resultados" hidden></ul>
+                </div>
+            </fieldset>
+
+            <fieldset class="form-section">
                 <legend>Items</legend>
-                <p class="hint">Carg&aacute; los valores (Tab o Enter para pasar al siguiente) y guard&aacute; todo junto con el bot&oacute;n de abajo.</p>
+                <p class="hint">Cargá los valores (Tab o Enter para pasar al siguiente) y guardá todo junto con el botón de abajo. Tocá el nombre de un análisis para ver sus resultados anteriores. Podés sacar un análisis con el botón de cada fila.</p>
                 <div class="table-wrap">
                     <table class="table">
                         <thead>

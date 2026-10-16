@@ -43,6 +43,15 @@ final class HistorialService
         $errors = [];
         $filtrosLimpios = [];
 
+        if (!empty($filtros['dni'])) {
+            $dni = trim((string) $filtros['dni']);
+            if (!preg_match('/^\d{6,12}$/', $dni)) {
+                $errors['dni'] = 'dni debe tener 6 a 12 digitos';
+            } else {
+                $filtrosLimpios['dni'] = $dni;
+            }
+        }
+
         if (!empty($filtros['estado'])) {
             $estado = (string) $filtros['estado'];
             if (!in_array($estado, self::ESTADOS_VALIDOS, true)) {
@@ -149,6 +158,7 @@ final class HistorialService
             $dni,
             array_values($detIds),
             $pedidoId,
+            0,
         );
 
         foreach ($items as &$it) {

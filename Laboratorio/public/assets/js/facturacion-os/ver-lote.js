@@ -98,7 +98,7 @@ export async function initVerLote(loteId) {
                     ? `<input type="checkbox" class="chk-cubre" data-item-id="${it.item_id}" ${it.excluido == 0 ? 'checked' : ''} title="Tildado = lo cubre la OS">`
                     : (it.excluido == 1 ? '✗' : '✓')}
                 </td>
-                <td>${escape(it.determinacion_codigo)} — ${escape(it.determinacion_nombre)}</td>
+                <td title="${escape(it.determinacion_nombre)}"><strong>${escape(it.determinacion_codigo)}</strong></td>
                 <td>${escape(it.unidades_nbu)}</td>
                 <td>${fmtMoney(it.valor_unitario)}</td>
                 <td class="num ${it.excluido == 1 ? 'tachado' : ''}">${fmtMoney(it.monto)}</td>

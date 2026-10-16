@@ -20,38 +20,38 @@ require __DIR__ . '/_layout/header.php';
                     <div class="stat-card-label">Cargar una orden de analisis</div>
                 </div>
             </a>
-            <a href="<?= lab_h('/pedidos') ?>" class="stat-card">
-                <div class="stat-card-icon"><i class="bi bi-list-check"></i></div>
-                <div>
-                    <div class="stat-card-value">Listado de pedidos</div>
-                    <div class="stat-card-label">Buscar y ver detalle de ordenes</div>
-                </div>
-            </a>
-            <a href="<?= lab_h('/resultados/cargar') ?>" class="stat-card">
-                <div class="stat-card-icon"><i class="bi bi-input-cursor-text"></i></div>
-                <div>
-                    <div class="stat-card-value">Cargar resultados</div>
-                    <div class="stat-card-label">Tecnico</div>
-                </div>
-            </a>
-            <a href="<?= lab_h('/informes') ?>" class="stat-card">
-                <div class="stat-card-icon"><i class="bi bi-file-earmark-pdf"></i></div>
-                <div>
-                    <div class="stat-card-value">Informes</div>
-                    <div class="stat-card-label">Emitir y descargar PDF</div>
-                </div>
-            </a>
             <a href="<?= lab_h('/historial') ?>" class="stat-card">
                 <div class="stat-card-icon"><i class="bi bi-clock-history"></i></div>
                 <div>
                     <div class="stat-card-value">Historial</div>
-                    <div class="stat-card-label">Buscar pedidos por paciente</div>
+                    <div class="stat-card-label">Pacientes, informes emitidos y pendientes</div>
+                </div>
+            </a>
+            <a href="<?= lab_h('/perfiles') ?>" class="stat-card">
+                <div class="stat-card-icon"><i class="bi bi-collection"></i></div>
+                <div>
+                    <div class="stat-card-value">Perfiles</div>
+                    <div class="stat-card-label">Crear y editar perfiles de an&aacute;lisis</div>
+                </div>
+            </a>
+            <a href="<?= lab_h('/nomenclador') ?>" class="stat-card">
+                <div class="stat-card-icon"><i class="bi bi-card-list"></i></div>
+                <div>
+                    <div class="stat-card-value">Nomenclador</div>
+                    <div class="stat-card-label">Crear y editar determinaciones y su NBU</div>
                 </div>
             </a>
         </div>
 
         <h2 class="section-title">Administracion</h2>
         <div class="stat-grid">
+            <a href="<?= lab_h('/pedidos') ?>" class="stat-card">
+                <div class="stat-card-icon"><i class="bi bi-list-check"></i></div>
+                <div>
+                    <div class="stat-card-value">Listado de pedidos</div>
+                    <div class="stat-card-label">Buscar ordenes y cargar resultados</div>
+                </div>
+            </a>
             <a href="<?= lab_h('/pacientes') ?>" class="stat-card">
                 <div class="stat-card-icon"><i class="bi bi-people"></i></div>
                 <div>
@@ -71,20 +71,6 @@ require __DIR__ . '/_layout/header.php';
                 <div>
                     <div class="stat-card-value">Aranceles / NBU</div>
                     <div class="stat-card-label">Unidades NBU por an&aacute;lisis y valor por obra social</div>
-                </div>
-            </a>
-            <a href="<?= lab_h('/perfiles') ?>" class="stat-card">
-                <div class="stat-card-icon"><i class="bi bi-collection"></i></div>
-                <div>
-                    <div class="stat-card-value">Perfiles</div>
-                    <div class="stat-card-label">Conjuntos de determinaciones para pedidos</div>
-                </div>
-            </a>
-            <a href="<?= lab_h('/nomenclador') ?>" class="stat-card">
-                <div class="stat-card-icon"><i class="bi bi-card-list"></i></div>
-                <div>
-                    <div class="stat-card-value">Nomenclador</div>
-                    <div class="stat-card-label">Alta y edici&oacute;n de determinaciones</div>
                 </div>
             </a>
             <a href="<?= lab_h('/facturacion-os') ?>" class="stat-card">
